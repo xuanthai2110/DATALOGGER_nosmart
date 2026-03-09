@@ -114,6 +114,36 @@ class MetadataDB:
             ))
             return cursor.lastrowid
 
+    def get_project_first(self) -> Optional[ProjectResponse]:
+        """Lấy project đầu tiên trong DB (giả định datalogger chỉ quản lý 1 project local)"""
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM projects LIMIT 1").fetchone()
+            return ProjectResponse(**dict(row)) if row else None
+
+    def post_project_with_id(self, data: ProjectCreate, server_id: int) -> int:
+        data_dict = asdict(data)
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO projects (
+                    id, elec_meter_no, elec_price_per_kwh, name,
+                    location, lat, lon,
+                    capacity_kwp, ac_capacity_kw, inverter_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                server_id,
+                data_dict.get("elec_meter_no"),
+                data_dict.get("elec_price_per_kwh"),
+                data_dict.get("name"),
+                data_dict.get("location"),
+                data_dict.get("lat"),
+                data_dict.get("lon"),
+                data_dict.get("capacity_kwp"),
+                data_dict.get("ac_capacity_kw"),
+                data_dict.get("inverter_count"),
+            ))
+            return server_id
+
+
     def get_project(self, project_id: int) -> Optional[ProjectResponse]:
         with self._connect() as conn:
             row = conn.execute(
@@ -146,14 +176,23 @@ class MetadataDB:
 
     def delete_project(self, project_id: int):
         with self._connect() as conn:
-            conn.execute(
-                "DELETE FROM projects WHERE id=?",
-                (project_id,)
-            )
+            # Delete related inverters first due to FK constraints
+            conn.execute("DELETE FROM inverters WHERE project_id=?", (project_id,))
+            # Delete the project
+            conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
 
     # =========================================================
     # INVERTER API
     # =========================================================
+
+    def upsert_inverter(self, data: InverterCreate) -> int:
+        """Thêm mới hoặc cập nhật inverter dựa trên serial_number"""
+        existing = self.get_inverter_by_serial(data.serial_number)
+        if existing:
+            self.patch_inverter(existing.id, InverterUpdate(**asdict(data)))
+            return existing.id
+        else:
+            return self.post_inverter(data)
 
     def post_inverter(self, data: InverterCreate) -> int:
         data_dict = asdict(data)
@@ -185,6 +224,39 @@ class MetadataDB:
                 data_dict.get("usage_end_at")
             ))
             return cursor.lastrowid
+
+    def post_inverter_with_id(self, data: InverterCreate, server_id: int) -> int:
+        data_dict = asdict(data)
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO inverters (
+                    id, project_id, inverter_index, serial_number, brand, model,
+                    firmware_version, phase_count, mppt_count,
+                    string_count, capacity_kw, rate_dc_kwp, rate_ac_kw,
+                    is_active, replaced_by_id,
+                    usage_start_at, usage_end_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                server_id,
+                data_dict.get("project_id"),
+                data_dict.get("inverter_index"),
+                data_dict.get("serial_number"),
+                data_dict.get("brand"),
+                data_dict.get("model"),
+                data_dict.get("firmware_version"),
+                data_dict.get("phase_count"),
+                data_dict.get("mppt_count"),
+                data_dict.get("string_count"),
+                data_dict.get("capacity_kw"),
+                data_dict.get("rate_dc_kwp"),
+                data_dict.get("rate_ac_kw"),
+                data_dict.get("is_active", True),
+                data_dict.get("replaced_by_id"),
+                data_dict.get("usage_start_at"),
+                data_dict.get("usage_end_at")
+            ))
+            return server_id
+
 
     def get_inverter(self, inverter_id: int) -> Optional[InverterResponse]:
         with self._connect() as conn:
@@ -592,3 +664,28 @@ class RealtimeDB:
                 DELETE FROM inverter_errors
                 WHERE created_at < ?
             """, (before_time,))
+
+    def delete_before(self, before_time: str):
+        """Xoá toàn bộ dữ liệu realtime cũ hơn before_time"""
+        with self._connect() as conn:
+            tables = [
+                "project_realtime",
+                "inverter_ac_realtime",
+                "mppt_realtime",
+                "string_realtime",
+                "inverter_errors"
+            ]
+            for table in tables:
+                conn.execute(f"DELETE FROM {table} WHERE created_at < ?", (before_time,))
+
+    def delete_inverter_data(self, inverter_id: int):
+        """Xoá toàn bộ dữ liệu realtime của một inverter cụ thể"""
+        with self._connect() as conn:
+            tables = [
+                "inverter_ac_realtime",
+                "mppt_realtime",
+                "string_realtime",
+                "inverter_errors"
+            ]
+            for table in tables:
+                conn.execute(f"DELETE FROM {table} WHERE inverter_id = ?", (inverter_id,))
