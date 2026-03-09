@@ -2,7 +2,7 @@ from dataclasses import asdict
 from typing import Optional, List, Dict, Any
 from schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from schemas.inverter import InverterCreate, InverterResponse, InverterUpdate
-from schemas.realtime import ProjectRealtimeResponse
+from schemas.realtime import ProjectRealtimeResponse, ProjectRealtimeCreate
 
 class ProjectService:
     def __init__(self, metadata_db, realtime_db):
@@ -35,7 +35,7 @@ class ProjectService:
 
         # 2️⃣ Xoá realtime data
         for inv in inverters:
-            self.realtime_db.delete_device_data(inv["id"])
+            self.realtime_db.delete_inverter_data(inv.id)
 
         # 3️⃣ Xoá metadata (cascade mppt + string)
         self.metadata_db.delete_project(project_id)
@@ -53,6 +53,7 @@ class ProjectService:
         return self.metadata_db.get_inverter(inverter_id)
 
     def delete_inverter(self, inverter_id: int):
+        self.realtime_db.delete_inverter_data(inverter_id)
         self.metadata_db.delete_inverter(inverter_id)
         return True
 
@@ -60,19 +61,11 @@ class ProjectService:
     # REALTIME
     # ==============================
 
-    def add_realtime_data(self, inverter_id, timestamp, data_dict):
+    def add_project_realtime_data(self, data: ProjectRealtimeCreate):
         """
-        Ghi dữ liệu realtime
+        Ghi dữ liệu realtime cho Project
         """
-
-        # Kiểm tra inverter tồn tại
-        inverter = self.metadata_db.get_inverter(inverter_id)
-        if not inverter:
-            raise ValueError("Inverter not found")
-
-        return self.realtime_db.post_realtime(
-            inverter_id, timestamp, data_dict
-        )
+        return self.realtime_db.post_project_realtime(data)
 
     def get_latest_project_data(self, project_id: int):
         # Lấy bản ghi mới nhất trong dải thời gian rộng

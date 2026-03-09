@@ -16,6 +16,7 @@ class InverterCreate:
     rate_dc_kwp: float
     rate_ac_kw: float
     is_active: bool
+    slave_id: int
     usage_start_at: Optional[str] = None
     usage_end_at: Optional[str] = None
     replaced_by_id: Optional[int] = None
@@ -35,6 +36,7 @@ class InverterUpdate:
     rate_dc_kwp: Optional[float] = None
     rate_ac_kw: Optional[float] = None
     is_active: Optional[bool] = None
+    slave_id: Optional[int] = None
     usage_start_at: Optional[str] = None
     usage_end_at: Optional[str] = None
     replaced_by_id: Optional[int] = None
@@ -55,6 +57,7 @@ class InverterResponse:
     rate_dc_kwp: float
     rate_ac_kw: float
     is_active: bool
+    slave_id: Optional[int] = None
     usage_start_at: Optional[str] = None
     usage_end_at: Optional[str] = None
     replaced_by_id: Optional[int] = None
