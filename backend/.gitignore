@@ -1,0 +1,9 @@
+.env
+venv/
+__pycache__/
+__init__.py
+database/datalogger.db
+database/datalogger.db-wal
+database/datalogger.db-shm  
+test/
+Test_modbus.py

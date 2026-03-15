@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Datalogger Premium</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+    <!-- Login View -->
+    <div id="login-view">
+        <div class="login-card glass fade-in">
+            <h2 class="text-primary"><i class="fas fa-solar-panel"></i> Solar Datalogger</h2>
+            <div class="input-group"><label>Tài khoản</label><input type="text" id="username" value="admin"></div>
+            <div class="input-group"><label>Mật khẩu</label><input type="password" id="password" value="adminpassword123"></div>
+            <button class="btn btn-primary" onclick="handleLogin()">ĐĂNG NHẬP</button>
+        </div>
+    </div>
+
+    <!-- Main Application UI -->
+    <div id="app-view" class="hidden">
+        <nav id="sidebar" class="glass">
+            <div class="logo"><i class="fas fa-bolt"></i> SOLAR CONSOLE</div>
+            <ul class="nav-list">
+                <li class="nav-item active" onclick="showView('overview')"><i class="fas fa-chart-line"></i> Dashboard</li>
+                <li class="nav-item" onclick="showView('settings')"><i class="fas fa-cog"></i> Settings</li>
+            </ul>
+            <div class="nav-item" onclick="handleLogout()" style="margin-top:auto;"><i class="fas fa-power-off"></i> Logout</div>
+        </nav>
+
+        <main id="main-view">
+            <!-- View: Dashboard Overview -->
+            <div id="view-overview" class="view-section">
+                <div class="header">
+                    <h1>Giám sát hệ thống</h1>
+                    <div id="server-time" style="color:var(--text-dim);"><i class="fas fa-clock"></i> --:--:--</div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-card glass fade-in">
+                        <i class="fas fa-plug"></i>
+                        <div class="label">Công suất tổng</div>
+                        <div class="value text-primary"><span id="total-p-ac">0.0</span> <span class="unit">kW</span></div>
+                    </div>
+                    <div class="stat-card glass fade-in" style="animation-delay:0.1s">
+                        <i class="fas fa-sun"></i>
+                        <div class="label">Sản lượng ngày</div>
+                        <div class="value text-success"><span id="total-e-daily">0.0</span> <span class="unit">kWh</span></div>
+                    </div>
+                    <div class="stat-card glass fade-in" style="animation-delay:0.2s">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <div class="label">Doanh thu dự tính</div>
+                        <div class="value text-warning"><span id="total-revenue">0</span> <span class="unit">VNĐ</span></div>
+                    </div>
+                </div>
+                <h2>Danh sách Dự án</h2>
+                <div class="glass table-container fade-in" style="margin-top:24px;">
+                    <table>
+                        <thead>
+                            <tr><th>STT</th><th>Tên dự án</th><th>Thiết bị</th><th>Capacity (DC/AC)</th><th>Số công tơ</th><th>Công suất (kW)</th><th>Doanh thu</th><th>Trạng thái</th></tr>
+                        </thead>
+                        <tbody id="projects-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- View: Project Detail -->
+            <div id="view-project-detail" class="view-section hidden">
+                <div class="breadcrumb"><span onclick="showView('overview')">Home</span> / <span class="active" id="bp-project-name">Project</span></div>
+                <div class="header"><h1 id="detail-project-name">Project Details</h1></div>
+                <div class="stat-grid" id="project-stats"></div>
+                <h2>Danh sách Inverter</h2>
+                <div class="detail-grid" id="inverter-grid"></div>
+            </div>
+
+            <!-- View: Inverter Detail -->
+            <div id="view-inverter-detail" class="view-section hidden">
+                <div class="breadcrumb"><span onclick="showView('overview')">Home</span> / <span id="bp-p-back">P</span> / <span class="active" id="bp-inv-sn">Inv</span></div>
+                <div class="header"><h1 id="detail-inv-sn">Biến tần SN</h1><button class="btn btn-primary" style="width:auto; padding:8px 20px;" id="back-to-project-btn">Quay lại</button></div>
+                <div class="detail-grid">
+                    <div class="detail-card glass fade-in">
+                        <h3><i class="fas fa-bolt"></i> Dữ liệu AC</h3>
+                        <div class="data-item"><span class="label">Công suất AC</span><span class="value text-primary" id="inv-det-p-ac">-- kW</span></div>
+                        <div class="phase-grid">
+                            <div class="phase-card"><div class="name">A</div><div class="val" id="inv-det-ua">--V</div><div class="val" id="inv-det-ia" style="font-size:12px; opacity:0.6">--A</div></div>
+                            <div class="phase-card"><div class="name">B</div><div class="val" id="inv-det-ub">--V</div><div class="val" id="inv-det-ib" style="font-size:12px; opacity:0.6">--A</div></div>
+                            <div class="phase-card"><div class="name">C</div><div class="val" id="inv-det-uc">--V</div><div class="val" id="inv-det-ic" style="font-size:12px; opacity:0.6">--A</div></div>
+                        </div>
+                    </div>
+                    <div class="detail-card glass fade-in" style="animation-delay:0.1s"><h3><i class="fas fa-microchip"></i> MPPT</h3><div class="list-container" id="inv-det-mppt"></div></div>
+                    <div class="detail-card glass fade-in" style="animation-delay:0.2s"><h3><i class="fas fa-list"></i> Strings</h3><div class="list-container" id="inv-det-string"></div></div>
+                    <div class="detail-card glass fade-in" style="animation-delay:0.3s"><h3><i class="fas fa-exclamation-triangle"></i> Cảnh báo</h3><div class="list-container" id="inv-det-errors"></div></div>
+                </div>
+            </div>
+
+            <!-- View: Settings -->
+            <div id="view-settings" class="view-section hidden">
+                <div class="header"><h1>Cấu hình hệ thống</h1></div>
+                <div class="settings-grid">
+                    <div class="glass settings-section fade-in">
+                        <h2>Quản lý dự án</h2>
+                        <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
+                            <table><thead><tr><th>Tên</th><th>Hành động</th></tr></thead><tbody id="body-settings-projects"></tbody></table>
+                        </div>
+                        <div id="form-project">
+                            <input type="hidden" id="proj-id">
+                            <div class="input-group"><label>Tên dự án *</label><input type="text" id="proj-name" placeholder="Tên dự án..."></div>
+                            <div class="input-group"><label>Địa điểm *</label><input type="text" id="proj-loc" placeholder="Địa chỉ dự án..."></div>
+                            <div class="form-row">
+                                <div class="input-group"><label>Vĩ độ (Lat)</label><input type="number" step="any" id="proj-lat" value="0"></div>
+                                <div class="input-group"><label>Kinh độ (Lon)</label><input type="number" step="any" id="proj-lon" value="0"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="input-group"><label>SBC Meter No *</label><input type="text" id="proj-meter" placeholder="Số công tơ..."></div>
+                                <div class="input-group"><label>Giá điện *</label><input type="number" id="proj-price" value="1783"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="input-group"><label>Capacity DC (kWp) *</label><input type="number" step="0.1" id="proj-dc" value="0"></div>
+                                <div class="input-group"><label>Capacity AC (kW) *</label><input type="number" step="0.1" id="proj-ac" value="0"></div>
+                            </div>
+                            <div class="input-group"><label>Số lượng Inverter</label><input type="number" id="proj-inv-count" value="0"></div>
+                            
+                            <button class="btn btn-success" onclick="saveProject()">LƯU DỰ ÁN</button>
+                            <button class="btn" style="margin-top:8px;" onclick="resetProjectForm()">HỦY</button>
+                        </div>
+                    </div>
+                    <div class="glass settings-section fade-in" style="animation-delay:0.1s">
+                        <h2>Cấu hình truyền thông</h2>
+                        <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
+                            <table><thead><tr><th>Driver</th><th>Type</th><th>Hành động</th></tr></thead><tbody id="body-settings-comm"></tbody></table>
+                        </div>
+                        <div id="form-comm">
+                            <input type="hidden" id="comm-id">
+                            <div class="form-row">
+                                <div class="input-group"><label>Driver</label><select id="comm-driver"><option value="Huawei">Huawei</option><option value="Sungrow">Sungrow</option></select></div>
+                                <div class="input-group"><label>Kiểu</label><select id="comm-type-select" onchange="toggleCommFields()"><option value="TCP">TCP</option><option value="RTU">RTU</option></select></div>
+                            </div>
+                            <div id="fields-tcp">
+                                <div class="form-row">
+                                    <div class="input-group"><label>Host</label><input type="text" id="comm-host" value="192.168.1.10"></div>
+                                    <div class="input-group"><label>Port</label><input type="number" id="comm-port" value="502"></div>
+                                </div>
+                            </div>
+                            <div id="fields-rtu" class="hidden">
+                                <div class="form-row">
+                                    <div class="input-group"><label>COM Port</label><input type="text" id="comm-com" value="/dev/ttyUSB0"></div>
+                                    <div class="input-group"><label>Baudrate</label><input type="number" id="comm-baud" value="9600"></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="input-group"><label>Databits</label><input type="number" id="comm-data" value="8"></div>
+                                    <div class="input-group"><label>Parity</label><select id="comm-parity"><option value="N">None</option><option value="E">Even</option><option value="O">Odd</option></select></div>
+                                </div>
+                                <div class="input-group"><label>Stopbits</label><input type="number" id="comm-stop" value="1"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="input-group"><label>Slave ID Start</label><input type="number" id="comm-start" value="1"></div>
+                                <div class="input-group"><label>Slave ID End</label><input type="number" id="comm-end" value="10"></div>
+                            </div>
+                            <div id="scan-results" class="hidden glass" style="margin-bottom:16px; padding:16px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                    <span id="scan-status-text" style="font-size:12px; opacity:0.8">Đang quét...</span>
+                                    <button class="action-btn delete" id="btn-stop-scan" onclick="stopScan()" title="Dừng quét"><i class="fas fa-stop"></i></button>
+                                </div>
+                                <div style="height:4px; background:rgba(255,255,255,0.1); border-radius:10px; margin-bottom:15px; overflow:hidden;">
+                                    <div id="scan-progress-bar" style="width:0%; height:100%; background:var(--primary); transition:0.3s;"></div>
+                                </div>
+                                <div id="scan-list" style="max-height:200px; overflow-y:auto; font-size:13px;"></div>
+                            </div>
+                            <div class="form-row" style="margin-bottom:12px;">
+                                <button class="btn btn-primary" onclick="startScan()" id="btn-scan"><i class="fas fa-search"></i> QUÉT THIẾT BỊ</button>
+                                <button class="btn btn-success" onclick="saveComm()" id="btn-save-comm">LƯU TRUYỀN THÔNG</button>
+                            </div>
+                            <button class="btn" onclick="resetCommForm()">HỦY</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/ui.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/settings.js"></script>
+    <script>
+        if (token) initApp();
+    </script>
+</body>
+</html>
