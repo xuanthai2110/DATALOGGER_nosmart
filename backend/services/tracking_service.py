@@ -22,6 +22,10 @@ class TrackingService:
         # {inverter_id: {string_id: max_I}}
         self.string_max: Dict[int, Dict[int, float]] = {}
         
+        # Fault tracking
+        # {inverter_id: set(last_fault_codes)}
+        self.last_fault_map: Dict[int, set] = {}
+        
         self.last_reset_date = date.today()
 
     def sync_from_db(self, inverter_id: int):
@@ -29,25 +33,33 @@ class TrackingService:
         if inverter_id in self.e_monthly_map:
             return
             
-        last_rec = self.realtime_db.get_latest_inverter_ac_realtime(inverter_id)
-        if last_rec:
+        # 1. Energy sync
+        last_ac = self.realtime_db.get_latest_inverter_ac_realtime(inverter_id)
+        if last_ac:
             try:
-                rec_dt = datetime.fromisoformat(last_rec.created_at)
+                rec_dt = datetime.fromisoformat(last_ac.created_at)
                 today = date.today()
                 
                 if rec_dt.month == today.month and rec_dt.year == today.year:
-                    self.e_monthly_map[inverter_id] = last_rec.E_monthly
+                    self.e_monthly_map[inverter_id] = last_ac.E_monthly
                 else:
                     self.e_monthly_map[inverter_id] = 0.0
                 
-                self.last_e_total_map[inverter_id] = last_rec.E_total
+                self.last_e_total_map[inverter_id] = last_ac.E_total
             except Exception as e:
-                logger.error(f"Error parsing last record date for inv {inverter_id}: {e}")
-                self.e_monthly_map[inverter_id] = 0.0
-                self.last_e_total_map[inverter_id] = None
-        else:
-            self.e_monthly_map[inverter_id] = 0.0
-            self.last_e_total_map[inverter_id] = None # Đánh dấu là chưa có dữ liệu lịch sử
+                logger.error(f"Error parsing last AC record for inv {inverter_id}: {e}")
+        
+        # 2. Fault sync (Lấy các lỗi hiện tại đang mở từ DB)
+        # Sửa: Lấy snapshot lỗi để biết cái nào đang active
+        # Ở đây đơn giản là lấy record cuối cùng của từng fault_code
+        with self.realtime_db._connect() as conn:
+            rows = conn.execute("""
+                SELECT fault_code FROM (
+                    SELECT fault_code, ROW_NUMBER() OVER (PARTITION BY fault_code ORDER BY created_at DESC) as rn
+                    FROM inverter_errors WHERE inverter_id = ?
+                ) WHERE rn = 1
+            """, (inverter_id,)).fetchall()
+            self.last_fault_map[inverter_id] = {r["fault_code"] for r in rows if r["fault_code"] != 0}
 
     def check_resets(self):
         """Reset hàng ngày và hàng tháng"""
@@ -57,12 +69,12 @@ class TrackingService:
             # Reset Max Values hàng ngày
             self.mppt_max.clear()
             self.string_max.clear()
+            # last_fault_map không reset vì nó là trạng thái logic
             
             # Reset Energy hàng tháng
             if today.month != self.last_reset_date.month:
                 logger.info("Monthly reset of energy values.")
                 self.e_monthly_map.clear()
-                # last_e_total_map giữ nguyên để tính delta liên tục
             
             self.last_reset_date = today
 
@@ -80,7 +92,7 @@ class TrackingService:
             
         delta = max(0.0, current_e_total - last_e)
         
-        # Chống nhảy số ảo (ví dụ > 1000kWh trong 30s)
+        # Chống nhảy số ảo (ví dụ > 100kWh trong 30s)
         if delta > 100.0: 
             logger.warning(f"Large energy delta detected for inv {inverter_id}: {delta}. Capping to 0.")
             delta = 0.0
@@ -124,37 +136,65 @@ class TrackingService:
         """Ghi log lỗi ngược cực vào database"""
         logger.error(f"REVERSE POLARITY DETECTED: Project {project_id}, Inv {inverter_id}, {component} (V={voltage}, I={current})")
         
-        err = InverterErrorCreate(
-            project_id=project_id,
-            inverter_id=inverter_id,
-            fault_code=9999, # Mã code tự định nghĩa cho Reverse Polarity
-            fault_description=f"REVERSE POLARITY on {component}",
-            repair_instruction="Check DC wiring and connector polarity.",
-            severity="ERROR",
-            created_at=datetime.now().isoformat()
-        )
-        self.realtime_db.post_inverter_error(err)
+        # Chỉ ghi nếu chưa ghi lỗi này trong phiên hiện tại
+        last_faults = self.last_fault_map.get(inverter_id, set())
+        if 9999 not in last_faults:
+            err = InverterErrorCreate(
+                project_id=project_id,
+                inverter_id=inverter_id,
+                fault_code=9999, # Mã code tự định nghĩa cho Reverse Polarity
+                fault_description=f"REVERSE POLARITY on {component}",
+                repair_instruction="Check DC wiring and connector polarity.",
+                severity="ERROR",
+                created_at=datetime.now().isoformat()
+            )
+            self.realtime_db.post_inverter_error(err)
+            if inverter_id not in self.last_fault_map: self.last_fault_map[inverter_id] = set()
+            self.last_fault_map[inverter_id].add(9999)
 
     def log_inverter_error(self, inv: Any, data: dict):
-        """Lưu lỗi vào DB nếu severity là lỗi thực sự"""
+        """Lưu lỗi vào DB nếu trạng thái lỗi thay đổi"""
         from datetime import timezone
-        severity = data.get("severity", "STABLE")
-        fault_code = data.get("fault_code", 0)
+        self.sync_from_db(inv.id)
         
-        # Chỉ lưu nếu có mã lỗi và severity không phải STABLE (hoặc là ERROR)
-        if fault_code != 0 and severity in ["WARNING", "ERROR"]:
+        current_faults = data.get("fault_codes", []) # Giả định data đã có list các mã lỗi
+        if not current_faults and data.get("fault_code"):
+            current_faults = [data["fault_code"]]
+            
+        last_faults = self.last_fault_map.get(inv.id, set())
+
+        # 1. Phát hiện lỗi mới (mã lỗi có trong current nhưng không có trong last)
+        new_faults = [fc for fc in current_faults if fc not in last_faults and fc != 0]
+        for fc in new_faults:
             err = InverterErrorCreate(
                 project_id=inv.project_id,
                 inverter_id=inv.id,
-                fault_code=fault_code,
-                # Ưu tiên lấy từ data (đã enrichment ở PollingService)
-                fault_description=data.get("fault_description") or data.get("fault_name") or "Unknown Fault",
-                repair_instruction=data.get("repair_instruction", ""),
-                severity=severity,
+                fault_code=fc,
+                fault_description=data.get("fault_description") or data.get("fault_name") or f"Fault {fc}",
+                repair_instruction=data.get("repair_instruction", "Contact support"),
+                severity=data.get("severity", "ERROR"),
                 created_at=datetime.now(timezone.utc).isoformat()
             )
             self.realtime_db.post_inverter_error(err)
-            logger.warning(f"FAULT Logged: {inv.id} - {err.fault_description} ({severity})")
+            self.last_fault_map[inv.id].add(fc)
+            logger.warning(f"NEW FAULT Detected: {inv.id} - {err.fault_description}")
+
+        # 2. Phát hiện lỗi kết thúc (có trong last nhưng không có trong current)
+        cleared_faults = [fc for fc in last_faults if fc not in current_faults and fc != 9999] # Trừ mã reverse polarity tự định nghĩa
+        for fc in cleared_faults:
+            # Ghi record lỗi đã clear (severity = STABLE)
+            err = InverterErrorCreate(
+                project_id=inv.project_id,
+                inverter_id=inv.id,
+                fault_code=fc,
+                fault_description=f"CLEARED: {fc}",
+                repair_instruction="Fault resolved.",
+                severity="STABLE",
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
+            self.realtime_db.post_inverter_error(err)
+            self.last_fault_map[inv.id].remove(fc)
+            logger.info(f"FAULT CLEARED: {inv.id} - Code {fc}")
 
     def get_max_data(self, inverter_id: int):
         return {

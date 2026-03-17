@@ -245,6 +245,7 @@ class PollingService:
 
     def run_forever(self):
         logger.info("PollingService started with multi-project & night-mode support")
+        # Khởi tạo bằng 0 để force snapshot và upload ngay lần đầu chạy
         last_snapshot_time = 0
         
         while True:
@@ -275,9 +276,14 @@ class PollingService:
                     self.save_to_database(project.id)
                 last_snapshot_time = time.time()
                 
-            # Step 5: Thực hiện gửi dữ liệu lên server (cả snapshot định kỳ và dữ liệu tức thời nếu còn sót)
+            # Step 5: Thực hiện gửi dữ liệu lên server
             if self.uploader:
                 self.uploader.upload()
+
+            # Log dự báo chu kỳ tiếp theo để user không cảm thấy script bị treo
+            next_snapshot = config.SNAPSHOT_INTERVAL - (time.time() - last_snapshot_time)
+            if next_snapshot > 0 and int(next_snapshot) % 60 == 0:
+                logger.info(f"Next telemetry snapshot in {int(next_snapshot)}s...")
 
             # Duy trì chu kỳ POLL_INTERVAL (10s)
             elapsed = time.time() - t0

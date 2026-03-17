@@ -136,10 +136,10 @@ class ProjectService:
         with self.realtime_db._connect() as conn:
             msg_rows = conn.execute("""
                 SELECT * FROM (
-                    SELECT *, ROW_NUMBER() OVER (PARTITION BY inverter_id ORDER BY created_at DESC) as rn
+                    SELECT *, ROW_NUMBER() OVER (PARTITION BY inverter_id, fault_code ORDER BY created_at DESC) as rn
                     FROM inverter_errors
                     WHERE project_id = ?
-                ) WHERE rn <= 5
+                ) WHERE rn = 1
             """, (project_id,)).fetchall()
             for r in msg_rows:
                 inv_id = r["inverter_id"]

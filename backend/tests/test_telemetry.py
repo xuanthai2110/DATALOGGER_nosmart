@@ -27,10 +27,10 @@ def run_test():
     logger.info("Starting One-Shot Telemetry Test...")
     
     try:
-        # 1. Initialize DBs
-        metadata_db = MetadataDB()
-        realtime_db = RealtimeDB()
-        cache_db = CacheDB()
+        # 1. Initialize DBs with paths from config
+        metadata_db = MetadataDB(config.METADATA_DB)
+        realtime_db = RealtimeDB(config.REALTIME_DB)
+        cache_db = CacheDB(config.CACHE_DB)
         buffer_service = BufferService(realtime_db)
         
         # 2. Initialize Services
@@ -90,7 +90,7 @@ def run_test():
         # 4. Save to data.json
         output_file = "data.json"
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(all_telemetry, f, indent=4, ensure_all_ascii=False)
+            json.dump(all_telemetry, f, indent=4, ensure_ascii=False)
             
         logger.info(f"Success! Telemetry data saved to {os.path.abspath(output_file)}")
         print("\n" + "="*50)

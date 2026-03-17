@@ -49,32 +49,9 @@ class TelemetryService:
     def _build_payload(self, project_id: int, snapshot: dict) -> dict:
         """
         Chuẩn hoá snapshot thành telemetry payload theo đúng format server.
-
-        Payload structure:
-        {
-            "project_id": int,
-            "timestamp": str (ISO-8601 UTC),
-            "project": { Temp_C, P_ac, P_dc, E_daily, E_monthly, E_total,
-                         severity, created_at },
-            "inverters": [
-                {
-                    "serial_number": str,
-                    "ac": { IR, Temp_C, P_ac, Q_ac, V_a..V_c, I_a..I_c,
-                            PF, H, E_daily, E_monthly, E_total, created_at },
-                    "mppts": [
-                        {
-                            mppt_index, string_on_mppt, V_mppt, I_mppt, P_mppt,
-                            Max_I, Max_V, Max_P, created_at,
-                            "strings": [{ string_index, I_mppt, Max_I, created_at }]
-                        }
-                    ],
-                    "errors": [{ fault_code, fault_description,
-                                 repair_instruction, severity, created_at }]
-                }
-            ]
-        }
         """
-        timestamp = datetime.now(timezone.utc).isoformat()
+        # Server yêu cầu định dạng ISO với chữ Z ở cuối
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
         # --- Project realtime ---
         project_rt = snapshot.get("project") or {}
@@ -85,8 +62,8 @@ class TelemetryService:
             "E_daily":    project_rt.get("E_daily", 0),
             "E_monthly":  project_rt.get("E_monthly", 0),
             "E_total":    project_rt.get("E_total", 0),
-            "severity":   project_rt.get("severity", "STABLE"),
-            "created_at": project_rt.get("created_at", timestamp),
+            "severity":   "STABLE", # Ép kiểu về STABLE theo schema server
+            "created_at": self._format_ts(project_rt.get("created_at") or timestamp),
         }
 
         # --- Inverters ---
@@ -109,8 +86,7 @@ class TelemetryService:
 
     # --- Sub-builders ---
 
-    @staticmethod
-    def _build_ac(ac: dict, fallback_ts: str) -> dict:
+    def _build_ac(self, ac: dict, fallback_ts: str) -> dict:
         return {
             "IR":        ac.get("IR", 0),
             "Temp_C":    ac.get("Temp_C", 0),
@@ -127,17 +103,16 @@ class TelemetryService:
             "E_daily":   ac.get("E_daily", 0),
             "E_monthly": ac.get("E_monthly", 0),
             "E_total":   ac.get("E_total", 0),
-            "created_at": ac.get("created_at", fallback_ts),
+            "created_at": self._format_ts(ac.get("created_at") or fallback_ts),
         }
 
-    @staticmethod
-    def _build_mppt(mppt: dict, fallback_ts: str) -> dict:
+    def _build_mppt(self, mppt: dict, fallback_ts: str) -> dict:
         strings = [
             {
                 "string_index": s.get("string_index", 0),
                 "I_mppt":       s.get("I_mppt", 0),
                 "Max_I":        s.get("Max_I", 0),
-                "created_at":   s.get("created_at", fallback_ts),
+                "created_at":   self._format_ts(s.get("created_at") or fallback_ts),
             }
             for s in mppt.get("strings") or []
         ]
@@ -150,16 +125,28 @@ class TelemetryService:
             "Max_I":         mppt.get("Max_I", 0),
             "Max_V":         mppt.get("Max_V", 0),
             "Max_P":         mppt.get("Max_P", 0),
-            "created_at":    mppt.get("created_at", fallback_ts),
+            "created_at":    self._format_ts(mppt.get("created_at") or fallback_ts),
             "strings":       strings,
         }
 
-    @staticmethod
-    def _build_error(error: dict, fallback_ts: str) -> dict:
+    def _build_error(self, error: dict, fallback_ts: str) -> dict:
         return {
             "fault_code":         error.get("fault_code", 0),
             "fault_description":  error.get("fault_description", ""),
             "repair_instruction": error.get("repair_instruction", ""),
-            "severity":           error.get("severity", "STABLE"),
-            "created_at":         error.get("created_at", fallback_ts),
+            "severity":           "STABLE", # Ép kiểu về STABLE theo schema server
+            "created_at":         self._format_ts(error.get("created_at") or fallback_ts),
         }
+
+    @staticmethod
+    def _format_ts(ts: str) -> str:
+        """Đảm bảo format ISO và kết thúc bằng Z"""
+        if not ts: return ""
+        if "T" not in ts: return ts 
+        # Nếu đã có Z thì trả về luôn
+        if ts.endswith("Z"): return ts
+        # Nếu có lệch múi giờ +00:00 thì thay bằng Z
+        if "+00:00" in ts:
+            return ts.replace("+00:00", "Z")
+        # Mặc định thêm Z nếu chưa có
+        return ts + "Z" if not ts.endswith("Z") else ts
