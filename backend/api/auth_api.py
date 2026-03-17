@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from database.sqlite_manager import MetadataDB, RealtimeDB
+from database.sqlite_manager import MetadataDB, RealtimeDB, CacheDB
 from services.local_auth_utils import create_access_token, create_refresh_token, verify_password, decode_token
 import config as app_config
 from pydantic import BaseModel
@@ -22,6 +22,9 @@ def get_db():
 
 def get_rdb():
     return RealtimeDB(app_config.REALTIME_DB)
+
+def get_cdb():
+    return CacheDB(app_config.CACHE_DB)
 
 async def get_current_user_id(token: str = Depends(oauth2_scheme)):
     payload = decode_token(token)

@@ -1073,6 +1073,54 @@ class RealtimeDB:
                 result.append(d)
             return result
 
-    def delete_from_outbox(self, record_id: int):
+    def delete_from_outbox(self, record_id: int):\n        with self._connect() as conn:\n            conn.execute("DELETE FROM uploader_outbox WHERE id=?", (record_id,))\n
+
+class CacheDB:
+    """
+    Quản lý dữ liệu thay đổi nhanh (10s) trên RAM (ví dụ: /dev/shm)
+    Dữ liệu ở đây sẽ mất khi mất điện, phù hợp cho Web UI local để bảo vệ SD card.
+    """
+    def __init__(self, db_path: str = "cache.db"):
+        self.db_path = db_path
+        self._create_tables()
+
+    def _connect(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        # Tối ưu hóa tối đa cho RAM
+        conn.execute("PRAGMA journal_mode=MEMORY;")
+        conn.execute("PRAGMA synchronous=OFF;")
+        return conn
+
+    def _create_tables(self):
         with self._connect() as conn:
-            conn.execute("DELETE FROM uploader_outbox WHERE id=?", (record_id,))
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS latest_realtime (
+                inverter_id INTEGER PRIMARY KEY,
+                project_id INTEGER,
+                data_json TEXT,
+                updated_at TEXT
+            );
+            """)
+
+    def upsert_latest_realtime(self, inverter_id: int, project_id: int, data: dict):
+        import json
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        data_json = json.dumps(data)
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO latest_realtime (inverter_id, project_id, data_json, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(inverter_id) DO UPDATE SET
+                    project_id=excluded.project_id,
+                    data_json=excluded.data_json,
+                    updated_at=excluded.updated_at
+            """, (inverter_id, project_id, data_json, now_str))
+
+    def get_latest_realtime(self, inverter_id: int) -> Optional[dict]:
+        import json
+        with self._connect() as conn:
+            row = conn.execute("SELECT data_json FROM latest_realtime WHERE inverter_id=?", (inverter_id,)).fetchone()
+            return json.loads(row["data_json"]) if row else None

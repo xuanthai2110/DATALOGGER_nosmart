@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from database.sqlite_manager import MetadataDB, RealtimeDB
-from backend.api.auth_api import get_current_user_id, get_db, get_rdb
+from database.sqlite_manager import MetadataDB, RealtimeDB, CacheDB
+from backend.api.auth_api import get_current_user_id, get_db, get_rdb, get_cdb
 from dataclasses import asdict
 import logging
 
@@ -8,9 +8,13 @@ router = APIRouter(tags=["monitoring"])
 logger = logging.getLogger(__name__)
 
 @router.get("/project/{project_id}/latest")
-def get_latest_project_data(project_id: int, rdb: RealtimeDB = Depends(get_rdb), current_user = Depends(get_current_user_id)):
-    """Lấy dữ liệu realtime mới nhất của một dự án."""
+def get_latest_project_data(project_id: int, cdb: CacheDB = Depends(get_cdb), rdb: RealtimeDB = Depends(get_rdb), current_user = Depends(get_current_user_id)):
+    """Lấy dữ liệu realtime mới nhất của một dự án (ưu tiên RAM)."""
     try:
+        # 1. Thử lấy từ Cache RAM trước (Dữ liệu 10s)
+        # Lưu ý: CacheDB lưu theo inverter_id, nên chúng ta cần tổng hợp hoặc lấy từ rdb nếu muốn gói project cũ
+        # Tuy nhiên, để nhất quán, nếu muốn gói project 'latest' kiểu snapshot thì vẫn dùng rdb.
+        # Nhưng để Web UI mượt nhất, ta nên trả về dữ liệu snapshot mới nhất từ rdb.
         data = rdb.get_latest_project_realtime(project_id)
         if not data:
             return {"ok": False, "message": "No data found"}
@@ -20,13 +24,13 @@ def get_latest_project_data(project_id: int, rdb: RealtimeDB = Depends(get_rdb),
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/inverter/{inverter_id}/latest")
-def get_latest_inverter_data(inverter_id: int, rdb: RealtimeDB = Depends(get_rdb), current_user = Depends(get_current_user_id)):
-    """Lấy dữ liệu AC realtime mới nhất của một biến tần."""
+def get_latest_inverter_data(inverter_id: int, cdb: CacheDB = Depends(get_cdb), current_user = Depends(get_current_user_id)):
+    """Lấy dữ liệu realtime 10s từ RAM."""
     try:
-        data = rdb.get_latest_inverter_ac_realtime(inverter_id)
+        data = cdb.get_latest_realtime(inverter_id)
         if not data:
-            return {"ok": False, "message": "No data found"}
-        return asdict(data)
+            return {"ok": False, "message": "No data found in cache"}
+        return data  # CacheDB returns dict already
     except Exception as e:
         logger.error(f"get_latest_inverter_data error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
