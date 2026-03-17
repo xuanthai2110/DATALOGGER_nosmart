@@ -156,6 +156,7 @@ class ProjectService:
 
             inverters_json.append({
                 "serial_number": inv.serial_number,
+                "strings_per_mppt": getattr(inv, "strings_per_mppt", None),
                 "ac": ac_map.get(inv_id),
                 "mppts": mppts,
                 "errors": error_map.get(inv_id, [])

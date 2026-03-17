@@ -92,6 +92,7 @@ class MetadataDB:
                 server_id INTEGER,
                 server_request_id INTEGER,
                 sync_status TEXT DEFAULT 'pending',
+                strings_per_mppt TEXT,
                 FOREIGN KEY (project_id) REFERENCES projects(id),
                 FOREIGN KEY (replaced_by_id) REFERENCES inverters(id)
             );
@@ -418,8 +419,8 @@ class MetadataDB:
                     firmware_version, phase_count, mppt_count,
                     string_count, capacity_kw, rate_dc_kwp, rate_ac_kw,
                     is_active, replaced_by_id,
-                    usage_start_at, usage_end_at, slave_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    usage_start_at, usage_end_at, slave_id, strings_per_mppt
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data_dict.get("project_id"),
                 next_idx,
@@ -437,7 +438,8 @@ class MetadataDB:
                 data_dict.get("replaced_by_id"),
                 data_dict.get("usage_start_at"),
                 data_dict.get("usage_end_at"),
-                data_dict.get("slave_id")
+                data_dict.get("slave_id"),
+                data_dict.get("strings_per_mppt")
             ))
             return cursor.lastrowid
 
@@ -457,8 +459,8 @@ class MetadataDB:
                     string_count, capacity_kw, rate_dc_kwp, rate_ac_kw,
                     is_active, replaced_by_id,
                     usage_start_at, usage_end_at, slave_id,
-                    server_id, sync_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+                    server_id, sync_status, strings_per_mppt
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
             """, (
                 server_id,
                 data_dict.get("project_id"),

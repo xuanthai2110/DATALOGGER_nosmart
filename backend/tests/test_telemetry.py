@@ -60,7 +60,7 @@ def run_test():
             logger.info(f"Processing Project: {project.name} (ID: {project.id})")
             
             # Đọc dữ liệu từ Inverters (Step 1-2: Poll & Enrichment & Tracking)
-            service.poll_all_inverters(project.id)
+            # service.poll_all_inverters(project.id)
             
             # Lưu snapshot 5p vào RealtimeDB (để telemetry lấy ra)
             service.save_to_database(project.id)

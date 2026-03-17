@@ -20,6 +20,7 @@ class InverterCreate:
     usage_end_at: Optional[str] = None
     replaced_by_id: Optional[int] = None
     inverter_index: Optional[int] = None
+    strings_per_mppt: Optional[str] = None
 
 @dataclass
 class InverterUpdate:
@@ -40,6 +41,7 @@ class InverterUpdate:
     usage_start_at: Optional[str] = None
     usage_end_at: Optional[str] = None
     replaced_by_id: Optional[int] = None
+    strings_per_mppt: Optional[str] = None
 
 @dataclass
 class InverterResponse:
@@ -64,3 +66,4 @@ class InverterResponse:
     usage_start_at: Optional[str] = None
     usage_end_at: Optional[str] = None
     replaced_by_id: Optional[int] = None
+    strings_per_mppt: Optional[str] = None

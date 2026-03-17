@@ -50,8 +50,8 @@ class TelemetryService:
         """
         Chuẩn hoá snapshot thành telemetry payload theo đúng format server.
         """
-        # Server yêu cầu định dạng ISO với chữ Z ở cuối
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        # Server yêu cầu định dạng ISO với chữ Z ở cuối và đầy đủ microsecond (6 chữ số)
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
 
         # --- Project realtime ---
         project_rt = snapshot.get("project") or {}
@@ -63,16 +63,19 @@ class TelemetryService:
             "E_monthly":  project_rt.get("E_monthly", 0),
             "E_total":    project_rt.get("E_total", 0),
             "severity":   "STABLE", # Ép kiểu về STABLE theo schema server
-            "created_at": self._format_ts(project_rt.get("created_at") or timestamp),
+            "created_at": timestamp, # Đồng nhất theo snapshot time
         }
 
         # --- Inverters ---
         inverters_block = []
         for inv in snapshot.get("inverters", []):
+            spm_config = inv.get("strings_per_mppt")
+            spm_list = [int(x.strip()) for x in spm_config.split(",")] if spm_config else []
+
             inverters_block.append({
                 "serial_number": inv.get("serial_number", ""),
                 "ac":     self._build_ac(inv.get("ac") or {}, timestamp),
-                "mppts":  [self._build_mppt(m, timestamp) for m in inv.get("mppts") or []],
+                "mppts":  [self._build_mppt(m, timestamp, spm_list) for m in inv.get("mppts") or []],
                 "errors": [self._build_error(e, timestamp) for e in inv.get("errors") or []],
             })
 
@@ -86,7 +89,7 @@ class TelemetryService:
 
     # --- Sub-builders ---
 
-    def _build_ac(self, ac: dict, fallback_ts: str) -> dict:
+    def _build_ac(self, ac: dict, snapshot_ts: str) -> dict:
         return {
             "IR":        ac.get("IR", 0),
             "Temp_C":    ac.get("Temp_C", 0),
@@ -103,29 +106,38 @@ class TelemetryService:
             "E_daily":   ac.get("E_daily", 0),
             "E_monthly": ac.get("E_monthly", 0),
             "E_total":   ac.get("E_total", 0),
-            "created_at": self._format_ts(ac.get("created_at") or fallback_ts),
+            "created_at": snapshot_ts, # Đè bằng snapshot time để đồng bộ
         }
 
-    def _build_mppt(self, mppt: dict, fallback_ts: str) -> dict:
+    def _build_mppt(self, mppt: dict, snapshot_ts: str, spm_list: list = None) -> dict:
+        m_idx = mppt.get("mppt_index", 0)
+        # Nếu có config trong spm_list thì ưu tiên, nếu không thì đếm số string thực tế
+        config_val = 0
+        if spm_list and 0 < m_idx <= len(spm_list):
+            config_val = spm_list[m_idx - 1]
+        
+        # Nếu config = 0, thử lấy từ realtime_mppt, nếu vẫn 0 thì đếm len(strings)
+        string_count = config_val or mppt.get("string_on_mppt", 0) or len(mppt.get("strings") or [])
+
         strings = [
             {
                 "string_index": s.get("string_index", 0),
                 "I_mppt":       s.get("I_mppt", 0),
                 "Max_I":        s.get("Max_I", 0),
-                "created_at":   self._format_ts(s.get("created_at") or fallback_ts),
+                "created_at":   snapshot_ts, # Đè bằng snapshot time
             }
             for s in mppt.get("strings") or []
         ]
         return {
-            "mppt_index":    mppt.get("mppt_index", 0),
-            "string_on_mppt": mppt.get("string_on_mppt", 0),
+            "mppt_index":    m_idx,
+            "string_on_mppt": string_count,
             "V_mppt":        mppt.get("V_mppt", 0),
             "I_mppt":        mppt.get("I_mppt", 0),
             "P_mppt":        mppt.get("P_mppt", 0),
             "Max_I":         mppt.get("Max_I", 0),
             "Max_V":         mppt.get("Max_V", 0),
             "Max_P":         mppt.get("Max_P", 0),
-            "created_at":    self._format_ts(mppt.get("created_at") or fallback_ts),
+            "created_at":    snapshot_ts, # Đè bằng snapshot time
             "strings":       strings,
         }
 
@@ -142,11 +154,16 @@ class TelemetryService:
     def _format_ts(ts: str) -> str:
         """Đảm bảo format ISO và kết thúc bằng Z"""
         if not ts: return ""
-        if "T" not in ts: return ts 
         # Nếu đã có Z thì trả về luôn
         if ts.endswith("Z"): return ts
+        
+        # Nếu có space (sqlite format), thay bằng T
+        if " " in ts and "T" not in ts:
+            ts = ts.replace(" ", "T")
+            
         # Nếu có lệch múi giờ +00:00 thì thay bằng Z
         if "+00:00" in ts:
             return ts.replace("+00:00", "Z")
+            
         # Mặc định thêm Z nếu chưa có
-        return ts + "Z" if not ts.endswith("Z") else ts
+        return ts + "Z"
