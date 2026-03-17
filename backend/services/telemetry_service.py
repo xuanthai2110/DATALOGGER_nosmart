@@ -101,6 +101,7 @@ class TelemetryService:
 
         return {
             "project_id": project_id,
+            "server_id":  snapshot.get("metadata", {}).get("server_id"),
             "timestamp":  timestamp,
             "project":    project_block,
             "inverters":  inverters_block,

@@ -1,6 +1,9 @@
 import requests
+import logging
 from config import API_BASE_URL
 from services.auth_service import AuthService
+
+logger = logging.getLogger(__name__)
 
 class UploaderService:
     def __init__(self, buffer_service):
@@ -19,13 +22,12 @@ class UploaderService:
 
         for data in data_list:
             try:
-                # Lấy project_id từ payload (TelemetryService đã đóng gói có project_id)
-                project_id = data.get("project_id")
-                if not project_id:
-                    logger.error("No project_id found in telemetry data, skipping")
+                server_id = data.get("server_id")
+                if not server_id:
+                    logger.warning(f"Project (local_id: {data.get('project_id')}) has no server_id. It might not be approved yet. Skipping upload.")
                     continue
 
-                url = f"{API_BASE_URL}/api/telemetry/project/{project_id}"
+                url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
                 headers = {"Authorization": f"Bearer {token}"}
                 
                 response = requests.post(url, json=data, headers=headers)
@@ -42,20 +44,20 @@ class UploaderService:
         if not token:
             return
         
-        project_id = data.get("project_id")
-        if not project_id:
-            logger.error("No project_id found in immediate data")
+        server_id = data.get("server_id")
+        if not server_id:
+            logger.warning(f"Project (local_id: {data.get('project_id')}) has no server_id. Cannot send immediate update.")
             return
 
         headers = {"Authorization": f"Bearer {token}"}
         # Tạm thời sử dụng endpoint telemetry cho tin nhắn tức thời nếu chưa có endpoint riêng
-        url = f"{API_BASE_URL}/api/telemetry/project/{project_id}"
+        url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
         
         try:
-            logger.info(f"Sending immediate update for project {project_id}...")
+            logger.info(f"Sending immediate update for server_id: {server_id}...")
             response = requests.post(url, json=data, headers=headers, timeout=10)
             if response.status_code != 200:
-                logger.warning(f"Immediate send failed: {response.status_code} - {response.text}")
+                logger.warning(f"Immediate send failed for {server_id}: {response.status_code} - {response.text}")
             else:
                 logger.info(f"Immediate update for project {project_id} sent successfully.")
         except Exception as e:
