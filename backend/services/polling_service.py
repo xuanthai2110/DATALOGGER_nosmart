@@ -2,7 +2,7 @@
 
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 
 from database.sqlite_manager import MetadataDB, RealtimeDB
@@ -134,7 +134,7 @@ class PollingService:
 
     def save_to_database(self, project_id: int):
         logger.info(f"Saving 5-minute snapshot for project {project_id}")
-        now_str = datetime.now().isoformat()
+        now_str = datetime.now(timezone.utc).isoformat()
         inverters = self.metadata_db.get_inverters_by_project(project_id)
         
         ac_records, mppt_records, string_records = [], [], []
@@ -205,7 +205,7 @@ class PollingService:
                 project_id=project_id, Temp_C=p_sums["temp"] if p_sums["temp"] > -99 else 0.0,
                 P_ac=p_sums["pac"], P_dc=p_sums["pdc"], E_daily=p_sums["edaily"],
                 E_monthly=p_sums["emonthly"], E_total=p_sums["etotal"],
-                severity="NORMAL", created_at=now_str
+                severity="STABLE", created_at=now_str
             ))
             
             # Step 3, Type 1: Lưu snapshot 5 phút cho server qua TelemetryService

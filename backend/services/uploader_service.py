@@ -1,4 +1,5 @@
 import requests
+import json
 import logging
 from config import API_BASE_URL
 from services.auth_service import AuthService
@@ -28,9 +29,19 @@ class UploaderService:
                     continue
 
                 url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
-                headers = {"Authorization": f"Bearer {token}"}
+                headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
                 
-                response = requests.post(url, json=data, headers=headers)
+                # Sửa lỗi 422: Loại bỏ các trường extra không có trong schema server
+                payload = data.copy()
+                payload.pop("id", None)
+                payload.pop("project_id", None)
+                payload.pop("server_id", None)
+                payload.pop("timestamp", None)
+                
+                # In JSON để debug
+                logger.debug(f"DEBUG SENDING CLEAN PAYLOAD (server_id: {server_id}):\n{json.dumps(payload, indent=2)}")
+                
+                response = requests.post(url, json=payload, headers=headers)
                 if response.status_code == 200:
                     self.buffer.delete(data["id"])
                 else:
@@ -49,13 +60,22 @@ class UploaderService:
             logger.warning(f"Project (local_id: {data.get('project_id')}) has no server_id. Cannot send immediate update.")
             return
 
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
         # Tạm thời sử dụng endpoint telemetry cho tin nhắn tức thời nếu chưa có endpoint riêng
         url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
         
+        # Sửa lỗi 422: Loại bỏ extra fields
+        payload = data.copy()
+        payload.pop("project_id", None)
+        payload.pop("server_id", None)
+        payload.pop("timestamp", None)
+
         try:
             logger.info(f"Sending immediate update for server_id: {server_id}...")
-            response = requests.post(url, json=data, headers=headers, timeout=10)
+            # In JSON để debug
+            logger.debug(f"DEBUG SENDING CLEAN IMMEDIATE PAYLOAD:\n{json.dumps(payload, indent=2)}")
+            
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
             if response.status_code != 200:
                 logger.warning(f"Immediate send failed for {server_id}: {response.status_code} - {response.text}")
             else:
