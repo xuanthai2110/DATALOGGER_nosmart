@@ -9,8 +9,9 @@ class UploaderService:
         self.token = None
 
     def upload(self):
-        if not self.token:
-            self.token = self.auth.login()
+        token = self.auth.get_access_token()
+        if not token:
+            return
 
         data_list = self.buffer.get_all()
         if not data_list:
@@ -25,6 +26,7 @@ class UploaderService:
                     continue
 
                 url = f"{API_BASE_URL}/api/telemetry/project/{project_id}"
+                headers = {"Authorization": f"Bearer {token}"}
                 
                 response = requests.post(url, json=data, headers=headers)
                 if response.status_code == 200:
@@ -36,15 +38,16 @@ class UploaderService:
 
     def send_immediate(self, data: dict):
         """Gửi dữ liệu lỗi hoặc thay đổi trạng thái ngay lập tức lên server"""
-        if not self.token:
-            self.token = self.auth.login()
+        token = self.auth.get_access_token()
+        if not token:
+            return
         
         project_id = data.get("project_id")
         if not project_id:
             logger.error("No project_id found in immediate data")
             return
 
-        headers = {"Authorization": f"Bearer {self.token}"}
+        headers = {"Authorization": f"Bearer {token}"}
         # Tạm thời sử dụng endpoint telemetry cho tin nhắn tức thời nếu chưa có endpoint riêng
         url = f"{API_BASE_URL}/api/telemetry/project/{project_id}"
         
