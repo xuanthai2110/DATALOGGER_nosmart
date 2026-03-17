@@ -982,9 +982,36 @@ class FaultStateService:
             "HUAWEI": HUAWEI_FAULT_MAP,
             "SUNGROW": SUNGROW_FAULT_MAP
         }
+        
+        # Mapping từ thanh ghi Modbus 32089 của Huawei sang ID nội bộ trong HUAWEI_STATE_MAP
+        self.huawei_modbus_state_map = {
+            0x0000: 0,  # INITIAL_STANDBY
+            0x0001: 2,  # INSULATION_CHECK
+            0x0002: 1,  # GRID_DETECTING
+            0x0003: 1,  # GRID_DETECTING
+            0x0100: 4,  # STARTING
+            0x0200: 5,  # RUNNING
+            0x0201: 7,  # DERATING
+            0x0202: 7,  # DERATING
+            0x0203: 5,  # RUNNING (Off-grid)
+            0x0300: 9,  # FAULT
+            0x0301: 8,  # STOPPED
+            0x0302: 9,  # FAULT (OVGR)
+            0x0303: 9,  # FAULT (Comm disconnect)
+            0x0304: 8,  # STOPPED (Power limited)
+            0x0305: 8,  # STOPPED (Manual startup req)
+            0x0306: 8,  # STOPPED (DC disconnect)
+            0x0307: 8,  # STOPPED (Rapid cutoff)
+            0x0308: 8,  # STOPPED (Input underpower)
+        }
 
     def map_state(self, brand: str, state_id: int) -> dict:
         brand = brand.upper()
+        
+        # Đặc biệt cho Huawei: state_id truyền vào là mã Modbus thô (32089)
+        if brand == "HUAWEI":
+            state_id = self.huawei_modbus_state_map.get(state_id, 5) # Default là ID 5 (RUNNING)
+            
         mapping = self.state_maps.get(brand, {})
         state_info = mapping.get(state_id)
         

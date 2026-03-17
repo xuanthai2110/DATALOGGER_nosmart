@@ -527,124 +527,36 @@ class HuaweiSUN2000(BaseDriver):
     # ================= FAULTS & STATES =======================
     # =========================================================
 
-    def read_states_and_faults(self) -> str:
+    def read_states_and_faults(self) -> Dict[str, Any]:
         """
-        Đọc trạng thái và lỗi từ inverter Huawei:
-        - Đọc state (32089)
-        - Đọc fault (32090)
-        - Nếu có fault > 0, trả về JSON của Fault (dùng mapping TÙY CHỈNH dataLogger)
-        - Nếu không có fault, trả về JSON của State (dùng mapping TÙY CHỈNH dataLogger)
+        Đọc trạng thái và lỗi thô từ inverter Huawei:
+        - Thanh ghi 32089 (Device Status)
+        - Thanh ghi 32090 (Fault Code)
         """
-        import json
-        from services.fault_state_service import (
-            HUAWEI_STATE_MAP, 
-            HUAWEI_FAULT_MAP, 
-            UNIFIED_STATES, 
-            UNIFIED_FAULTS,
-            create_unified_fault_payload
-        )
-
-        # Ánh xạ mã Modbus status (32089) sang id_huawei (0-13) theo HUAWEI_STATE_MAP
-        MODBUS_TO_HUAWEI_STATE = {
-            0x0000: 0,  # INITIAL_STANDBY
-            0x0001: 2,  # INSULATION_CHECK
-            0x0002: 1,  # GRID_DETECTING
-            0x0003: 1,  # GRID_DETECTING
-            0x0100: 4,  # STARTING
-            0x0200: 5,  # RUNNING
-            0x0201: 7,  # DERATING
-            0x0202: 7,  # DERATING
-            0x0203: 5,  # RUNNING (Off-grid)
-            0x0300: 9,  # FAULT
-            0x0301: 8,  # STOPPED
-            0x0302: 9,  # FAULT (OVGR)
-            0x0303: 9,  # FAULT (Comm disconnect)
-            0x0304: 8,  # STOPPED (Power limited)
-            0x0305: 8,  # STOPPED (Manual startup req)
-            0x0306: 8,  # STOPPED (DC disconnect)
-            0x0307: 8,  # STOPPED (Rapid cutoff)
-            0x0308: 8,  # STOPPED (Input underpower)
-        }
-
-        # 1. Đọc Device Status
+        # 1. Đọc Device Status (32089)
         res_state = self.transport.read_holding_registers(
             address=32089,
             count=1,
             slave=self.slave_id
         )
+        state_id = 0
+        if not res_state.isError():
+            state_id = res_state.registers[0]
 
-        if res_state.isError():
-            err_payload = create_unified_fault_payload(
-                fault_code=None,
-                fault_description="Modbus error: cannot read register 32089",
-                repair_instruction="Kiểm tra kết nối cáp RS485/TCP tới inverter",
-                severity="ERROR"
-            )
-            return json.dumps(err_payload, ensure_ascii=False)
-
-        status_code = res_state.registers[0]
-        id_huawei = MODBUS_TO_HUAWEI_STATE.get(status_code, 5) # Default RUNNING
-        hw_state = HUAWEI_STATE_MAP.get(id_huawei)
-
-        unified_status_id = None
-        unified_status_name = None
-        
-        if hw_state:
-            unified_status_id = hw_state["id_unified"]
-            unified_status_name = UNIFIED_STATES.get(unified_status_id, "Unknown State")
-
-        # 2. Đọc Fault
+        # 2. Đọc Fault (32090)
         res_fault = self.transport.read_holding_registers(
             address=32090,
             count=1,
             slave=self.slave_id
         )
+        fault_code = 0
+        if not res_fault.isError():
+            fault_code = res_fault.registers[0]
 
-        if res_fault.isError():
-            err_payload = create_unified_fault_payload(
-                fault_code=None,
-                fault_description="Modbus error: cannot read register 32090",
-                repair_instruction="Kiểm tra kết nối cáp RS485/TCP tới inverter",
-                severity="ERROR"
-            )
-            return json.dumps(err_payload, ensure_ascii=False)
-
-        fault_code = res_fault.registers[0]
-
-        # 3. Trả về
-        if fault_code != 0:
-            hw_fault = HUAWEI_FAULT_MAP.get(fault_code)
-            if hw_fault:
-                unified_fault_id = hw_fault["id_unified"]
-                payload = create_unified_fault_payload(
-                    fault_code=unified_fault_id,
-                    fault_description=UNIFIED_FAULTS.get(unified_fault_id, hw_fault["name"]),
-                    repair_instruction=hw_fault["repair_instruction"],
-                    severity=hw_fault["severity"],
-                    state_id=unified_status_id,
-                    state_name=unified_status_name
-                )
-            else:
-                # Lỗi không có trong mapping
-                payload = create_unified_fault_payload(
-                    fault_code=fault_code,
-                    fault_description=f"Unknown Huawei Fault: {fault_code}",
-                    repair_instruction="Tra cứu tài liệu hướng dẫn sử dụng của Huawei",
-                    severity="ERROR",
-                    state_id=unified_status_id,
-                    state_name=unified_status_name
-                )
-        else:
-            # Không có lỗi
-            payload = create_unified_fault_payload(
-                fault_code=0,
-                severity=hw_state["severity"] if hw_state else "STABLE",
-                state_id=unified_status_id,
-                state_name=unified_status_name
-            )
-
-        # Trả về chuỗi JSON
-        return json.dumps(payload, ensure_ascii=False)
+        return {
+            "state_id": state_id,
+            "fault_code": fault_code
+        }
 
 
     # =========================================================
@@ -680,7 +592,7 @@ class HuaweiSUN2000(BaseDriver):
         # Đọc trạng thái và lỗi
         try:
             states_and_faults = self.read_states_and_faults()
-            data.update(json.loads(states_and_faults))
+            data.update(states_and_faults)
         except Exception:
             pass
 

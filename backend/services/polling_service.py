@@ -79,6 +79,26 @@ class PollingService:
                 raw_data = driver.read_all()
                 if not raw_data: continue
                 
+                if self.fault_service:
+                    # Map State (truyền mã thô vào, service tự xử lý chuyển đổi cho Huawei)
+                    state_id = raw_data.get("state_id", 0)
+                    state_info = self.fault_service.map_state(inv.brand, state_id)
+                    raw_data["state_name"] = state_info["name"]
+                    
+                    # Map Fault
+                    fault_code = raw_data.get("fault_code", 0)
+                    if fault_code != 0:
+                        fault_info = self.fault_service.map_fault(inv.brand, fault_code)
+                        raw_data["fault_description"] = fault_info["name"]
+                        raw_data["repair_instruction"] = fault_info["repair_instruction"]
+                        raw_data["severity"] = fault_info["severity"]
+                    else:
+                        raw_data["fault_description"] = None
+                        raw_data["repair_instruction"] = None
+                        raw_data["severity"] = state_info["severity"]
+                else:
+                    raw_data["severity"] = "STABLE"
+
                 # Calculate E_monthly
                 e_monthly = self.tracking.update_energy(inv.id, raw_data.get("e_total", 0.0) or 0.0)
                 raw_data["e_monthly"] = e_monthly
