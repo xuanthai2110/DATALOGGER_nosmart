@@ -89,10 +89,15 @@ def run_test():
 
         # 4. Save to data.json
         output_file = "data.json"
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(all_telemetry, f, indent=4, ensure_ascii=False)
+        if all_telemetry:
+            # Chỉ lấy payload của project đầu tiên để khớp mẫu data.txt (không có [])
+            final_data = all_telemetry[0]["payload"]
+            with open(output_file, "w", encoding="utf-8") as f:
+                json.dump(final_data, f, indent=4, ensure_ascii=False)
+            logger.info(f"Success! Telemetry data saved to {os.path.abspath(output_file)}")
+        else:
+            logger.error("No telemetry data to save.")
             
-        logger.info(f"Success! Telemetry data saved to {os.path.abspath(output_file)}")
         print("\n" + "="*50)
         print(f"DONE: Please check {output_file}")
         print("="*50 + "\n")
