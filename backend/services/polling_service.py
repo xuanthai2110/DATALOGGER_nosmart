@@ -257,11 +257,6 @@ class PollingService:
                 # Step 4: Check Night Mode
                 is_night = self.night_mode_projects.get(project.id, False)
                 
-                # Nếu đang là ban đêm, chúng ta có thể giảm tần suất check 
-                # Ở đây đơn giản là vẫn poll nhưng nếu P_ac vẫn 0 thì skip xử lý nặng
-                # Hoặc skip hẳn việc gọi Modbus nếu muốn tối ưu tuyệt đối.
-                # Tuy nhiên để "tự thức dậy", ta vẫn nên poll.
-                
                 total_p_ac = self.poll_all_inverters(project.id)
                 
                 # Cập nhật trạng thái Night Mode cho chu kỳ sau

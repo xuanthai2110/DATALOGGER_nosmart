@@ -124,7 +124,7 @@ SUNGROW_FAULT_MAP = {
 
     1: {
         "id_sungrow": 1,
-        "id_unified": 1,
+        "id_unified": 1001,
         "name": "GRID_OVERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check grid voltage and transformer tap setting."
@@ -132,7 +132,7 @@ SUNGROW_FAULT_MAP = {
 
     2: {
         "id_sungrow": 2,
-        "id_unified": 2,
+        "id_unified": 1003,
         "name": "GRID_UNDERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check grid voltage level and cable connection."
@@ -140,7 +140,7 @@ SUNGROW_FAULT_MAP = {
 
     3: {
         "id_sungrow": 3,
-        "id_unified": 4,
+        "id_unified": 1005,
         "name": "GRID_OVERFREQUENCY",
         "severity": "ERROR",
         "repair_instruction": "Check grid frequency stability."
@@ -148,7 +148,7 @@ SUNGROW_FAULT_MAP = {
 
     4: {
         "id_sungrow": 4,
-        "id_unified": 5,
+        "id_unified": 1006,
         "name": "GRID_UNDERFREQUENCY",
         "severity": "ERROR",
         "repair_instruction": "Check utility grid frequency."
@@ -156,7 +156,7 @@ SUNGROW_FAULT_MAP = {
 
     5: {
         "id_sungrow": 5,
-        "id_unified": 6,
+        "id_unified": 1007,
         "name": "GRID_LOSS",
         "severity": "ERROR",
         "repair_instruction": "Check AC breaker and grid cable."
@@ -164,7 +164,7 @@ SUNGROW_FAULT_MAP = {
 
     6: {
         "id_sungrow": 6,
-        "id_unified": 38,
+        "id_unified": 1009,
         "name": "GRID_PHASE_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check phase sequence and wiring."
@@ -176,7 +176,7 @@ SUNGROW_FAULT_MAP = {
 
     10: {
         "id_sungrow": 10,
-        "id_unified": 7,
+        "id_unified": 1102,
         "name": "DC_OVERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check PV string voltage."
@@ -184,7 +184,7 @@ SUNGROW_FAULT_MAP = {
 
     11: {
         "id_sungrow": 11,
-        "id_unified": 9,
+        "id_unified": 1202,
         "name": "DC_INSULATION_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check insulation resistance between PV and ground."
@@ -192,7 +192,7 @@ SUNGROW_FAULT_MAP = {
 
     12: {
         "id_sungrow": 12,
-        "id_unified": 19,
+        "id_unified": 1206,
         "name": "GROUND_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect grounding system."
@@ -200,7 +200,7 @@ SUNGROW_FAULT_MAP = {
 
     13: {
         "id_sungrow": 13,
-        "id_unified": 20,
+        "id_unified": 1201,
         "name": "LEAKAGE_CURRENT",
         "severity": "ERROR",
         "repair_instruction": "Check residual current leakage."
@@ -208,7 +208,7 @@ SUNGROW_FAULT_MAP = {
 
     14: {
         "id_sungrow": 14,
-        "id_unified": 11,
+        "id_unified": 1105,
         "name": "STRING_FAULT",
         "severity": "WARNING",
         "repair_instruction": "Inspect PV string current and connectors."
@@ -220,7 +220,7 @@ SUNGROW_FAULT_MAP = {
 
     20: {
         "id_sungrow": 20,
-        "id_unified": 12,
+        "id_unified": 1301,
         "name": "OVER_TEMPERATURE",
         "severity": "ERROR",
         "repair_instruction": "Check inverter cooling and ambient temperature."
@@ -228,7 +228,7 @@ SUNGROW_FAULT_MAP = {
 
     21: {
         "id_sungrow": 21,
-        "id_unified": 13,
+        "id_unified": 1401,
         "name": "FAN_FAULT",
         "severity": "WARNING",
         "repair_instruction": "Inspect cooling fan."
@@ -236,7 +236,7 @@ SUNGROW_FAULT_MAP = {
 
     22: {
         "id_sungrow": 22,
-        "id_unified": 14,
+        "id_unified": 1304,
         "name": "HEATSINK_OVER_TEMP",
         "severity": "ERROR",
         "repair_instruction": "Check heat sink airflow."
@@ -248,7 +248,7 @@ SUNGROW_FAULT_MAP = {
 
     30: {
         "id_sungrow": 30,
-        "id_unified": 33,
+        "id_unified": 1701,
         "name": "HARDWARE_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect inverter internal modules."
@@ -256,7 +256,7 @@ SUNGROW_FAULT_MAP = {
 
     31: {
         "id_sungrow": 31,
-        "id_unified": 34,
+        "id_unified": 1704,
         "name": "SOFTWARE_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Restart inverter or update firmware."
@@ -264,7 +264,7 @@ SUNGROW_FAULT_MAP = {
 
     32: {
         "id_sungrow": 32,
-        "id_unified": 15,
+        "id_unified": 1410,
         "name": "POWER_MODULE_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check internal power module."
@@ -272,7 +272,7 @@ SUNGROW_FAULT_MAP = {
 
     33: {
         "id_sungrow": 33,
-        "id_unified": 16,
+        "id_unified": 1109,
         "name": "BUS_OVERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check DC bus voltage."
@@ -280,7 +280,7 @@ SUNGROW_FAULT_MAP = {
 
     34: {
         "id_sungrow": 34,
-        "id_unified": 17,
+        "id_unified": 1110,
         "name": "BUS_UNDERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Inspect DC bus system."
@@ -288,7 +288,7 @@ SUNGROW_FAULT_MAP = {
 
     35: {
         "id_sungrow": 35,
-        "id_unified": 18,
+        "id_unified": 1404,
         "name": "RELAY_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect AC relay."
@@ -300,7 +300,7 @@ SUNGROW_FAULT_MAP = {
 
     40: {
         "id_sungrow": 40,
-        "id_unified": 24,
+        "id_unified": 1501,
         "name": "COMMUNICATION_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Check communication module and cable."
@@ -308,7 +308,7 @@ SUNGROW_FAULT_MAP = {
 
     41: {
         "id_sungrow": 41,
-        "id_unified": 25,
+        "id_unified": 1503,
         "name": "RS485_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Check RS485 wiring."
@@ -316,7 +316,7 @@ SUNGROW_FAULT_MAP = {
 
     42: {
         "id_sungrow": 42,
-        "id_unified": 26,
+        "id_unified": 1505,
         "name": "WIFI_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Inspect WiFi module."
@@ -324,7 +324,7 @@ SUNGROW_FAULT_MAP = {
 
     43: {
         "id_sungrow": 43,
-        "id_unified": 27,
+        "id_unified": 1504,
         "name": "PLC_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Check PLC communication."
@@ -332,7 +332,7 @@ SUNGROW_FAULT_MAP = {
 
     44: {
         "id_sungrow": 44,
-        "id_unified": 28,
+        "id_unified": 1502,
         "name": "METER_COMM_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Check smart meter communication."
@@ -344,7 +344,7 @@ SUNGROW_FAULT_MAP = {
 
     50: {
         "id_sungrow": 50,
-        "id_unified": 29,
+        "id_unified": 1601,
         "name": "ARC_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect PV cables for arc fault."
@@ -352,7 +352,7 @@ SUNGROW_FAULT_MAP = {
 
     51: {
         "id_sungrow": 51,
-        "id_unified": 30,
+        "id_unified": 1402,
         "name": "SPD_FAULT",
         "severity": "WARNING",
         "repair_instruction": "Check surge protection device."
@@ -360,7 +360,7 @@ SUNGROW_FAULT_MAP = {
 
     52: {
         "id_sungrow": 52,
-        "id_unified": 32,
+        "id_unified": 1015,
         "name": "ANTI_ISLANDING_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check grid protection settings."
@@ -372,7 +372,7 @@ SUNGROW_FAULT_MAP = {
 
     60: {
         "id_sungrow": 60,
-        "id_unified": 36,
+        "id_unified": 1703,
         "name": "STARTUP_FAIL",
         "severity": "ERROR",
         "repair_instruction": "Restart inverter and verify parameters."
@@ -380,7 +380,7 @@ SUNGROW_FAULT_MAP = {
 
     61: {
         "id_sungrow": 61,
-        "id_unified": 37,
+        "id_unified": 1701,
         "name": "SHUTDOWN_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check shutdown cause."
@@ -388,7 +388,7 @@ SUNGROW_FAULT_MAP = {
 
     62: {
         "id_sungrow": 62,
-        "id_unified": 35,
+        "id_unified": 1706,
         "name": "CONFIGURATION_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Verify inverter configuration."
@@ -400,7 +400,7 @@ SUNGROW_FAULT_MAP = {
 
     70: {
         "id_sungrow": 70,
-        "id_unified": 39,
+        "id_unified": 1406,
         "name": "CURRENT_SENSOR_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect current sensor."
@@ -408,7 +408,7 @@ SUNGROW_FAULT_MAP = {
 
     71: {
         "id_sungrow": 71,
-        "id_unified": 40,
+        "id_unified": 1406,
         "name": "VOLTAGE_SENSOR_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect voltage sensing circuit."
@@ -416,7 +416,7 @@ SUNGROW_FAULT_MAP = {
 
     72: {
         "id_sungrow": 72,
-        "id_unified": 41,
+        "id_unified": 1406,
         "name": "TEMPERATURE_SENSOR_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect temperature sensor."
@@ -439,7 +439,7 @@ HUAWEI_FAULT_MAP = {
     },
     2001: {
         "id_huawei": 2001,
-        "id_unified": 1,
+        "id_unified": 1001,
         "name": "GRID_OVERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check grid voltage and transformer tap setting."
@@ -447,7 +447,7 @@ HUAWEI_FAULT_MAP = {
 
     2002: {
         "id_huawei": 2002,
-        "id_unified": 2,
+        "id_unified": 1003,
         "name": "GRID_UNDERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check grid voltage and grid connection."
@@ -455,7 +455,7 @@ HUAWEI_FAULT_MAP = {
 
     2003: {
         "id_huawei": 2003,
-        "id_unified": 4,
+        "id_unified": 1005,
         "name": "GRID_OVERFREQUENCY",
         "severity": "ERROR",
         "repair_instruction": "Verify grid frequency stability."
@@ -463,7 +463,7 @@ HUAWEI_FAULT_MAP = {
 
     2004: {
         "id_huawei": 2004,
-        "id_unified": 5,
+        "id_unified": 1006,
         "name": "GRID_UNDERFREQUENCY",
         "severity": "ERROR",
         "repair_instruction": "Check grid frequency and utility stability."
@@ -471,7 +471,7 @@ HUAWEI_FAULT_MAP = {
 
     2005: {
         "id_huawei": 2005,
-        "id_unified": 6,
+        "id_unified": 1007,
         "name": "GRID_LOSS",
         "severity": "ERROR",
         "repair_instruction": "Check AC breaker, grid cable, and grid availability."
@@ -479,7 +479,7 @@ HUAWEI_FAULT_MAP = {
 
     2006: {
         "id_huawei": 2006,
-        "id_unified": 38,
+        "id_unified": 1009,
         "name": "GRID_PHASE_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check phase sequence and AC wiring."
@@ -491,7 +491,7 @@ HUAWEI_FAULT_MAP = {
 
     2011: {
         "id_huawei": 2011,
-        "id_unified": 7,
+        "id_unified": 1102,
         "name": "DC_OVERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check PV string voltage and configuration."
@@ -499,7 +499,7 @@ HUAWEI_FAULT_MAP = {
 
     2012: {
         "id_huawei": 2012,
-        "id_unified": 9,
+        "id_unified": 1202,
         "name": "DC_INSULATION_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check insulation resistance between PV and ground."
@@ -507,7 +507,7 @@ HUAWEI_FAULT_MAP = {
 
     2013: {
         "id_huawei": 2013,
-        "id_unified": 19,
+        "id_unified": 1206,
         "name": "GROUND_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect grounding system and PV wiring."
@@ -515,7 +515,7 @@ HUAWEI_FAULT_MAP = {
 
     2014: {
         "id_huawei": 2014,
-        "id_unified": 20,
+        "id_unified": 1201,
         "name": "LEAKAGE_CURRENT",
         "severity": "ERROR",
         "repair_instruction": "Check leakage current and grounding."
@@ -523,7 +523,7 @@ HUAWEI_FAULT_MAP = {
 
     2015: {
         "id_huawei": 2015,
-        "id_unified": 11,
+        "id_unified": 1105,
         "name": "STRING_FAULT",
         "severity": "WARNING",
         "repair_instruction": "Inspect PV string current and connectors."
@@ -535,7 +535,7 @@ HUAWEI_FAULT_MAP = {
 
     2021: {
         "id_huawei": 2021,
-        "id_unified": 12,
+        "id_unified": 1301,
         "name": "OVER_TEMPERATURE",
         "severity": "ERROR",
         "repair_instruction": "Check ventilation and ambient temperature."
@@ -543,7 +543,7 @@ HUAWEI_FAULT_MAP = {
 
     2022: {
         "id_huawei": 2022,
-        "id_unified": 13,
+        "id_unified": 1401,
         "name": "FAN_FAULT",
         "severity": "WARNING",
         "repair_instruction": "Check cooling fan operation."
@@ -551,7 +551,7 @@ HUAWEI_FAULT_MAP = {
 
     2023: {
         "id_huawei": 2023,
-        "id_unified": 14,
+        "id_unified": 1304,
         "name": "HEATSINK_OVER_TEMP",
         "severity": "ERROR",
         "repair_instruction": "Check heat sink cooling and airflow."
@@ -563,7 +563,7 @@ HUAWEI_FAULT_MAP = {
 
     2031: {
         "id_huawei": 2031,
-        "id_unified": 33,
+        "id_unified": 1701,
         "name": "HARDWARE_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect inverter hardware modules."
@@ -571,7 +571,7 @@ HUAWEI_FAULT_MAP = {
 
     2032: {
         "id_huawei": 2032,
-        "id_unified": 34,
+        "id_unified": 1704,
         "name": "SOFTWARE_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Restart inverter or update firmware."
@@ -579,7 +579,7 @@ HUAWEI_FAULT_MAP = {
 
     2033: {
         "id_huawei": 2033,
-        "id_unified": 15,
+        "id_unified": 1410,
         "name": "POWER_MODULE_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check internal power module."
@@ -587,7 +587,7 @@ HUAWEI_FAULT_MAP = {
 
     2034: {
         "id_huawei": 2034,
-        "id_unified": 16,
+        "id_unified": 1109,
         "name": "BUS_OVERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check DC bus voltage."
@@ -595,7 +595,7 @@ HUAWEI_FAULT_MAP = {
 
     2035: {
         "id_huawei": 2035,
-        "id_unified": 17,
+        "id_unified": 1110,
         "name": "BUS_UNDERVOLTAGE",
         "severity": "ERROR",
         "repair_instruction": "Check internal DC bus system."
@@ -603,7 +603,7 @@ HUAWEI_FAULT_MAP = {
 
     2036: {
         "id_huawei": 2036,
-        "id_unified": 18,
+        "id_unified": 1404,
         "name": "RELAY_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect AC relay or contactor."
@@ -615,7 +615,7 @@ HUAWEI_FAULT_MAP = {
 
     2041: {
         "id_huawei": 2041,
-        "id_unified": 24,
+        "id_unified": 1501,
         "name": "COMMUNICATION_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Check RS485 cable and communication module."
@@ -623,7 +623,7 @@ HUAWEI_FAULT_MAP = {
 
     2042: {
         "id_huawei": 2042,
-        "id_unified": 25,
+        "id_unified": 1503,
         "name": "RS485_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Verify RS485 wiring and termination."
@@ -631,7 +631,7 @@ HUAWEI_FAULT_MAP = {
 
     2043: {
         "id_huawei": 2043,
-        "id_unified": 26,
+        "id_unified": 1505,
         "name": "WIFI_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Check WiFi module and signal."
@@ -639,7 +639,7 @@ HUAWEI_FAULT_MAP = {
 
     2044: {
         "id_huawei": 2044,
-        "id_unified": 27,
+        "id_unified": 1504,
         "name": "PLC_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Check PLC communication link."
@@ -647,7 +647,7 @@ HUAWEI_FAULT_MAP = {
 
     2045: {
         "id_huawei": 2045,
-        "id_unified": 28,
+        "id_unified": 1502,
         "name": "METER_COMM_FAULT",
         "severity": "DISCONNECT",
         "repair_instruction": "Check smart meter communication."
@@ -659,7 +659,7 @@ HUAWEI_FAULT_MAP = {
 
     2051: {
         "id_huawei": 2051,
-        "id_unified": 29,
+        "id_unified": 1601,
         "name": "AFCI_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect PV wiring for arc fault."
@@ -667,7 +667,7 @@ HUAWEI_FAULT_MAP = {
 
     2052: {
         "id_huawei": 2052,
-        "id_unified": 30,
+        "id_unified": 1402,
         "name": "SPD_FAULT",
         "severity": "WARNING",
         "repair_instruction": "Check surge protection device."
@@ -675,7 +675,7 @@ HUAWEI_FAULT_MAP = {
 
     2053: {
         "id_huawei": 2053,
-        "id_unified": 31,
+        "id_unified": 1015,
         "name": "PID_PROTECTION",
         "severity": "WARNING",
         "repair_instruction": "Check PID protection status."
@@ -683,7 +683,7 @@ HUAWEI_FAULT_MAP = {
 
     2054: {
         "id_huawei": 2054,
-        "id_unified": 32,
+        "id_unified": 1015,
         "name": "ANTI_ISLANDING_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check grid stability and protection."
@@ -695,7 +695,7 @@ HUAWEI_FAULT_MAP = {
 
     2061: {
         "id_huawei": 2061,
-        "id_unified": 36,
+        "id_unified": 1703,
         "name": "STARTUP_FAIL",
         "severity": "ERROR",
         "repair_instruction": "Restart inverter and check parameters."
@@ -703,7 +703,7 @@ HUAWEI_FAULT_MAP = {
 
     2062: {
         "id_huawei": 2062,
-        "id_unified": 37,
+        "id_unified": 1701,
         "name": "SHUTDOWN_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Check shutdown cause and restart."
@@ -711,7 +711,7 @@ HUAWEI_FAULT_MAP = {
 
     2063: {
         "id_huawei": 2063,
-        "id_unified": 35,
+        "id_unified": 1706,
         "name": "CONFIGURATION_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Verify inverter configuration parameters."
@@ -723,7 +723,7 @@ HUAWEI_FAULT_MAP = {
 
     2071: {
         "id_huawei": 2071,
-        "id_unified": 39,
+        "id_unified": 1406,
         "name": "CURRENT_SENSOR_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect current sensor hardware."
@@ -731,7 +731,7 @@ HUAWEI_FAULT_MAP = {
 
     2072: {
         "id_huawei": 2072,
-        "id_unified": 40,
+        "id_unified": 1406,
         "name": "VOLTAGE_SENSOR_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect voltage sensing circuit."
@@ -739,7 +739,7 @@ HUAWEI_FAULT_MAP = {
 
     2073: {
         "id_huawei": 2073,
-        "id_unified": 41,
+        "id_unified": 1406,
         "name": "TEMPERATURE_SENSOR_FAULT",
         "severity": "ERROR",
         "repair_instruction": "Inspect temperature sensor."
@@ -747,208 +747,208 @@ HUAWEI_FAULT_MAP = {
 }
 HUAWEI_STATE_MAP = {
 
-0: {
-"id_huawei": 0,
-"id_unified": 12,
-"name": "INITIAL_STANDBY",
-"severity": "STABLE",
-"description": "Inverter initialized and waiting"
-},
+    0: {
+    "id_huawei": 0,
+    "id_unified": 12,
+    "name": "INITIAL_STANDBY",
+    "severity": "STABLE",
+    "description": "Inverter initialized and waiting"
+    },
 
-1: {
-"id_huawei": 1,
-"id_unified": 13,
-"name": "GRID_DETECTING",
-"severity": "WARNING",
-"description": "Detecting grid parameters"
-},
+    1: {
+    "id_huawei": 1,
+    "id_unified": 13,
+    "name": "GRID_DETECTING",
+    "severity": "WARNING",
+    "description": "Detecting grid parameters"
+    },
 
-2: {
-"id_huawei": 2,
-"id_unified": 14,
-"name": "INSULATION_CHECK",
-"severity": "WARNING",
-"description": "Performing insulation resistance test"
-},
+    2: {
+    "id_huawei": 2,
+    "id_unified": 14,
+    "name": "INSULATION_CHECK",
+    "severity": "WARNING",
+    "description": "Performing insulation resistance test"
+    },
 
-3: {
-"id_huawei": 3,
-"id_unified": 15,
-"name": "SELF_CHECK",
-"severity": "WARNING",
-"description": "Self check before startup"
-},
+    3: {
+    "id_huawei": 3,
+    "id_unified": 15,
+    "name": "SELF_CHECK",
+    "severity": "WARNING",
+    "description": "Self check before startup"
+    },
 
-4: {
-"id_huawei": 4,
-"id_unified": 3,
-"name": "STARTING",
-"severity": "WARNING",
-"description": "Inverter starting"
-},
+    4: {
+    "id_huawei": 4,
+    "id_unified": 3,
+    "name": "STARTING",
+    "severity": "WARNING",
+    "description": "Inverter starting"
+    },
 
-5: {
-"id_huawei": 5,
-"id_unified": 1,
-"name": "RUNNING",
-"severity": "STABLE",
-"description": "Inverter running normally"
-},
+    5: {
+    "id_huawei": 5,
+    "id_unified": 1,
+    "name": "RUNNING",
+    "severity": "STABLE",
+    "description": "Inverter running normally"
+    },
 
-6: {
-"id_huawei": 6,
-"id_unified": 6,
-"name": "ALARM_RUNNING",
-"severity": "WARNING",
-"description": "Running with alarm"
-},
+    6: {
+    "id_huawei": 6,
+    "id_unified": 6,
+    "name": "ALARM_RUNNING",
+    "severity": "WARNING",
+    "description": "Running with alarm"
+    },
 
-7: {
-"id_huawei": 7,
-"id_unified": 7,
-"name": "DERATING",
-"severity": "WARNING",
-"description": "Running with power derating"
-},
+    7: {
+    "id_huawei": 7,
+    "id_unified": 7,
+    "name": "DERATING",
+    "severity": "WARNING",
+    "description": "Running with power derating"
+    },
 
-8: {
-"id_huawei": 8,
-"id_unified": 4,
-"name": "STOPPED",
-"severity": "ERROR",
-"description": "Inverter stopped"
-},
+    8: {
+    "id_huawei": 8,
+    "id_unified": 4,
+    "name": "STOPPED",
+    "severity": "ERROR",
+    "description": "Inverter stopped"
+    },
 
-9: {
-"id_huawei": 9,
-"id_unified": 5,
-"name": "FAULT",
-"severity": "ERROR",
-"description": "Fault condition detected"
-},
+    9: {
+    "id_huawei": 9,
+    "id_unified": 5,
+    "name": "FAULT",
+    "severity": "ERROR",
+    "description": "Fault condition detected"
+    },
 
-10: {
-"id_huawei": 10,
-"id_unified": 18,
-"name": "UPGRADING",
-"severity": "WARNING",
-"description": "Firmware upgrading"
-},
+    10: {
+    "id_huawei": 10,
+    "id_unified": 18,
+    "name": "UPGRADING",
+    "severity": "WARNING",
+    "description": "Firmware upgrading"
+    },
 
-11: {
-"id_huawei": 11,
-"id_unified": 19,
-"name": "SHUTTING_DOWN",
-"severity": "WARNING",
-"description": "Shutdown in progress"
-},
+    11: {
+    "id_huawei": 11,
+    "id_unified": 19,
+    "name": "SHUTTING_DOWN",
+    "severity": "WARNING",
+    "description": "Shutdown in progress"
+    },
 
-12: {
-"id_huawei": 12,
-"id_unified": 21,
-"name": "GRID_FAULT_WAIT",
-"severity": "WARNING",
-"description": "Waiting for grid recovery"
-},
+    12: {
+    "id_huawei": 12,
+    "id_unified": 21,
+    "name": "GRID_FAULT_WAIT",
+    "severity": "WARNING",
+    "description": "Waiting for grid recovery"
+    },
 
-13: {
-"id_huawei": 13,
-"id_unified": 17,
-"name": "MAINTENANCE_MODE",
-"severity": "ERROR",
-"description": "Maintenance mode active"
-}
+    13: {
+    "id_huawei": 13,
+    "id_unified": 17,
+    "name": "MAINTENANCE_MODE",
+    "severity": "ERROR",
+    "description": "Maintenance mode active"
+    }
 
 }
 SUNGROW_STATE_MAP = {
 
-0: {
-"id_sungrow": 0,
-"id_unified": 2,
-"name": "STANDBY",
-"severity": "STABLE",
-"description": "Standby state waiting for solar input"
-},
+    0: {
+    "id_sungrow": 0,
+    "id_unified": 2,
+    "name": "STANDBY",
+    "severity": "STABLE",
+    "description": "Standby state waiting for solar input"
+    },
 
-1: {
-"id_sungrow": 1,
-"id_unified": 3,
-"name": "STARTING",
-"severity": "WARNING",
-"description": "System starting"
-},
+    1: {
+    "id_sungrow": 1,
+    "id_unified": 3,
+    "name": "STARTING",
+    "severity": "WARNING",
+    "description": "System starting"
+    },
 
-2: {
-"id_sungrow": 2,
-"id_unified": 1,
-"name": "RUNNING",
-"severity": "STABLE",
-"description": "Inverter running normally"
-},
+    2: {
+    "id_sungrow": 2,
+    "id_unified": 1,
+    "name": "RUNNING",
+    "severity": "STABLE",
+    "description": "Inverter running normally"
+    },
 
-3: {
-"id_sungrow": 3,
-"id_unified": 6,
-"name": "ALARM_RUNNING",
-"severity": "WARNING",
-"description": "Running with warning"
-},
+    3: {
+    "id_sungrow": 3,
+    "id_unified": 6,
+    "name": "ALARM_RUNNING",
+    "severity": "WARNING",
+    "description": "Running with warning"
+    },
 
-4: {
-"id_sungrow": 4,
-"id_unified": 7,
-"name": "DERATING",
-"severity": "WARNING",
-"description": "Power derating active"
-},
+    4: {
+    "id_sungrow": 4,
+    "id_unified": 7,
+    "name": "DERATING",
+    "severity": "WARNING",
+    "description": "Power derating active"
+    },
 
-5: {
-"id_sungrow": 5,
-"id_unified": 8,
-"name": "DISPATCH_RUNNING",
-"severity": "WARNING",
-"description": "Power dispatch or remote control"
-},
+    5: {
+    "id_sungrow": 5,
+    "id_unified": 8,
+    "name": "DISPATCH_RUNNING",
+    "severity": "WARNING",
+    "description": "Power dispatch or remote control"
+    },
 
-6: {
-"id_sungrow": 6,
-"id_unified": 4,
-"name": "STOPPED",
-"severity": "ERROR",
-"description": "Inverter stopped"
-},
+    6: {
+    "id_sungrow": 6,
+    "id_unified": 4,
+    "name": "STOPPED",
+    "severity": "ERROR",
+    "description": "Inverter stopped"
+    },
 
-7: {
-"id_sungrow": 7,
-"id_unified": 5,
-"name": "FAULT",
-"severity": "ERROR",
-"description": "Fault state"
-},
+    7: {
+    "id_sungrow": 7,
+    "id_unified": 5,
+    "name": "FAULT",
+    "severity": "ERROR",
+    "description": "Fault state"
+    },
 
-8: {
-"id_sungrow": 8,
-"id_unified": 10,
-"name": "EMERGENCY_STOP",
-"severity": "ERROR",
-"description": "Emergency stop triggered"
-},
+    8: {
+    "id_sungrow": 8,
+    "id_unified": 10,
+    "name": "EMERGENCY_STOP",
+    "severity": "ERROR",
+    "description": "Emergency stop triggered"
+    },
 
-9: {
-"id_sungrow": 9,
-"id_unified": 11,
-"name": "KEY_STOP",
-"severity": "ERROR",
-"description": "Manual stop via key"
-},
+    9: {
+    "id_sungrow": 9,
+    "id_unified": 11,
+    "name": "KEY_STOP",
+    "severity": "ERROR",
+    "description": "Manual stop via key"
+    },
 
-10: {
-"id_sungrow": 10,
-"id_unified": 20,
-"name": "POWER_LIMITED",
-"severity": "WARNING",
-"description": "Power limited by grid dispatch"
-}
+    10: {
+    "id_sungrow": 10,
+    "id_unified": 20,
+    "name": "POWER_LIMITED",
+    "severity": "WARNING",
+    "description": "Power limited by grid dispatch"
+    }
 }
 
 def create_unified_fault_payload(fault_code: int = 0, fault_description: str = None, repair_instruction: str = None, severity: str = "STABLE", state_id: int = None, state_name: str = None) -> dict:
