@@ -130,12 +130,21 @@ def buoc_3_tao_telemetry(
 
     payload = telemetry_service._build_payload(project.id, snapshot)
 
-    # --- Post-process: errors = ["RUNNING"] khi không có lỗi thực ---
+    # --- Post-process: errors = ["RUNNING"] object khi không có lỗi thực ---
+    current_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     for inv in payload.get("inverters", []):
         if not inv.get("errors"):
-            inv["errors"] = ["RUNNING"]
+            inv["errors"] = [
+                {
+                    "fault_code": 0,
+                    "fault_description": "RUNNING",
+                    "repair_instruction": "N/A",
+                    "severity": "STABLE",
+                    "created_at": current_ts
+                }
+            ]
 
-    # --- Format giống data.txt: chỉ "project" và "inverters" ---
+    # --- Format giống data.txt: chỉ "project" và "inverters", không có { } ngoài cùng ---
     output_payload = {
         "project":   payload["project"],
         "inverters": payload["inverters"],
@@ -146,11 +155,17 @@ def buoc_3_tao_telemetry(
         f"{len(payload.get('inverters', []))} inverter(s)"
     )
 
+    # Dump JSON string and strip the first { and last }
+    json_str = json.dumps(output_payload, indent=4, ensure_ascii=False).strip()
+    if json_str.startswith("{") and json_str.endswith("}"):
+        json_str = json_str[1:-1].strip()
+
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(output_payload, f, indent=4, ensure_ascii=False)
+        f.write(json_str)
+        
     logger.info(f"Đã lưu telemetry → {os.path.abspath(output_file)}")
 
-    # Trả về full payload (có project_id, server_id) để lưu vào all_results
+    # Trả về full payload (có project_id, server_id) cho all_results
     return payload
 
 
@@ -215,9 +230,7 @@ def run_test():
                 OUTPUT_FILE,
             )
             if payload:
-                all_results.append(
-                    "payload":      payload,
-                )
+                all_results.append(payload)
 
         # --- Tổng kết ---
         print("\n" + "=" * 60)
