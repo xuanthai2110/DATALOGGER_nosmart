@@ -112,22 +112,29 @@ class TelemetryService:
                 "errors": errors_block,
             })
 
-        return self._round_floats({
+        return self._normalize_payload({
             "project":    project_block,
             "inverters":  inverters_block,
         })
 
-    def _round_floats(self, data: Any) -> Any:
-        """Đảm bảo làm tròn 2 chữ số thập phân cho mọi giá trị float trong payload để tránh lỗi precision"""
+    def _normalize_payload(self, data: Any) -> Any:
+        """Chuẩn hoá và làm tròn toàn bộ JSON telemetry payload trước khi gửi"""
+        if not hasattr(self, '_norm_svc'):
+            from services.normalization_service import NormalizationService, VALID_RANGE
+            self._norm_svc = NormalizationService()
+            self._norm_keys = VALID_RANGE
+
         if isinstance(data, dict):
             for k, v in data.items():
-                if isinstance(v, float):
+                if k in self._norm_keys:
+                    data[k] = self._norm_svc._process_field(k, v)
+                elif isinstance(v, float):
                     data[k] = round(v, 2)
                 elif isinstance(v, (dict, list)):
-                    self._round_floats(v)
+                    self._normalize_payload(v)
         elif isinstance(data, list):
             for item in data:
-                self._round_floats(item)
+                self._normalize_payload(item)
         return data
 
     # --- Sub-builders ---

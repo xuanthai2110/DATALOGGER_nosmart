@@ -59,6 +59,16 @@ VALID_RANGE: dict[str, tuple[float, float]] = {
     "e_daily":  (0.0,    10000.0),  # kWh
     "e_monthly": (0.0,   1000000.0), # kWh
     "e_total":  (0.0,    1e9),      # kWh
+
+    # Telemetry Final Payload Keys
+    "Temp_C": (-40.0, 100.0), "P_ac": (-200000.0, 200000.0), "P_dc": (0.0, 400000.0),
+    "E_daily": (0.0, 10000.0), "E_monthly": (0.0, 1000000.0), "E_total": (0.0, 1e9),
+    "IR": (0.0, 10000.0), "Q_ac": (-200000.0, 200000.0), "V_a": (0.0, 440.0),
+    "V_b": (0.0, 440.0), "V_c": (0.0, 440.0), "I_a": (-1000.0, 1000.0),
+    "I_b": (-1000.0, 1000.0), "I_c": (-1000.0, 1000.0), "PF": (-1.0, 1.0),
+    "H": (0.0, 70.0), "V_mppt": (0.0, 1500.0), "I_mppt": (-100.0, 100.0),
+    "P_mppt": (0.0, 200000.0), "Max_I": (-100.0, 100.0), "Max_V": (0.0, 1500.0),
+    "Max_P": (0.0, 200000.0)
 }
 
 # =========================================================
@@ -73,6 +83,12 @@ ROUND_DIGITS: dict[str, int] = {
     **{f"mppt_{i}_voltage": 2 for i in range(1, 11)},
     **{f"mppt_{i}_current": 2 for i in range(1, 11)},
     **{f"string_{i}_current": 2 for i in range(1, 21)},
+
+    # Telemetry Final Payload Keys
+    "Temp_C": 2, "P_ac": 2, "P_dc": 2, "E_daily": 2, "E_monthly": 2, "E_total": 2,
+    "IR": 2, "Q_ac": 2, "V_a": 2, "V_b": 2, "V_c": 2, "I_a": 2, "I_b": 2, "I_c": 2,
+    "PF": 2, "H": 2, "V_mppt": 2, "I_mppt": 2, "P_mppt": 2, "Max_I": 2, "Max_V": 2,
+    "Max_P": 2
 }
 
 DEFAULT_ROUND = 2  # Mặc định làm tròn 2 chữ số thập phân cho các tham số chưa khai báo
