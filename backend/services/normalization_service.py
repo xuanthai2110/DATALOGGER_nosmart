@@ -42,13 +42,13 @@ VALID_RANGE: dict[str, tuple[float, float]] = {
     "i_a":        (-1000.0, 1000.0),
     "i_b":        (-1000.0, 1000.0),
     "i_c":        (-1000.0, 1000.0),
-    "p_inv_w":    (-200.0,  200.0),    # kW (driver scale 0.001 từ W)
-    "q_inv_var":  (-200.0,  200.0),    # kvar
+    "p_inv_w":    (-200000.0,  200000.0),    # W
+    "q_inv_var":  (-200000.0,  200000.0),    # var
     "pf":         (-1.0,    1.0),
     "grid_hz":    (0.0,    70.0),
 
     # DC
-    "p_dc_w":     (0.0,    400.0),     # kW
+    "p_dc_w":     (0.0,    400000.0),     # W
     **{f"mppt_{i}_voltage": (-1000.0, 1500.0) for i in range(1, 11)},
     **{f"mppt_{i}_current": (-100.0, 100.0)  for i in range(1, 11)},
     **{f"string_{i}_current": (-100.0, 100.0) for i in range(1, 21)},

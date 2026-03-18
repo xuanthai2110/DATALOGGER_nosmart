@@ -249,14 +249,14 @@ class HuaweiSUN2000(BaseDriver):
                 {"name": "i_b", "address": 32074, "length": 2, "type": "sint32", "scale": 0.001},
                 {"name": "i_c", "address": 32076, "length": 2, "type": "sint32", "scale": 0.001},
 
-                {"name": "p_inv_w", "address": 32080, "length": 2, "type": "sint32", "scale": 0.001},
-                {"name": "q_inv_var", "address": 32082, "length": 2, "type": "sint32", "scale": 0.001},
+                {"name": "p_inv_w", "address": 32080, "length": 2, "type": "sint32", "scale": 1},
+                {"name": "q_inv_var", "address": 32082, "length": 2, "type": "sint32", "scale": 1},
                 {"name": "pf", "address": 32084, "length": 1, "type": "sint16", "scale": 0.001},
                 {"name": "grid_hz", "address": 32085, "length": 1, "type": "uint16", "scale": 0.01},
             ],
 
             "dc": [
-                {"name": "p_dc_w", "address": 32064, "length": 2, "type": "uint32", "scale": 0.001},
+                {"name": "p_dc_w", "address": 32064, "length": 2, "type": "uint32", "scale": 1},
 
                 {"name": "mppt_1_voltage", "address": 32016, "length": 1, "type": "sint16", "scale": 0.1},
                 {"name": "mppt_2_voltage", "address": 32018, "length": 1, "type": "sint16", "scale": 0.1},

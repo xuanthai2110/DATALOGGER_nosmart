@@ -199,7 +199,7 @@ class PollingService:
                 mx = max_data["mppt"].get(i, {"Max_V": 0, "Max_I": 0, "Max_P": 0})
                 mppt_records.append(mpptRealtimeCreate(
                     project_id=project_id, inverter_id=inv.id, mppt_index=i,
-                    V_mppt=v, I_mppt=curr, P_mppt=round((v * curr) / 1000.0, 2),
+                    V_mppt=v, I_mppt=curr, P_mppt=round(v * curr, 2),
                     Max_I=mx["Max_I"], Max_V=mx["Max_V"], Max_P=mx["Max_P"],
                     created_at=now_str
                 ))
