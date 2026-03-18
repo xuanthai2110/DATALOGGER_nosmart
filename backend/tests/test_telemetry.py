@@ -16,6 +16,7 @@ import os
 import sys
 import json
 import logging
+from datetime import datetime, timezone
 
 # --- Path setup -------------------------------------------------------
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -114,9 +115,9 @@ def buoc_3_tao_telemetry(
 ) -> dict | None:
     """
     Lấy snapshot mới nhất từ RealtimeDB → build telemetry payload.
-    Ghi kết quả ra file JSON theo format giống data.txt để kiểm tra trực quan:
-      - Chỉ giữ "project" và "inverters" (bỏ project_id, server_id, timestamp cấp ngoài)
-      - Khi inverter không có lỗi → errors = ["RUNNING"]
+    Ghi kết quả ra file JSON theo format server chấp nhận:
+      - Chỉ giữ "project" và "inverters"
+      - Logic "RUNNING" đã được xử lý trong telemetry_service.
 
     Returns:
         payload dict nếu thành công, None nếu không có snapshot.
@@ -130,21 +131,7 @@ def buoc_3_tao_telemetry(
 
     payload = telemetry_service._build_payload(project.id, snapshot)
 
-    # --- Post-process: errors = ["RUNNING"] object khi không có lỗi thực ---
-    current_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-    for inv in payload.get("inverters", []):
-        if not inv.get("errors"):
-            inv["errors"] = [
-                {
-                    "fault_code": 0,
-                    "fault_description": "RUNNING",
-                    "repair_instruction": "N/A",
-                    "severity": "STABLE",
-                    "created_at": current_ts
-                }
-            ]
-
-    # --- Format giống data.txt: chỉ "project" và "inverters", không có { } ngoài cùng ---
+    # --- Format chuẩn server: chỉ "project" và "inverters" ---
     output_payload = {
         "project":   payload["project"],
         "inverters": payload["inverters"],
@@ -155,17 +142,13 @@ def buoc_3_tao_telemetry(
         f"{len(payload.get('inverters', []))} inverter(s)"
     )
 
-    # Dump JSON string and strip the first { and last }
-    json_str = json.dumps(output_payload, indent=4, ensure_ascii=False).strip()
-    if json_str.startswith("{") and json_str.endswith("}"):
-        json_str = json_str[1:-1].strip()
-
+    # Lưu file JSON (có dấu { } ngoài cùng) cho việc kiểm tra
     with open(output_file, "w", encoding="utf-8") as f:
-        f.write(json_str)
+        json.dump(output_payload, f, indent=4, ensure_ascii=False)
         
     logger.info(f"Đã lưu telemetry → {os.path.abspath(output_file)}")
 
-    # Trả về full payload (có project_id, server_id) cho all_results
+    # Trả về full payload cho all_results
     return payload
 
 

@@ -49,6 +49,7 @@ class TelemetryService:
     def _build_payload(self, project_id: int, snapshot: dict) -> dict:
         """
         Chuẩn hoá snapshot thành telemetry payload theo đúng format server.
+        Nếu inverter không có lỗi, thêm một bản ghi "RUNNING" vào errors.
         """
         # Server yêu cầu định dạng ISO với chữ Z ở cuối và đầy đủ microsecond (6 chữ số)
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
@@ -62,8 +63,8 @@ class TelemetryService:
             "E_daily":    project_rt.get("E_daily", 0),
             "E_monthly":  project_rt.get("E_monthly", 0),
             "E_total":    project_rt.get("E_total", 0),
-            "severity":   "STABLE", # Ép kiểu về STABLE theo schema server
-            "created_at": timestamp, # Đồng nhất theo snapshot time
+            "severity":   "STABLE", 
+            "created_at": timestamp,
         }
 
         # --- Inverters ---
@@ -72,17 +73,35 @@ class TelemetryService:
             spm_config = inv.get("strings_per_mppt")
             spm_list = [int(x.strip()) for x in spm_config.split(",")] if spm_config else []
 
+            # Xử lý errors
+            raw_errors = inv.get("errors") or []
+            if not raw_errors:
+                # Nếu không có lỗi, tạo object "RUNNING" như server yêu cầu
+                errors_block = [
+                    {
+                        "fault_code": 0,
+                        "fault_description": "RUNNING",
+                        "repair_instruction": "",
+                        "severity": "STABLE",
+                        "created_at": timestamp
+                    }
+                ]
+            else:
+                errors_block = [self._build_error(e, timestamp) for e in raw_errors]
+
+                # Đảm bảo repair_instruction không null (ưu tiên string rỗng nếu None)
+                for e in errors_block:
+                    if e.get("repair_instruction") is None:
+                        e["repair_instruction"] = ""
+
             inverters_block.append({
                 "serial_number": inv.get("serial_number", ""),
                 "ac":     self._build_ac(inv.get("ac") or {}, timestamp),
                 "mppts":  [self._build_mppt(m, timestamp, spm_list) for m in inv.get("mppts") or []],
-                "errors": [self._build_error(e, timestamp) for e in inv.get("errors") or []],
+                "errors": errors_block,
             })
 
         return {
-            "project_id": project_id,
-            "server_id":  snapshot.get("metadata", {}).get("server_id"),
-            "timestamp":  timestamp,
             "project":    project_block,
             "inverters":  inverters_block,
         }
@@ -106,17 +125,15 @@ class TelemetryService:
             "E_daily":   ac.get("E_daily", 0),
             "E_monthly": ac.get("E_monthly", 0),
             "E_total":   ac.get("E_total", 0),
-            "created_at": snapshot_ts, # Đè bằng snapshot time để đồng bộ
+            "created_at": snapshot_ts,
         }
 
     def _build_mppt(self, mppt: dict, snapshot_ts: str, spm_list: list = None) -> dict:
         m_idx = mppt.get("mppt_index", 0)
-        # Nếu có config trong spm_list thì ưu tiên, nếu không thì đếm số string thực tế
         config_val = 0
         if spm_list and 0 < m_idx <= len(spm_list):
             config_val = spm_list[m_idx - 1]
         
-        # Nếu config = 0, thử lấy từ realtime_mppt, nếu vẫn 0 thì đếm len(strings)
         string_count = config_val or mppt.get("string_on_mppt", 0) or len(mppt.get("strings") or [])
 
         strings = [
@@ -124,7 +141,7 @@ class TelemetryService:
                 "string_index": s.get("string_index", 0),
                 "I_mppt":       s.get("I_mppt", 0),
                 "Max_I":        s.get("Max_I", 0),
-                "created_at":   snapshot_ts, # Đè bằng snapshot time
+                "created_at":   snapshot_ts,
             }
             for s in mppt.get("strings") or []
         ]
@@ -137,7 +154,7 @@ class TelemetryService:
             "Max_I":         mppt.get("Max_I", 0),
             "Max_V":         mppt.get("Max_V", 0),
             "Max_P":         mppt.get("Max_P", 0),
-            "created_at":    snapshot_ts, # Đè bằng snapshot time
+            "created_at":    snapshot_ts,
             "strings":       strings,
         }
 
@@ -145,8 +162,8 @@ class TelemetryService:
         return {
             "fault_code":         error.get("fault_code", 0),
             "fault_description":  error.get("fault_description", ""),
-            "repair_instruction": error.get("repair_instruction", ""),
-            "severity":           "STABLE", # Ép kiểu về STABLE theo schema server
+            "repair_instruction": error.get("repair_instruction") or "",
+            "severity":           "STABLE",
             "created_at":         self._format_ts(error.get("created_at") or fallback_ts),
         }
 
@@ -154,16 +171,12 @@ class TelemetryService:
     def _format_ts(ts: str) -> str:
         """Đảm bảo format ISO và kết thúc bằng Z"""
         if not ts: return ""
-        # Nếu đã có Z thì trả về luôn
         if ts.endswith("Z"): return ts
         
-        # Nếu có space (sqlite format), thay bằng T
         if " " in ts and "T" not in ts:
             ts = ts.replace(" ", "T")
             
-        # Nếu có lệch múi giờ +00:00 thì thay bằng Z
         if "+00:00" in ts:
             return ts.replace("+00:00", "Z")
             
-        # Mặc định thêm Z nếu chưa có
         return ts + "Z"
