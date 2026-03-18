@@ -97,7 +97,7 @@ class TrackingService:
             logger.warning(f"Large energy delta detected for inv {inverter_id}: {delta}. Capping to 0.")
             delta = 0.0
             
-        self.e_monthly_map[inverter_id] = self.e_monthly_map.get(inverter_id, 0.0) + delta
+        self.e_monthly_map[inverter_id] = round(self.e_monthly_map.get(inverter_id, 0.0) + delta, 2)
         self.last_e_total_map[inverter_id] = current_e_total
         
         return self.e_monthly_map[inverter_id]
@@ -107,9 +107,9 @@ class TrackingService:
         # MPPT Max & Reverse Polarity check
         if inverter_id not in self.mppt_max: self.mppt_max[inverter_id] = {}
         for i in range(1, mppt_count + 1):
-            v = data.get(f"mppt_{i}_voltage", 0.0) or 0.0
-            i_val = data.get(f"mppt_{i}_current", 0.0) or 0.0
-            p = abs(v * i_val) / 1000.0 # Công suất luôn dương
+            v = round(data.get(f"mppt_{i}_voltage", 0.0) or 0.0, 2)
+            i_val = round(data.get(f"mppt_{i}_current", 0.0) or 0.0, 2)
+            p = round(abs(v * i_val) / 1000.0, 2) # Công suất luôn dương
             
             # Kiểm tra ngược cực
             if v < -1.0 or i_val < -1.0:
@@ -125,7 +125,7 @@ class TrackingService:
         # String Max & Reverse Polarity check
         if inverter_id not in self.string_max: self.string_max[inverter_id] = {}
         for i in range(1, string_count + 1):
-            s_i = data.get(f"string_{i}_current", 0.0) or 0.0
+            s_i = round(data.get(f"string_{i}_current", 0.0) or 0.0, 2)
             
             if s_i < -1.0:
                 self._log_reverse_polarity(project_id, inverter_id, f"String_{i}", current=s_i)

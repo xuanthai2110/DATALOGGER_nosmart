@@ -199,7 +199,7 @@ class PollingService:
                 mx = max_data["mppt"].get(i, {"Max_V": 0, "Max_I": 0, "Max_P": 0})
                 mppt_records.append(mpptRealtimeCreate(
                     project_id=project_id, inverter_id=inv.id, mppt_index=i,
-                    V_mppt=v, I_mppt=curr, P_mppt=(v * curr) / 1000.0,
+                    V_mppt=v, I_mppt=curr, P_mppt=round((v * curr) / 1000.0, 2),
                     Max_I=mx["Max_I"], Max_V=mx["Max_V"], Max_P=mx["Max_P"],
                     created_at=now_str
                 ))
@@ -227,9 +227,9 @@ class PollingService:
             self.realtime_db.post_mppt_batch(mppt_records)
             self.realtime_db.post_string_batch(string_records)
             self.realtime_db.post_project_realtime(ProjectRealtimeCreate(
-                project_id=project_id, Temp_C=p_sums["temp"] if p_sums["temp"] > -99 else 0.0,
-                P_ac=p_sums["pac"], P_dc=p_sums["pdc"], E_daily=p_sums["edaily"],
-                E_monthly=p_sums["emonthly"], E_total=p_sums["etotal"],
+                project_id=project_id, Temp_C=round(p_sums["temp"] if p_sums["temp"] > -99 else 0.0, 2),
+                P_ac=round(p_sums["pac"], 2), P_dc=round(p_sums["pdc"], 2), E_daily=round(p_sums["edaily"], 2),
+                E_monthly=round(p_sums["emonthly"], 2), E_total=round(p_sums["etotal"], 2),
                 severity="STABLE", created_at=now_str
             ))
             

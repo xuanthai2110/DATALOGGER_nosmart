@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -112,10 +113,23 @@ class TelemetryService:
                 "errors": errors_block,
             })
 
-        return {
+        return self._round_floats({
             "project":    project_block,
             "inverters":  inverters_block,
-        }
+        })
+
+    def _round_floats(self, data: Any) -> Any:
+        """Đảm bảo làm tròn 2 chữ số thập phân cho mọi giá trị float trong payload để tránh lỗi precision"""
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(v, float):
+                    data[k] = round(v, 2)
+                elif isinstance(v, (dict, list)):
+                    self._round_floats(v)
+        elif isinstance(data, list):
+            for item in data:
+                self._round_floats(item)
+        return data
 
     # --- Sub-builders ---
 
