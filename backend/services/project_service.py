@@ -146,7 +146,18 @@ class ProjectService:
                 if inv_id not in error_map: error_map[inv_id] = []
                 error_map[inv_id].append(dict(r))
 
-        # 4. Assembly
+        # 4. Fetch Latest JSON for State/Severity fallback
+        latest_json_map = {}
+        with self.realtime_db._connect() as conn:
+            rows = conn.execute("SELECT inverter_id, data_json FROM latest_realtime WHERE project_id = ?", (project_id,)).fetchall()
+            import json
+            for r in rows:
+                try:
+                    latest_json_map[r["inverter_id"]] = json.loads(r["data_json"])
+                except:
+                    pass
+
+        # 5. Assembly
         inverters_json = []
         for inv in inverters_meta:
             inv_id = inv.id
@@ -154,12 +165,17 @@ class ProjectService:
             for m in mppts:
                 m["strings"] = string_map.get((inv_id, m["mppt_index"]), [])
 
+            # Lấy data_json để lấy state_name/severity dự phòng
+            lj = latest_json_map.get(inv_id, {})
+
             inverters_json.append({
                 "serial_number": inv.serial_number,
                 "strings_per_mppt": getattr(inv, "strings_per_mppt", None),
                 "ac": ac_map.get(inv_id),
                 "mppts": mppts,
-                "errors": error_map.get(inv_id, [])
+                "errors": error_map.get(inv_id, []),
+                "state_name": lj.get("state_name"),
+                "severity": lj.get("severity")
             })
 
         return {
