@@ -88,23 +88,25 @@ class PollingService:
                     # Mapping thống nhất (Ưu tiên Fault -> Fallback State)
                     status_payload = self.fault_service.get_inverter_status_payload(inv.brand, raw_state, raw_fault)
                     
-                    # Cập nhật thông tin vào raw_data
-                    # Lưu ý: fault_description ở đây sẽ là State Name nếu fault_code=0
-                    raw_data["fault_description"] = status_payload["fault_description"]
-                    raw_data["repair_instruction"] = status_payload["repair_instruction"]
-                    raw_data["severity"] = status_payload["severity"]
+                    # Lưu kết quả mapping đầy đủ vào raw_data để các service sau sử dụng
+                    raw_data["mapped_status"] = status_payload 
                     
-                    # Unified state name để Dashboard/Local UI hiển thị đúng trạng thái vận hành
+                    # Đồng bộ các trường cũ để Dashboard/Local UI vẫn chạy tốt
                     state_info = self.fault_service.map_state(inv.brand, raw_state)
                     raw_data["state_name"] = state_info["name"]
+                    raw_data["severity"] = status_payload["severity"]
                     
-                    # Nếu có lỗi thật, map_fault để lấy chi tiết cho Dashboard
                     if raw_fault != 0:
                         fault_info = self.fault_service.map_fault(inv.brand, raw_fault)
-                        raw_data["fault_description"] = fault_info["name"] # Ghi đè lại bằng fault name thật
+                        raw_data["fault_description"] = fault_info["name"]
+                        raw_data["repair_instruction"] = fault_info["repair_instruction"]
+                    else:
+                        raw_data["fault_description"] = state_info["name"]
+                        raw_data["repair_instruction"] = ""
                 else:
                     raw_data["severity"] = "STABLE"
                     raw_data["state_name"] = "UNKNOWN"
+                    raw_data["mapped_status"] = None
 
                 # Calculate E_monthly
                 e_monthly = self.tracking.update_energy(inv.id, raw_data.get("e_total", 0.0) or 0.0)
