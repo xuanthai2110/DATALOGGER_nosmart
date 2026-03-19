@@ -256,9 +256,6 @@ class TelemetryService:
 
         # Tạo payload cuối cùng (Object trong một List)
         result = {
-            "project_id": project_id,
-            "server_id":  server_id,
-            "timestamp":  timestamp,
             "project":    project_block,
             "inverters":  inverters_block,
         }
