@@ -175,7 +175,8 @@ class ProjectService:
                 "mppts": mppts,
                 "errors": error_map.get(inv_id, []),
                 "state_name": lj.get("state_name"),
-                "severity": lj.get("severity")
+                "severity": lj.get("severity"),
+                "mapped_status": lj.get("mapped_status")
             })
 
         return {

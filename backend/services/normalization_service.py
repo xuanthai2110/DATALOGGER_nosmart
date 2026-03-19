@@ -125,10 +125,10 @@ class NormalizationService:
     def _process_field(self, key: str, value: Any) -> Any:
         """Xử lý một trường: kiểm tra None, kiểu số, khoảng hợp lệ, làm tròn."""
 
-        # 1. Giữ nguyên các trường không phải số (string, bool, None)
+        # 1. Giữ nguyên các trường không phải số (string, bool, dict, None)
         if value is None:
             return None
-        if isinstance(value, (str, bool)):
+        if isinstance(value, (str, bool, dict)):
             return value
 
         # 2. Ép về float
