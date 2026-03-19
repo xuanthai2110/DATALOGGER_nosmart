@@ -81,24 +81,30 @@ class PollingService:
                 logger.info(f"Read data success - Inverter {inv.id}")
                 
                 if self.fault_service:
-                    # Map State (truyền mã thô vào, service tự xử lý chuyển đổi cho Huawei)
-                    state_id = raw_data.get("state_id", 0)
-                    state_info = self.fault_service.map_state(inv.brand, state_id)
+                    # Lấy mã thô từ driver
+                    raw_state = raw_data.get("state_id", 0)
+                    raw_fault = raw_data.get("fault_code", 0)
+                    
+                    # Mapping thống nhất (Ưu tiên Fault -> Fallback State)
+                    status_payload = self.fault_service.get_inverter_status_payload(inv.brand, raw_state, raw_fault)
+                    
+                    # Cập nhật thông tin vào raw_data
+                    # Lưu ý: fault_description ở đây sẽ là State Name nếu fault_code=0
+                    raw_data["fault_description"] = status_payload["fault_description"]
+                    raw_data["repair_instruction"] = status_payload["repair_instruction"]
+                    raw_data["severity"] = status_payload["severity"]
+                    
+                    # Unified state name để Dashboard/Local UI hiển thị đúng trạng thái vận hành
+                    state_info = self.fault_service.map_state(inv.brand, raw_state)
                     raw_data["state_name"] = state_info["name"]
                     
-                    # Map Fault
-                    fault_code = raw_data.get("fault_code", 0)
-                    if fault_code != 0:
-                        fault_info = self.fault_service.map_fault(inv.brand, fault_code)
-                        raw_data["fault_description"] = fault_info["name"]
-                        raw_data["repair_instruction"] = fault_info["repair_instruction"]
-                        raw_data["severity"] = fault_info["severity"]
-                    else:
-                        raw_data["fault_description"] = None
-                        raw_data["repair_instruction"] = None
-                        raw_data["severity"] = state_info["severity"]
+                    # Nếu có lỗi thật, map_fault để lấy chi tiết cho Dashboard
+                    if raw_fault != 0:
+                        fault_info = self.fault_service.map_fault(inv.brand, raw_fault)
+                        raw_data["fault_description"] = fault_info["name"] # Ghi đè lại bằng fault name thật
                 else:
                     raw_data["severity"] = "STABLE"
+                    raw_data["state_name"] = "UNKNOWN"
 
                 # Calculate E_monthly
                 e_monthly = self.tracking.update_energy(inv.id, raw_data.get("e_total", 0.0) or 0.0)

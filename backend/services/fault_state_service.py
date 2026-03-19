@@ -954,28 +954,30 @@ SUNGROW_STATE_MAP = {
 def create_unified_fault_payload(fault_code: int = 0, fault_description: str = None, repair_instruction: str = None, severity: str = "STABLE", state_id: int = None, state_name: str = None) -> dict:
     """
     Tạo JSON chuẩn cho state và fault để gửi lên server/cloud theo định dạng yêu cầu.
-    Nếu trạng thái không có lỗi thì fault_code = id của state, fault_description = state name, repair_instruction = null.
-    
-    Returns:
-        dict: Chứa thông tin đã chuẩn hóa
+    Nếu trạng thái không có lỗi thì fault_code = id của state, fault_description = state name.
     """
     import datetime
+    from datetime import timezone
+
+    timestamp = datetime.datetime.now(timezone.utc).isoformat()
 
     if fault_code == 0 or fault_code is None:
+        # Step 1: No fault, use mapping state
         return {
             "fault_code": state_id if state_id is not None else 0,
-            "fault_description": state_name if state_name is not None else "Unknown State",
-            "repair_instruction": None,
+            "fault_description": state_name if state_name is not None else "RUNNING",
+            "repair_instruction": "",
             "severity": severity,
-            "created_at": datetime.datetime.now().isoformat()
+            "created_at": timestamp
         }
     else:
+        # Step 2: Has fault, use mapping fault
         return {
             "fault_code": fault_code,
             "fault_description": fault_description if fault_description is not None else "Unknown Fault",
-            "repair_instruction": repair_instruction,
+            "repair_instruction": repair_instruction or "",
             "severity": severity,
-            "created_at": datetime.datetime.now().isoformat()
+            "created_at": timestamp
         }
 
 class FaultStateService:
@@ -1010,6 +1012,44 @@ class FaultStateService:
             0x0307: 8,  # STOPPED (Rapid cutoff)
             0x0308: 8,  # STOPPED (Input underpower)
         }
+
+    def get_inverter_status_payload(self, brand: str, raw_state: int, raw_fault: int) -> dict:
+        """
+        Thực hiện mapping theo yêu cầu:
+        Bước 1: Check fault thô nếu = 0 thì mapping state sang unified sau đó build payload với state
+        Bước 2: Nếu fault != 0, mapping lỗi và build payload với fault
+        """
+        brand = brand.upper()
+        
+        if raw_fault == 0:
+            # Bước 1: Mapping State
+            state_info = self.map_state(brand, raw_state)
+            # Lấy ID nội bộ sau khi đã qua mapping modbus (đối với Huawei)
+            mapped_state_id = raw_state
+            if brand == "HUAWEI":
+                mapped_state_id = self.huawei_modbus_state_map.get(raw_state, 5)
+            
+            # Lấy unified_id từ map
+            unified_state_id = self.state_maps[brand].get(mapped_state_id, {}).get("id_unified", 0)
+            
+            return create_unified_fault_payload(
+                fault_code=0,
+                severity=state_info["severity"],
+                state_id=unified_state_id,
+                state_name=state_info["name"]
+            )
+        else:
+            # Bước 2: Mapping Fault
+            fault_info = self.map_fault(brand, raw_fault)
+            # Lấy unified_id từ map fault
+            unified_fault_id = self.fault_maps[brand].get(raw_fault, {}).get("id_unified", raw_fault)
+            
+            return create_unified_fault_payload(
+                fault_code=unified_fault_id,
+                fault_description=fault_info["name"],
+                repair_instruction=fault_info["repair_instruction"],
+                severity=fault_info["severity"]
+            )
 
     def map_state(self, brand: str, state_id: int) -> dict:
         brand = brand.upper()
