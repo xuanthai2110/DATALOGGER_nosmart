@@ -2,9 +2,14 @@ let syncProjects = [];
 let currentUser = null;
 
 async function loadSync() {
+    console.log("loadSync called");
     // 1. Get current user info (for role)
     currentUser = await apiCall('/auth/me');
-    if (!currentUser) return;
+    console.log("Current user for sync:", currentUser);
+    if (!currentUser) {
+        console.error("Failed to get current user info for sync");
+        return;
+    }
 
     // 2. Load projects
     const data = await apiCall('/projects');

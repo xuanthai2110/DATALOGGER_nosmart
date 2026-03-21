@@ -199,8 +199,8 @@ async function saveFoundInverter(idx) {
     const projId = scanSelections[key]?.project_id || document.getElementById(`scan-proj-${idx}`)?.value;
     const commId = scanSelections[key]?.comm_id || document.getElementById(`scan-comm-${idx}`)?.value;
 
-    if (!projId) return alert("Chá»n dá»± Ã¡n!");
-    if (!commId) return alert("Chá»n cáº¥u hÃ¬nh truyá»n thÃ´ng!");
+    if (!projId) return alert("Chọn dự án!");
+    if (!commId) return alert("Chọn cấu hình truyền thông!");
 
     const body = {
         inverters: [{

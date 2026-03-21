@@ -11,20 +11,29 @@ function initApp() {
 }
 
 function showView(v) {
+    console.log("Switching to view:", v);
     document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(`view-${v}`).classList.remove('hidden');
+    const section = document.getElementById(`view-${v}`);
+    if (section) {
+        section.classList.remove('hidden');
+    } else {
+        console.error("View section not found for:", v);
+    }
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     
+    // Find the nav-item that has the onclick for this view
+    const navItem = document.querySelector(`.nav-item[onclick*="showView('${v}')"]`);
+    if (navItem) navItem.classList.add('active');
+
     if(v === 'overview') { 
-        document.querySelector('.nav-item:nth-child(1)').classList.add('active'); 
         loadDashboard(); 
     }
     if(v === 'sync') { 
-        document.querySelector('.nav-item:nth-child(2)').classList.add('active'); 
+        console.log("Loading sync view data...");
         if (typeof loadSync === 'function') loadSync(); 
+        else console.error("loadSync function not defined!");
     }
     if(v === 'settings') { 
-        document.querySelector('.nav-item:nth-child(3)').classList.add('active'); 
         loadSettings(); 
     }
 }
