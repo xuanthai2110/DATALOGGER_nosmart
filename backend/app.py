@@ -23,6 +23,7 @@ from backend.api.auth_api import router as auth_router, get_current_user_id
 from backend.api.user_api import router as user_router
 from backend.api.monitoring_api import router as monitoring_router
 from backend.api.comm_api import router as comm_router
+from backend.api.sync_api import router as sync_router
 
 from database.sqlite_manager import MetadataDB
 from schemas.user import UserCreate
@@ -44,6 +45,7 @@ app.include_router(inverter_router, prefix="/api/inverters", dependencies=[Depen
 app.include_router(comm_router, dependencies=[Depends(get_current_user_id)])
 app.include_router(user_router) 
 app.include_router(monitoring_router, prefix="/api/monitoring", dependencies=[Depends(get_current_user_id)])
+app.include_router(sync_router, dependencies=[Depends(get_current_user_id)])
 
 # --- WebSocket Manager ---
 class ConnectionManager:

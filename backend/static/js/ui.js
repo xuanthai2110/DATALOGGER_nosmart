@@ -19,8 +19,12 @@ function showView(v) {
         document.querySelector('.nav-item:nth-child(1)').classList.add('active'); 
         loadDashboard(); 
     }
-    if(v === 'settings') { 
+    if(v === 'sync') { 
         document.querySelector('.nav-item:nth-child(2)').classList.add('active'); 
+        if (typeof loadSync === 'function') loadSync(); 
+    }
+    if(v === 'settings') { 
+        document.querySelector('.nav-item:nth-child(3)').classList.add('active'); 
         loadSettings(); 
     }
 }

@@ -4,8 +4,8 @@ from typing import Optional
 @dataclass
 class CommConfig:
     id: Optional[int] = None
-    driver: str = "Huawei"
-    comm_type: str = "TCP"
+    driver: str 
+    comm_type: str
     host: str = "127.0.0.1"
     port: int = 502
     com_port: str = "COM1"

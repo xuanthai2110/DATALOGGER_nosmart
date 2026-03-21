@@ -88,9 +88,10 @@ tr.clickable:hover { background: rgba(255, 255, 255, 0.03); }
 .detail-card h3 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
 
 /* Badge & Status */
-.status-badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.badge-online { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-.badge-offline { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+.status-badge, .badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: inline-block; }
+.badge-online, .success, .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+.badge-offline, .danger, .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+.warning, .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
 
 /* Specific Detail Styles */
 .phase-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }

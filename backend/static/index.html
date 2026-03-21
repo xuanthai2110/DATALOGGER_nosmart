@@ -27,6 +27,7 @@
             <div class="logo"><i class="fas fa-bolt"></i> SOLAR CONSOLE</div>
             <ul class="nav-list">
                 <li class="nav-item active" onclick="showView('overview')"><i class="fas fa-chart-line"></i> Dashboard</li>
+                <li class="nav-item" onclick="showView('sync')"><i class="fas fa-sync"></i> Đồng bộ</li>
                 <li class="nav-item" onclick="showView('settings')"><i class="fas fa-cog"></i> Settings</li>
             </ul>
             <div class="nav-item" onclick="handleLogout()" style="margin-top:auto;"><i class="fas fa-power-off"></i> Logout</div>
@@ -175,6 +176,34 @@
                             </div>
                             <button class="btn" onclick="resetCommForm()">HỦY</button>
                         </div>
+                </div>
+            </div>
+
+            <!-- View: Sync -->
+            <div id="view-sync" class="view-section hidden">
+                <div class="header"><h1>Đồng bộ lên Server</h1></div>
+                <div class="glass settings-section fade-in">
+                    <div class="input-group">
+                        <label>Chọn dự án để đồng bộ</label>
+                        <select id="sync-project-select" onchange="loadSyncProjectDetails()">
+                            <option value="">-- Chọn dự án --</option>
+                        </select>
+                    </div>
+                    
+                    <div id="sync-details" class="hidden" style="margin-top:24px;">
+                        <h3>Thông tin đồng bộ</h3>
+                        <div class="glass table-container" style="margin-bottom:20px;">
+                            <table>
+                                <thead>
+                                    <tr><th>SN Inverter</th><th>Model</th><th>Trạng thái Local</th><th>Trạng thái Server</th></tr>
+                                </thead>
+                                <tbody id="sync-inverters-body"></tbody>
+                            </table>
+                        </div>
+                        <div id="sync-actions">
+                            <button class="btn btn-primary" id="btn-sync-action" onclick="handleSync()"><i class="fas fa-cloud-upload-alt"></i> ĐỒNG BỘ LÊN SERVER</button>
+                            <p id="sync-status-msg" style="margin-top:10px; font-weight:500;"></p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -185,6 +214,7 @@
     <script src="/static/js/ui.js"></script>
     <script src="/static/js/dashboard.js"></script>
     <script src="/static/js/settings.js"></script>
+    <script src="/static/js/sync.js"></script>
     <script>
         if (token) initApp();
     </script>

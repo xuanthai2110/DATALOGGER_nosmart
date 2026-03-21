@@ -26,15 +26,34 @@ def get_rdb():
 def get_cdb():
     return CacheDB(app_config.CACHE_DB)
 
-async def get_current_user_id(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme), db: MetadataDB = Depends(get_db)):
     payload = decode_token(token)
-    if not payload or payload.get("type") != "access":
+    if not payload or payload.get("sub") is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return payload.get("sub")
+    user_id = int(payload.get("sub"))
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+async def get_current_user_id(token: str = Depends(oauth2_scheme)):
+    payload = decode_token(token)
+    if not payload or payload.get("sub") is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return int(payload.get("sub"))
+
+@router.get("/me")
+async def get_me(current_user = Depends(get_current_user)):
+    return {
+        "id": current_user["id"],
+        "username": current_user["username"],
+        "role": current_user["role"],
+        "fullname": current_user.get("fullname")
+    }
 
 @router.post("/token", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: MetadataDB = Depends(get_db)):
@@ -46,7 +65,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: MetadataDB
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token = create_access_token(data={"sub": str(user["id"])})
+    access_token = create_access_token(data={"sub": str(user["id"]), "role": user["role"]})
     refresh_token = create_refresh_token(data={"sub": str(user["id"])})
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 

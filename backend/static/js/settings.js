@@ -33,13 +33,13 @@ async function saveProject() {
         inverter_count: parseInt(document.getElementById('proj-inv-count').value) || 0
     };
 
-    if(!body.name || !body.location || !body.elec_meter_no || isNaN(body.elec_price_per_kwh) || body.capacity_kwp <= 0 || body.ac_capacity_kw <= 0) {
+    if (!body.name || !body.location || !body.elec_meter_no || isNaN(body.elec_price_per_kwh) || body.capacity_kwp <= 0 || body.ac_capacity_kw <= 0) {
         return alert("Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ cÃ¡c trÆ°á»ng báº¯t buá»™c (*): TÃªn, Äá»‹a Ä‘iá»ƒm, Meter No, GiÃ¡ Ä‘iá»‡n, CÃ´ng suáº¥t DC/AC!");
     }
 
     const r = id ? await apiCall(`/projects/${id}`, 'PATCH', body) : await apiCall('/projects', 'POST', body);
-    if(r) {
-        alert("LÆ°u dá»± Ã¡n thÃ nh cÃ´ng!");
+    if (r) {
+        alert("Lưu dự án thành công!");
         resetProjectForm();
         loadSettings();
     }
@@ -73,7 +73,7 @@ function resetProjectForm() {
 }
 
 async function deleteProject(id) {
-    if(confirm("XoÃ¡?")) {
+    if (confirm("Xoá dự án?")) {
         await apiCall(`/projects/${id}`, 'DELETE');
         loadSettings();
     }
@@ -96,8 +96,8 @@ async function saveComm() {
         slave_id_end: parseInt(document.getElementById('comm-end').value)
     };
     const r = id ? await apiCall(`/comm/${id}`, 'PATCH', body) : await apiCall('/comm', 'POST', body);
-    if(r) {
-        alert("LÆ°u cáº¥u hÃ¬nh thÃ nh cÃ´ng!");
+    if (r) {
+        alert("Lưu cấu hình thành công!");
         resetCommForm();
         loadSettings();
     }
@@ -137,7 +137,7 @@ async function startScan() {
     };
 
     const res = await apiCall('/scan/start', 'POST', { comm });
-    if(res && res.ok) {
+    if (res && res.ok) {
         scanSelections = {};
         foundInverters = [];
         btn.disabled = true;
@@ -146,16 +146,16 @@ async function startScan() {
         document.getElementById('scan-progress-bar').style.width = "0%";
         document.getElementById('btn-stop-scan').classList.remove('hidden');
 
-        if(scanPollInterval) clearInterval(scanPollInterval);
+        if (scanPollInterval) clearInterval(scanPollInterval);
         scanPollInterval = setInterval(pollScanStatus, 1000);
     } else {
-        alert("Lá»—i: " + (res ? res.error : "KhÃ´ng thá»ƒ báº¯t Ä‘áº§u quÃ©t"));
+        alert("Lỗi: " + (res ? res.error : "Không thể bắt đầu quét"));
     }
 }
 
 async function pollScanStatus() {
     const res = await apiCall('/scan/status');
-    if(!res) return;
+    if (!res) return;
 
     const [pData, cData] = await Promise.all([
         apiCall('/projects'),
@@ -185,7 +185,7 @@ async function pollScanStatus() {
 }
 
 async function stopScan() {
-    if(confirm("Dá»«ng quÃ¡ trÃ¬nh quÃ©t?")) {
+    if (confirm("Dừng quá trình quét?")) {
         await apiCall('/scan/stop', 'POST');
     }
 }
@@ -199,8 +199,8 @@ async function saveFoundInverter(idx) {
     const projId = scanSelections[key]?.project_id || document.getElementById(`scan-proj-${idx}`)?.value;
     const commId = scanSelections[key]?.comm_id || document.getElementById(`scan-comm-${idx}`)?.value;
 
-    if(!projId) return alert("Chá»n dá»± Ã¡n!");
-    if(!commId) return alert("Chá»n cáº¥u hÃ¬nh truyá»n thÃ´ng!");
+    if (!projId) return alert("Chá»n dá»± Ã¡n!");
+    if (!commId) return alert("Chá»n cáº¥u hÃ¬nh truyá»n thÃ´ng!");
 
     const body = {
         inverters: [{
@@ -210,7 +210,7 @@ async function saveFoundInverter(idx) {
         }]
     };
     const r = await apiCall('/scan/save', 'POST', body);
-    if(r && r.ok) {
+    if (r && r.ok) {
         alert("ÄÃ£ lÆ°u!");
         loadDashboard();
         loadSettings();
@@ -225,13 +225,13 @@ function resetCommForm() {
     document.getElementById('comm-parity').value = 'N';
     document.getElementById('comm-stop').value = 1;
     document.getElementById('scan-results').classList.add('hidden');
-    if(scanPollInterval) clearInterval(scanPollInterval);
+    if (scanPollInterval) clearInterval(scanPollInterval);
     toggleCommFields();
     renderScanResults();
 }
 
 async function deleteComm(id) {
-    if(confirm("XoÃ¡ cáº¥u hÃ¬nh?")) {
+    if (confirm("Xoá cấu hình?")) {
         await apiCall(`/comm/${id}`, 'DELETE');
         loadSettings();
     }
@@ -269,7 +269,7 @@ function getDefaultCommId() {
 
 function renderScanResults() {
     const scanList = document.getElementById('scan-list');
-    if(!scanList) return;
+    if (!scanList) return;
 
     captureScanSelections();
 
@@ -295,14 +295,14 @@ function renderScanResults() {
             </div>
             <div class="scan-item__actions">
                 <select id="scan-proj-${idx}" class="scan-select">
-                    <option value="">Dá»± Ã¡n...</option>
+                    <option value="">Dự án...</option>
                     ${settingsProjects.map(p => `<option value="${p.id}" ${String(selectedProjectId) === String(p.id) ? 'selected' : ''}>${p.name}</option>`).join('')}
                 </select>
                 <select id="scan-comm-${idx}" class="scan-select">
                     <option value="">Comm...</option>
-                    ${noComms ? '<option value="" disabled>LÆ°u comm trÆ°á»›c</option>' : settingsComms.map(c => `<option value="${c.id}" ${String(selectedCommId) === String(c.id) ? 'selected' : ''}>${getCommLabel(c)}</option>`).join('')}
+                    ${noComms ? '<option value="" disabled>Lưu comm trước</option>' : settingsComms.map(c => `<option value="${c.id}" ${String(selectedCommId) === String(c.id) ? 'selected' : ''}>${getCommLabel(c)}</option>`).join('')}
                 </select>
-                <button onclick="saveFoundInverter(${idx})" class="btn-success scan-save-btn" ${noComms ? 'disabled' : ''}>LÆ¯U</button>
+                <button onclick="saveFoundInverter(${idx})" class="btn-success scan-save-btn" ${noComms ? 'disabled' : ''}>LƯU</button>
             </div>
         </div>
         `;
