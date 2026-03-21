@@ -3,7 +3,6 @@ from typing import Optional
 
 @dataclass
 class CommConfig:
-    id: Optional[int] = None
     driver: str 
     comm_type: str
     host: str = "127.0.0.1"
@@ -16,3 +15,4 @@ class CommConfig:
     timeout: float = 1.0
     slave_id_start: int = 1
     slave_id_end: int = 10
+    id: Optional[int] = None
