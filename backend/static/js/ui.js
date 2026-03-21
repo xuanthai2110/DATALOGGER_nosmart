@@ -12,6 +12,8 @@ function initApp() {
 
 function showView(v) {
     console.log("Switching to view:", v);
+    const debug = document.getElementById('ui-debug');
+    if (debug) debug.innerText = "View: " + v;
     document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
     const section = document.getElementById(`view-${v}`);
     if (section) {
@@ -30,8 +32,12 @@ function showView(v) {
     }
     if(v === 'sync') { 
         console.log("Loading sync view data...");
-        if (typeof loadSync === 'function') loadSync(); 
-        else console.error("loadSync function not defined!");
+        if (typeof loadSync === 'function') {
+             loadSync().catch(e => {
+                 console.error("loadSync error:", e);
+                 if (debug) debug.innerText += " ERR: " + e.message;
+             });
+        } else console.error("loadSync function not defined!");
     }
     if(v === 'settings') { 
         loadSettings(); 
