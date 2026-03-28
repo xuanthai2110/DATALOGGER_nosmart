@@ -38,6 +38,27 @@ class PollingService:
                 self.transports[key] = t
             return self.transports[key]
 
+    def get_polling_config(self) -> List[Dict[str, Any]]:
+        """Lấy cấu hình polling (Projects & Inverters) từ RAM Cache hoặc Database"""
+        now = time.time()
+        if not self._config_cache or (now - self._last_refresh > config.CONFIG_REFRESH_INTERVAL):
+            logger.info("Refreshing Polling Configuration Cache from MetadataDB...")
+            projects = self.metadata_db.get_projects()
+            new_cache = []
+            
+            for project in projects:
+                inverters = self.metadata_db.get_inverters_by_project(project.id)
+                active_inverters = [inv for inv in inverters if inv.is_active]
+                new_cache.append({
+                    "project": project,
+                    "inverters": active_inverters
+                })
+            
+            self._config_cache = new_cache
+            self._last_refresh = now
+        
+        return self._config_cache
+
     def _get_driver(self, brand: str, transport, slave_id: int):
         if "Huawei" in brand:
             return HuaweiSUN2000(transport, slave_id=slave_id)
@@ -45,10 +66,16 @@ class PollingService:
             return SungrowSG110CXDriver(transport, slave_id=slave_id)
         return None
 
-    def poll_all_inverters(self, project_id: int):
-        """Đọc dữ liệu thô từ Inverter, chuẩn hóa và đẩy vào CacheDB"""
-        inverters = self.metadata_db.get_inverters_by_project(project_id)
-        active_inverters = [inv for inv in inverters if inv.is_active]
+    def poll_all_inverters(self, project_id: int, inverters: List[Any] = None):
+        """Đọc dữ liệu thô từ Inverter, chuẩn hóa và đẩy vào CacheDB.
+        Có thể truyền danh sách inverters vào để tối ưu (không cần query DB).
+        """
+        if inverters is None:
+            # Fallback nếu không truyền list inverters (không khuyến khích dùng loop này nữa)
+            all_invs = self.metadata_db.get_inverters_by_project(project_id)
+            active_inverters = [inv for inv in all_invs if inv.is_active]
+        else:
+            active_inverters = inverters
         
         for inv in active_inverters:
             try:
@@ -105,12 +132,17 @@ class PollingService:
         logger.info("Dumb Polling Service started (Cache Only Mode)")
         while True:
             t0 = time.time()
-            projects = self.metadata_db.get_projects()
             
-            for project in projects:
-                self.poll_all_inverters(project.id)
+            # 1. Lấy cấu hình từ cache (hoặc database nếu hết hạn)
+            polling_config = self.get_polling_config()
+            
+            # 2. Quét dữ liệu cho từng project
+            for item in polling_config:
+                project = item["project"]
+                inverters = item["inverters"]
+                self.poll_all_inverters(project.id, inverters=inverters)
 
-            # Duy trì chu kỳ POLL_INTERVAL (ví dụ 10s)
+            # 3. Duy trì chu kỳ POLL_INTERVAL
             elapsed = time.time() - t0
             sleep_time = max(0.1, config.POLL_INTERVAL - elapsed)
             time.sleep(sleep_time)

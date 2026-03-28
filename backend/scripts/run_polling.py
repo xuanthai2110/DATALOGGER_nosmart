@@ -69,12 +69,17 @@ def main():
         while True:
             t0 = time.time()
             try:
-                projects = metadata_db.get_projects()
-                for project in projects:
-                    # 1. Thực hiện quét dữ liệu
-                    service.poll_all_inverters(project.id)
+                # 1. Lấy cấu hình từ cache (hoặc database nếu hết hạn)
+                polling_config = service.get_polling_config()
+                
+                for item in polling_config:
+                    project = item["project"]
+                    inverters = item["inverters"]
                     
-                    # 2. In bảng dữ liệu Cache kết quả ngay sau khi đọc
+                    # 2. Thực hiện quét dữ liệu cho danh sách inverter đã cache
+                    service.poll_all_inverters(project.id, inverters=inverters)
+                    
+                    # 3. In bảng dữ liệu Cache kết quả ngay sau khi đọc
                     print_cache_table(project, cache_db)
                     
             except Exception as loop_err:
