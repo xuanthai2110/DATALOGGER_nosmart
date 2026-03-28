@@ -7,8 +7,8 @@ from services.auth_service import AuthService
 logger = logging.getLogger(__name__)
 
 class UploaderService:
-    def __init__(self, buffer_service):
-        self.buffer = buffer_service
+    def __init__(self, realtime_db):
+        self.db = realtime_db
         self.auth = AuthService()
         self.token = None
 
@@ -17,7 +17,7 @@ class UploaderService:
         if not token:
             return
 
-        data_list = self.buffer.get_all()
+        data_list = self.db.get_all_outbox()
         if not data_list:
             return
 
@@ -40,7 +40,7 @@ class UploaderService:
                 
                 response = requests.post(url, json=payload, headers=headers)
                 if response.status_code == 200:
-                    self.buffer.delete(data["id"])
+                    self.db.delete_from_outbox(data["id"])
                     logger.info(f"Uploaded telemetry for project_id {data.get('project_id')} to server_id {server_id}")
                 else:
                     logger.warning(f"Upload failed for project {server_id}: {response.status_code} - {response.text}")

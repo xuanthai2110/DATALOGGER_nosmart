@@ -4,7 +4,6 @@ import config
 from database.sqlite_manager import MetadataDB, RealtimeDB, CacheDB
 from services.polling_service import PollingService
 from services.uploader_service import UploaderService
-from services.buffer_service import BufferService
 from services.project_service import ProjectService
 from services.telemetry_service import TelemetryService
 from logger_config import get_logger
@@ -17,11 +16,10 @@ def main():
     cache_db = CacheDB(config.CACHE_DB)
     
     project_service = ProjectService(metadata_db, realtime_db)
-    buffer_service = BufferService(realtime_db)
-    telemetry_service = TelemetryService(project_service, buffer_service)
+    telemetry_service = TelemetryService(project_service, realtime_db)
     
-    uploader = UploaderService(buffer_service)
-    poller = PollingService(metadata_db, realtime_db, uploader, telemetry_service, cache_db)
+    uploader = UploaderService(realtime_db)
+    poller = PollingService(metadata_db, cache_db)
 
     logger.info("Starting datalogger service with Telemetry support...")
     

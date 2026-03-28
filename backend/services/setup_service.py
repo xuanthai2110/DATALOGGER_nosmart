@@ -50,10 +50,6 @@ class SetupService:
         logger.info(f"[Setup] Scan complete. Found {len(found_ids)} inverters.")
         return found_ids
 
-    def get_local_project(self):
-        """Lấy thông tin project duy nhất ở local"""
-        return self.metadata_db.get_project_first()
-
     def sync_project_to_server(self, project_id: int) -> int | None:
         """
         QUY TRÌNH ĐỒNG BỘ PROJECT:
@@ -104,8 +100,8 @@ class SetupService:
             # Gửi Request mới
             url = f"{API_BASE_URL}/api/projects/requests/"
             
-            # Chỉ lấy các trường cần thiết cho server, bỏ qua các trường internal và created_at
-            exclude_fields = {'id', 'server_id', 'server_request_id', 'sync_status', 'created_at'}
+            # Chỉ lấy các trường cần thiết cho server, bỏ qua các trường internal và metadata
+            exclude_fields = {'id', 'server_id', 'server_request_id', 'sync_status', 'created_at', 'updated_at'}
             payload = {k: v for k, v in asdict(local_project).items() 
                       if k not in exclude_fields and v is not None}
             
@@ -209,7 +205,10 @@ class SetupService:
                 
                 # Chỉ lấy các trường cần thiết cho server, bỏ qua các trường internal và redundant
                 # 'slave_id' và 'capacity_kw' không có trong yêu cầu server mới
-                exclude_fields = {'id', 'server_id', 'server_request_id', 'sync_status', 'project_id', 'slave_id', 'capacity_kw'}
+                exclude_fields = {
+                    'id', 'server_id', 'server_request_id', 'sync_status', 
+                    'project_id', 'slave_id', 'capacity_kw', 'created_at', 'updated_at'
+                }
                 payload = {k: v for k, v in asdict(inv).items() 
                           if k not in exclude_fields and v is not None}
                 

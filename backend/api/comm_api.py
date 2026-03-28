@@ -13,16 +13,16 @@ logger = logging.getLogger(__name__)
 def list_comm_configs(db: MetadataDB = Depends(get_db)):
     """Lấy danh sách cấu hình kết nối."""
     try:
-        return db.get_all_comm_configs()
+        return db.get_comm()
     except Exception as e:
         logger.error(f"list_comm_configs error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{config_id}", response_model=CommConfig)
-def get_comm_config(config_id: int, db: MetadataDB = Depends(get_db)):
+def get_comm_id(config_id: int, db: MetadataDB = Depends(get_db)):
     """Lấy thông tin một cấu hình kết nối theo ID."""
     try:
-        config = db.get_comm_config(config_id)
+        config = db.get_comm_id(config_id)
         if not config:
             raise HTTPException(status_code=404, detail="Communication config not found")
         return config
@@ -54,14 +54,14 @@ def create_comm_config(
     try:
         # We use dict for body to allow flex then convert to CommConfig
         comm = CommConfig(**body)
-        config_id = db.post_comm_config(comm)
-        return db.get_comm_config(config_id)
+        config_id = db.post_comm(comm)
+        return db.get_comm_id(config_id)
     except Exception as e:
         logger.error(f"create_comm_config error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.patch("/{config_id}", response_model=CommConfig)
-def patch_comm_config(
+def patch_comm(
     config_id: int, 
     db: MetadataDB = Depends(get_db),
     body: dict = Body(..., example={
@@ -71,8 +71,8 @@ def patch_comm_config(
 ):
     """Cập nhật từng phần cấu hình kết nối."""
     try:
-        db.patch_comm_config(config_id, body)
-        config = db.get_comm_config(config_id)
+        db.patch_comm(config_id, body)
+        config = db.get_comm_id(config_id)
         if not config:
             raise HTTPException(status_code=404, detail="Communication config not found")
         return config
@@ -86,17 +86,17 @@ def patch_comm_config(
 def reset_comm_configs_endpoint(db: MetadataDB = Depends(get_db)):
     """Xoá toàn bộ cấu hình kết nối và đưa ID về 1."""
     try:
-        db.reset_comm_configs()
+        db.reset_comm()
         return {"ok": True, "message": "All communication configurations cleared and sequence reset."}
     except Exception as e:
         logger.error(f"reset_comm_configs error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{config_id}")
-def delete_comm_config(config_id: int, db: MetadataDB = Depends(get_db)):
+def delete_comm(config_id: int, db: MetadataDB = Depends(get_db)):
     """Xoá cấu hình kết nối."""
     try:
-        db.delete_comm_config(config_id)
+        db.delete_comm(config_id)
         return {"ok": True, "message": "Deleted successfully"}
     except Exception as e:
         logger.error(f"delete_comm_config error: {e}")

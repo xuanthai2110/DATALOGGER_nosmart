@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 logger = logging.getLogger(__name__)
 
 @router.post("", response_model=UserResponse)
-def create_user(user: UserCreate = Body(..., example={
+def post_user(user: UserCreate = Body(..., example={
     "username": "admin",
     "password": "strongpassword123",
     "email": "admin@solardatalogger.local",
@@ -21,13 +21,13 @@ def create_user(user: UserCreate = Body(..., example={
     """Tạo user mới."""
     try:
         # Check if username exists
-        if db.get_user_by_username(user.username):
+        if db.get_user_name(user.username):
             raise HTTPException(status_code=400, detail="Username already exists")
         
         hashed = hash_password(user.password)
-        user_id = db.create_user(user, hashed)
+        user_id = db.post_user(user, hashed)
         # Refetch to get created_at
-        user_dict = db.get_user_by_username(user.username)
+        user_dict = db.get_user_name(user.username)
         # Filter out hashed_password
         return UserResponse(
             id=user_dict["id"],
@@ -43,6 +43,6 @@ def create_user(user: UserCreate = Body(..., example={
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("", response_model=List[UserResponse])
-def list_users(db: MetadataDB = Depends(get_db), current_user = Depends(get_current_user_id)):
+def get_users(db: MetadataDB = Depends(get_db), current_user = Depends(get_current_user_id)):
     """Lấy danh sách user (yêu cầu login)."""
-    return db.list_users()
+    return db.get_users()

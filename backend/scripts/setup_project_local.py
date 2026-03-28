@@ -75,8 +75,8 @@ def main():
         found_ids = setup_svc.scan_inverters(transport, project_id, HuaweiSUN2000)
         transport.close()
         
-        # Cập nhật lại số lượng inverter thực tế tìm thấy
-        update_data = ProjectUpdate(id=project_id, inverter_count=len(found_ids))
+        # Cập nhật lại số lượng inverter thực tế tìm thấy (ProjectUpdate không có trường id)
+        update_data = ProjectUpdate(inverter_count=len(found_ids))
         meta_db.patch_project(project_id, update_data)
         
         print(f"✅ Quét xong. Tìm thấy và lưu {len(found_ids)} inverters vào DB local.")

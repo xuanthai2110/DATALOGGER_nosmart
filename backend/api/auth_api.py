@@ -57,7 +57,7 @@ async def get_me(current_user = Depends(get_current_user)):
 
 @router.post("/token", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: MetadataDB = Depends(get_db)):
-    user = db.get_user_by_username(form_data.username)
+    user = db.get_user_name(form_data.username)
     if not user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

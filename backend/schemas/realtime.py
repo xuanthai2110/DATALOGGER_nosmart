@@ -7,27 +7,30 @@ from typing import Optional
 @dataclass
 class ProjectRealtimeCreate:
     project_id: int
-    Temp_C: float
-    P_ac: float
-    P_dc: float
-    E_daily: float
-    E_monthly: float
-    E_total: float
-    severity: str
-    created_at: str
+    Temp_C: float = 0
+    P_ac: float = 0
+    P_dc: float = 0
+    E_daily: float = 0
+    E_monthly: float = 0
+    denta_E_monthly: float = 0
+    E_total: float = 0
+    severity: str = "STABLE"
+    created_at: str = ""
+
 
 @dataclass
 class ProjectRealtimeResponse:
     id: int
     project_id: int
-    Temp_C: float
-    P_ac: float
-    P_dc: float
-    E_daily: float
-    E_monthly: float
-    E_total: float
-    severity: str
-    created_at: str
+    Temp_C: float = 0
+    P_ac: float = 0
+    P_dc: float = 0
+    E_daily: float = 0
+    E_monthly: float = 0
+    denta_E_monthly: float = 0
+    E_total: float = 0
+    severity: str = "STABLE"
+    created_at: str = ""
 
 # =========================
 # INVERTER AC REALTIME

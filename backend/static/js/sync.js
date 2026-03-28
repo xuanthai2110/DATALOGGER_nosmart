@@ -16,7 +16,7 @@ async function loadSync() {
     syncProjects = (data && data.projects) || [];
 
     const select = document.getElementById('sync-project-select');
-    select.innerHTML = '<option value="">-- Chọn dự án --</option>' + 
+    select.innerHTML = '<option value="">-- Chọn dự án --</option>' +
         syncProjects.map(p => `<option value="${p.id}">${p.name} (${p.sync_status || 'pending'})</option>`).join('');
 }
 

@@ -63,4 +63,4 @@ class BaseDriver(ABC):
         pass
     def write_power_limit_percent(self, percent: float) -> bool: #Ghi giá trị giới hạn công suất (%).
         pass
-    
+        

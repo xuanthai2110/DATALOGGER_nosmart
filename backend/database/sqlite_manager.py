@@ -25,6 +25,13 @@ def to_dataclass(cls, row):
     return cls(**filtered)
 
 class MetadataDB:
+    #post_project(data)                  // tạo project
+    #get_project(project_id)             // lấy project theo id
+    #get_projects()                      // lấy tất cả project
+    #upsert_project(data, project_id=None) // upsert project
+    #patch_project(project_id, data)       // patch project
+    #update_project_sync(project_id, ...)  // update sync status
+    #delete_project(project_id)            // delete project
     def __init__(self, db_path: str = "metadata.db"):
         self.db_path = db_path
         self._create_tables()
@@ -88,7 +95,7 @@ class MetadataDB:
                 phase_count INTEGER,
                 mppt_count INTEGER,
                 string_count INTEGER,
-                strings_per_mppt TEXT,
+                strings_per_mppt INTEGER,
                 capacity_kw REAL,
                 rate_dc_kwp REAL,
                 rate_ac_kw REAL,
@@ -176,8 +183,9 @@ class MetadataDB:
                 INSERT INTO projects (
                     project_index, elec_meter_no, elec_price_per_kwh, name,
                     location, lat, lon,
-                    capacity_kwp, ac_capacity_kw, inverter_count, server_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    capacity_kwp, ac_capacity_kw, inverter_count, server_id,
+                    server_request_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 next_idx,
                 data_dict.get("elec_meter_no"),
@@ -189,46 +197,11 @@ class MetadataDB:
                 data_dict.get("capacity_kwp"),
                 data_dict.get("ac_capacity_kw"),
                 data_dict.get("inverter_count"),
-                data_dict.get("server_id")
+                data_dict.get("server_id"),
+                data_dict.get("server_request_id")
             ))
             return cursor.lastrowid
 
-    def get_project_first(self) -> Optional[ProjectResponse]:
-        """Lấy project đầu tiên trong DB (giả định datalogger chỉ quản lý 1 project local)"""
-        with self._connect() as conn:
-            row = conn.execute("SELECT * FROM projects LIMIT 1").fetchone()
-            return to_dataclass(ProjectResponse, row)
-
-    def post_project_with_id(self, data: ProjectCreate, server_id: int) -> int:
-        data_dict = asdict(data)
-        with self._connect() as conn:
-            row = conn.execute("SELECT MAX(project_index) as max_idx FROM projects").fetchone()
-            next_idx = (row["max_idx"] or 0) + 1 if row else 1
-            if data_dict.get("project_index") is not None:
-                next_idx = data_dict["project_index"]
-                
-            conn.execute("""
-                INSERT INTO projects (
-                    id, project_index, elec_meter_no, elec_price_per_kwh, name,
-                    location, lat, lon,
-                    capacity_kwp, ac_capacity_kw, inverter_count,
-                    server_id, sync_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
-            """, (
-                server_id,
-                next_idx,
-                data_dict.get("elec_meter_no"),
-                data_dict.get("elec_price_per_kwh"),
-                data_dict.get("name"),
-                data_dict.get("location"),
-                data_dict.get("lat"),
-                data_dict.get("lon"),
-                data_dict.get("capacity_kwp"),
-                data_dict.get("ac_capacity_kw"),
-                data_dict.get("inverter_count"),
-                server_id
-            ))
-            return server_id
 
     def get_project(self, project_id: int) -> Optional[ProjectResponse]:
         with self._connect() as conn:
@@ -242,17 +215,17 @@ class MetadataDB:
     # COMM CONFIG API
     # =========================================================
 
-    def get_all_comm_configs(self) -> List[CommConfig]:
+    def get_comm(self) -> List[CommConfig]:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM comm_config").fetchall()
             return [to_dataclass(CommConfig, r) for r in rows]
 
-    def get_comm_config(self, config_id: int) -> Optional[CommConfig]:
+    def get_comm_id(self, config_id: int) -> Optional[CommConfig]:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM comm_config WHERE id=?", (config_id,)).fetchone()
             return to_dataclass(CommConfig, row)
 
-    def post_comm_config(self, config: CommConfig) -> int:
+    def post_comm(self, config: CommConfig) -> int:
         data_dict = asdict(config)
         with self._connect() as conn:
             cursor = conn.execute("""
@@ -271,7 +244,7 @@ class MetadataDB:
             ))
             return cursor.lastrowid
 
-    def patch_comm_config(self, config_id: int, data: dict):
+    def patch_comm(self, config_id: int, data: dict):
         # We don't filter schemas here as we expect flat dict matching CommConfig
         if not data:
             return
@@ -290,29 +263,29 @@ class MetadataDB:
         with self._connect() as conn:
             conn.execute(f"UPDATE comm_config SET {set_clause} WHERE id=?", params)
 
-    def delete_comm_config(self, config_id: int):
+    def delete_comm(self, config_id: int):
         with self._connect() as conn:
             conn.execute("DELETE FROM comm_config WHERE id=?", (config_id,))
 
-    def reset_comm_configs(self):
+    def reset_comm(self):
         """Clears all comm configs and resets AUTOINCREMENT sequence."""
         with self._connect() as conn:
             conn.execute("DELETE FROM comm_config")
             conn.execute("DELETE FROM sqlite_sequence WHERE name='comm_config'")
 
-    def upsert_comm_config(self, config: CommConfig):
+    def upsert_comm(self, config: CommConfig):
         """Legacy method for backward compat - defaults to ID=1 if possible or adds new"""
-        existing = self.get_comm_config(1)
+        existing = self.get_comm_id(1)
         if existing:
-            self.patch_comm_config(1, asdict(config))
+            self.patch_comm(1, asdict(config))
         else:
-            self.post_comm_config(config)
+            self.post_comm(config)
 
     # =========================================================
     # USER MANAGEMENT
     # =========================================================
 
-    def create_user(self, user: UserCreate, hashed_password: str) -> int:
+    def post_user(self, user: UserCreate, hashed_password: str) -> int:
         with self._connect() as conn:
             cursor = conn.execute("""
                 INSERT INTO users (username, hashed_password, email, fullname, phone, role)
@@ -321,12 +294,12 @@ class MetadataDB:
             return cursor.lastrowid
 
 
-    def get_user_by_username(self, username: str) -> Optional[dict]:
+    def get_user_name(self, username: str) -> Optional[dict]:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
             return dict(row) if row else None
 
-    def list_users(self) -> List[UserResponse]:
+    def get_users(self) -> List[UserResponse]:
         with self._connect() as conn:
             rows = conn.execute("SELECT id, username, email, fullname, phone, role, created_at FROM users").fetchall()
             return [UserResponse(**dict(r)) for r in rows]
@@ -338,17 +311,15 @@ class MetadataDB:
             ).fetchall()
             return [to_dataclass(ProjectResponse, r) for r in rows]
 
-    def get_all_projects(self) -> List[ProjectResponse]:
-        """Alias cho get_projects"""
-        return self.get_projects()
-
-    def upsert_project(self, data: ProjectCreate, project_id: Optional[int] = None) -> ProjectResponse:
+    def upsert_project(self, data: ProjectCreate, project_id: int) -> ProjectResponse:
         """Thêm mới hoặc cập nhật project dựa trên ID hoặc Name."""
         
         if project_id:
             existing = self.get_project(project_id)
             if existing:
-                self.patch_project(project_id, ProjectUpdate(id=project_id, **asdict(data)))
+                # ProjectUpdate không nhận tham số id
+                update_data = {k: v for k, v in asdict(data).items() if k != "id"}
+                self.patch_project(project_id, ProjectUpdate(**update_data))
                 return self.get_project(project_id)
 
         # Thử tìm theo name để tránh trùng lặp
@@ -356,12 +327,62 @@ class MetadataDB:
             row = conn.execute("SELECT id FROM projects WHERE name=?", (data.name,)).fetchone()
             if row:
                 pid = row['id']
-                self.patch_project(pid, ProjectUpdate(id=pid, **asdict(data)))
+                # ProjectUpdate không nhận tham số id
+                update_data = {k: v for k, v in asdict(data).items() if k != "id"}
+                self.patch_project(pid, ProjectUpdate(**update_data))
                 return self.get_project(pid)
             else:
                 pid = self.post_project(data)
                 return self.get_project(pid)
+    def post_project_with_id(self, data: ProjectCreate, server_id: int) -> int:
+        data_dict = asdict(data)
 
+        with self._connect() as conn:
+            # Generate next project_index
+            row = conn.execute(
+                "SELECT MAX(project_index) as max_idx FROM projects"
+            ).fetchone()
+
+            next_idx = (row["max_idx"] or 0) + 1 if row else 1
+
+            # Nếu có truyền project_index thì ưu tiên dùng
+            if data_dict.get("project_index") is not None:
+                next_idx = data_dict["project_index"]
+
+            conn.execute("""
+                INSERT INTO projects (
+                    id,
+                    project_index,
+                    elec_meter_no,
+                    elec_price_per_kwh,
+                    name,
+                    location,
+                    lat,
+                    lon,
+                    capacity_kwp,
+                    ac_capacity_kw,
+                    inverter_count,
+                    server_id,
+                    server_request_id,
+                    sync_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+            """, (
+                server_id,                          # id local = id server
+                next_idx,
+                data_dict.get("elec_meter_no"),
+                data_dict.get("elec_price_per_kwh"),
+                data_dict.get("name"),
+                data_dict.get("location"),
+                data_dict.get("lat"),
+                data_dict.get("lon"),
+                data_dict.get("capacity_kwp"),
+                data_dict.get("ac_capacity_kw"),
+                data_dict.get("inverter_count"),
+                server_id,                          # server_id
+                data_dict.get("server_request_id")
+            ))
+
+            return server_id
     def patch_project(self, project_id: int, data: ProjectUpdate):
         data_dict = {k: v for k, v in asdict(data).items() if v is not None and k != "id"}
         if not data_dict:
@@ -406,7 +427,17 @@ class MetadataDB:
     # =========================================================
     # INVERTER API
     # =========================================================
-
+    #post_inverter(data)
+    #post_inverter_with_id(data, server_id)
+    #upsert_inverter(data)
+    #get_inverter_id(inverter_id)
+    #get_inverter_by_serial(serial)
+    #get_inverters_by_project(project_id)
+    #get_inverter()
+    #patch_inverter(inverter_id, data)
+    #update_inverter_sync(inverter_id, ...)
+    #delete_inverter(inverter_id)
+    #mark_inverter_inactive(inverter_id, replaced_by_id)
     def upsert_inverter(self, data: InverterCreate) -> int:
         """Thêm mới hoặc cập nhật inverter dựa trên serial_number"""
         existing = self.get_inverter_by_serial(data.serial_number)
@@ -500,7 +531,7 @@ class MetadataDB:
             return server_id
 
 
-    def get_inverter(self, inverter_id: int) -> Optional[InverterResponse]:
+    def get_inverter_id(self, inverter_id: int) -> Optional[InverterResponse]:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT * FROM inverters WHERE id=?",
@@ -525,7 +556,7 @@ class MetadataDB:
             """, (project_id,)).fetchall()
             return [to_dataclass(InverterResponse, r) for r in rows]
 
-    def get_all_inverters(self) -> List[InverterResponse]:
+    def get_inverter(self) -> List[InverterResponse]:
         """Lấy tất cả inverters trong DB"""
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM inverters").fetchall()
@@ -615,6 +646,7 @@ class RealtimeDB:
                 P_ac REAL,
                 P_dc REAL,
                 E_daily REAL,
+                denta_E_monthly REAL,
                 E_monthly REAL,
                 E_total REAL,
                 severity TEXT,
@@ -643,6 +675,7 @@ class RealtimeDB:
                 PF REAL,
                 H REAL,
                 E_daily REAL,
+                denta_E_monthly REAL,
                 E_monthly REAL,
                 E_total REAL,
                 created_at TEXT
@@ -1129,32 +1162,148 @@ class CacheDB:
 
     def _create_tables(self):
         with self._connect() as conn:
+            # 1. AC Cache (Dữ liệu biến đổi 10s)
             conn.execute("""
-            CREATE TABLE IF NOT EXISTS latest_realtime (
+            CREATE TABLE IF NOT EXISTS inverter_ac_cache (
                 inverter_id INTEGER PRIMARY KEY,
                 project_id INTEGER,
-                data_json TEXT,
+                IR REAL, Temp_C REAL, P_ac REAL, Q_ac REAL,
+                V_a REAL, V_b REAL, V_c REAL,
+                I_a REAL, I_b REAL, I_c REAL,
+                PF REAL, H REAL,
+                E_daily REAL, E_total REAL,
+                updated_at TEXT
+            );
+            """)
+            # 2. MPPT Cache
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS mppt_cache (
+                inverter_id INTEGER,
+                mppt_index INTEGER,
+                project_id INTEGER,
+                V_mppt REAL, I_mppt REAL, P_mppt REAL,
+                updated_at TEXT,
+                PRIMARY KEY (inverter_id, mppt_index)
+            );
+            """)
+            # 3. String Cache
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS string_cache (
+                inverter_id INTEGER,
+                string_id INTEGER,
+                project_id INTEGER,
+                mppt_id INTEGER,
+                I_string REAL,
+                updated_at TEXT,
+                PRIMARY KEY (inverter_id, string_id)
+            );
+            """)
+            # 4. Error Cache (Mã trạng thái và mã lỗi thô)
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS error_cache (
+                inverter_id INTEGER PRIMARY KEY,
+                project_id INTEGER,
+                status_code INTEGER,
+                fault_code INTEGER,
                 updated_at TEXT
             );
             """)
 
-    def upsert_latest_realtime(self, inverter_id: int, project_id: int, data: dict):
-        import json
+    def upsert_inverter_ac(self, inverter_id: int, project_id: int, data: dict):
         from datetime import datetime
         now_str = datetime.now().isoformat()
-        data_json = json.dumps(data)
         with self._connect() as conn:
             conn.execute("""
-                INSERT INTO latest_realtime (inverter_id, project_id, data_json, updated_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO inverter_ac_cache (
+                    inverter_id, project_id, IR, Temp_C, P_ac, Q_ac,
+                    V_a, V_b, V_c, I_a, I_b, I_c, PF, H,
+                    E_daily, E_total, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(inverter_id) DO UPDATE SET
                     project_id=excluded.project_id,
-                    data_json=excluded.data_json,
+                    IR=excluded.IR, Temp_C=excluded.Temp_C, P_ac=excluded.P_ac, Q_ac=excluded.Q_ac,
+                    V_a=excluded.V_a, V_b=excluded.V_b, V_c=excluded.V_c,
+                    I_a=excluded.I_a, I_b=excluded.I_b, I_c=excluded.I_c,
+                    PF=excluded.PF, H=excluded.H,
+                    E_daily=excluded.E_daily, E_total=excluded.E_total,
                     updated_at=excluded.updated_at
-            """, (inverter_id, project_id, data_json, now_str))
+            """, (
+                inverter_id, project_id, data.get("ir"), data.get("temp_c"), 
+                data.get("p_inv_w"), data.get("q_inv_var"),
+                data.get("v_a"), data.get("v_b"), data.get("v_c"),
+                data.get("i_a"), data.get("i_b"), data.get("i_c"),
+                data.get("pf"), data.get("grid_hz"),
+                data.get("e_daily"), data.get("e_total"), now_str
+            ))
 
-    def get_latest_realtime(self, inverter_id: int) -> Optional[dict]:
-        import json
+    def upsert_mppt_batch(self, inverter_id: int, project_id: int, mppt_list: list):
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        values = [
+            (inverter_id, m["index"], project_id, m["v"], m["i"], m["p"], now_str)
+            for m in mppt_list
+        ]
         with self._connect() as conn:
-            row = conn.execute("SELECT data_json FROM latest_realtime WHERE inverter_id=?", (inverter_id,)).fetchone()
-            return json.loads(row["data_json"]) if row else None
+            conn.executemany("""
+                INSERT INTO mppt_cache (
+                    inverter_id, mppt_index, project_id, V_mppt, I_mppt, P_mppt, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(inverter_id, mppt_index) DO UPDATE SET
+                    project_id=excluded.project_id,
+                    V_mppt=excluded.V_mppt, I_mppt=excluded.I_mppt, P_mppt=excluded.P_mppt,
+                    updated_at=excluded.updated_at
+            """, values)
+
+    def upsert_string_batch(self, inverter_id: int, project_id: int, string_list: list):
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        values = [
+            (inverter_id, s["index"], project_id, s["mppt_id"], s["i"], now_str)
+            for s in string_list
+        ]
+        with self._connect() as conn:
+            conn.executemany("""
+                INSERT INTO string_cache (
+                    inverter_id, string_id, project_id, mppt_id, I_string, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(inverter_id, string_id) DO UPDATE SET
+                    project_id=excluded.project_id,
+                    mppt_id=excluded.mppt_id,
+                    I_string=excluded.I_string,
+                    updated_at=excluded.updated_at
+            """, values)
+
+    def upsert_error(self, inverter_id: int, project_id: int, status_code: int, fault_code: int):
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO error_cache (inverter_id, project_id, status_code, fault_code, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(inverter_id) DO UPDATE SET
+                    project_id=excluded.project_id,
+                    status_code=excluded.status_code,
+                    fault_code=excluded.fault_code,
+                    updated_at=excluded.updated_at
+            """, (inverter_id, project_id, status_code, fault_code, now_str))
+
+    def get_ac_cache_by_project(self, project_id: int) -> List[dict]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM inverter_ac_cache WHERE project_id = ?", (project_id,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_mppt_cache_by_project(self, project_id: int) -> List[dict]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM mppt_cache WHERE project_id = ?", (project_id,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_string_cache_by_project(self, project_id: int) -> List[dict]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM string_cache WHERE project_id = ?", (project_id,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_error_cache_by_project(self, project_id: int) -> List[dict]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM error_cache WHERE project_id = ?", (project_id,)).fetchall()
+            return [dict(r) for r in rows]
+

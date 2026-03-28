@@ -13,9 +13,9 @@ class TelemetryService:
     Luồng: get_project_snapshot() → _build_payload() → buffer.save()
     """
 
-    def __init__(self, project_service, buffer_service):
+    def __init__(self, project_service, realtime_db):
         self.project_service = project_service
-        self.buffer_service = buffer_service
+        self.realtime_db = realtime_db
 
     # ------------------------------------------------------------------
     # PUBLIC
@@ -61,7 +61,19 @@ class TelemetryService:
             project_rt["Temp_C"] = max(project_rt["Temp_C"], ac_block["Temp_C"])
             
             max_data = tracking_service.get_max_data(inv.id)
-            strings_per_mppt_list = [int(x.strip()) for x in (inv.strings_per_mppt or "").split(",")] if inv.strings_per_mppt else []
+            # Xử lý strings_per_mppt (có thể là str "2,2,2" hoặc int 2)
+            spm_raw = inv.strings_per_mppt
+            if isinstance(spm_raw, int):
+                strings_per_mppt_list = [spm_raw] * (inv.mppt_count or 0)
+            elif isinstance(spm_raw, str) and "," in spm_raw:
+                strings_per_mppt_list = [int(x.strip()) for x in spm_raw.split(",")]
+            elif spm_raw: # Trường hợp là chuỗi nhưng chỉ có 1 số "2"
+                try:
+                    strings_per_mppt_list = [int(spm_raw)] * (inv.mppt_count or 0)
+                except:
+                    strings_per_mppt_list = []
+            else:
+                strings_per_mppt_list = []
             
             mppts_block = []
             for i in range(1, inv.mppt_count + 1):
@@ -172,7 +184,7 @@ class TelemetryService:
         timestamp = payload.get("project", {}).get("created_at")
         buffer_data = payload
         
-        self.buffer_service.save(project_id, buffer_data)
+        self.realtime_db.post_to_outbox(project_id, buffer_data)
 
         logger.info(
             f"[Telemetry] Buffered telemetry for project_id={project_id} "
@@ -212,8 +224,18 @@ class TelemetryService:
         # --- Inverters ---
         inverters_block = []
         for inv in snapshot.get("inverters", []):
-            spm_config = inv.get("strings_per_mppt")
-            spm_list = [int(x.strip()) for x in spm_config.split(",")] if spm_config else []
+            # Xử lý strings_per_mppt (có thể là str "2,2,2" hoặc int 2)
+            if isinstance(spm_config, int):
+                spm_list = [spm_config] * (inv.get("mppt_count", 0) or 0)
+            elif isinstance(spm_config, str) and "," in spm_config:
+                spm_list = [int(x.strip()) for x in spm_config.split(",")]
+            elif spm_config:
+                try:
+                    spm_list = [int(spm_config)] * (inv.get("mppt_count", 0) or 0)
+                except:
+                    spm_list = []
+            else:
+                spm_list = []
 
             # Xử lý errors (Đã mapping qua FaultStateService)
             raw_errors = inv.get("errors") or []

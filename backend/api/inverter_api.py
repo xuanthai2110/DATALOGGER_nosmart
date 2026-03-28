@@ -23,7 +23,7 @@ def list_inverters():
     """Trả về tất cả thông tin của tất cả inverter."""
     try:
         db = get_db()
-        inverters = db.get_all_inverters()
+        inverters = db.get_inverter()
         return [asdict(i) for i in inverters]
     except Exception as e:
         logger.error(f"list_inverters error: {e}")
@@ -31,11 +31,11 @@ def list_inverters():
 
 
 @router.get("/{inverter_id}")
-def get_inverter(inverter_id: int):
+def get_inverter_id(inverter_id: int):
     """Trả về thông tin của inverter có id tương ứng."""
     try:
         db = get_db()
-        inv = db.get_inverter(inverter_id)
+        inv = db.get_inverter_id(inverter_id)
         if not inv:
             return JSONResponse(status_code=404, content={"detail": [{"loc": ["path", "inverter_id"], "msg": "Inverter not found", "type": "not_found"}]})
         return asdict(inv)
@@ -67,7 +67,7 @@ def create_inverter(body: dict = Body(..., example={
         filtered_body = {k: v for k, v in body.items() if k in valid_fields and k != "id"}
         
         inv_id = db.upsert_inverter(InverterCreate(**filtered_body))
-        inv = db.get_inverter(inv_id)
+        inv = db.get_inverter_id(inv_id)
         return asdict(inv)
     except Exception as e:
         logger.error(f"create_inverter error: {e}")
@@ -87,7 +87,7 @@ def update_inverter(inverter_id: int, body: dict = Body(..., example={
         filtered_body = {k: v for k, v in body.items() if k in valid_fields and k != "id"}
         
         db.patch_inverter(inverter_id, InverterUpdate(**filtered_body))
-        inv = db.get_inverter(inverter_id)
+        inv = db.get_inverter_id(inverter_id)
         if not inv:
             return JSONResponse(status_code=404, content={"ok": False, "error": "Inverter not found"})
         return asdict(inv)

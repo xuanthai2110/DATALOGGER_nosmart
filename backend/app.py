@@ -78,7 +78,7 @@ async def websocket_endpoint(websocket: WebSocket):
 def startup_event():
     """Initialize system."""
     db = MetadataDB(app_config.METADATA_DB)
-    if not db.get_user_by_username("admin"):
+    if not db.get_user_name("admin"):
         logger.info("Initializing default admin user...")
         admin = UserCreate(
             username="admin",
@@ -87,7 +87,7 @@ def startup_event():
             fullname="Administrator",
             role="admin"
         )
-        db.create_user(admin, hash_password(admin.password))
+        db.post_user(admin, hash_password(admin.password))
         logger.info("Admin user created successfully.")
 
 # Static files for SPA

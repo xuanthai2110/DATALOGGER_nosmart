@@ -1,72 +1,121 @@
 from dataclasses import dataclass
 from typing import Optional
+from datetime import datetime
 
+# =========================
+# CREATE
+# =========================
 @dataclass
 class InverterCreate:
+    # ===== Identity (bắt buộc) =====
     project_id: int
     brand: str
     model: str
     serial_number: str
-    capacity_kw: float = 0.0
-    mppt_count: int = 0
-    firmware_version: str = ""
-    phase_count: int = 3
-    string_count: int = 0
-    rate_dc_kwp: float = 0.0
-    rate_ac_kw: float = 0.0
-    is_active: bool = True
-    inverter_index: Optional[int] = None
-    strings_per_mppt: Optional[str] = None
-    slave_id: int = 1
+
+    # ===== Communication (rất quan trọng) =====
+    slave_id: Optional[int] = None
     comm_id: Optional[int] = None
-    usage_start_at: Optional[str] = None
-    usage_end_at: Optional[str] = None
+
+    # ===== Electrical config =====
+    capacity_kw: Optional[float] = None
+    rate_dc_kwp: Optional[float] = None
+    rate_ac_kw: Optional[float] = None
+    mppt_count: Optional[int] = None
+    string_count: Optional[int] = None
+    phase_count: Optional[int] = None
+    # ===== Optional info =====
+    firmware_version: Optional[str] = None
+    strings_per_mppt: Optional[int] = None
+
+    # ===== Logic =====
+    inverter_index: Optional[int] = None
+    is_active: bool = True
+
+    # ===== Lifecycle =====
+    usage_start_at: Optional[datetime] = None
+    usage_end_at: Optional[datetime] = None
     replaced_by_id: Optional[int] = None
 
+
+# =========================
+# UPDATE (PATCH)
+# =========================
 @dataclass
 class InverterUpdate:
-    inverter_index: Optional[int] = None
+    # ===== Identity =====
     project_id: Optional[int] = None
     brand: Optional[str] = None
     model: Optional[str] = None
     serial_number: Optional[str] = None
-    capacity_kw: Optional[float] = None
-    mppt_count: Optional[int] = None
-    firmware_version: Optional[str] = None
-    phase_count: Optional[int] = None
-    string_count: Optional[int] = None
-    rate_dc_kwp: Optional[float] = None
-    rate_ac_kw: Optional[float] = None
-    is_active: Optional[bool] = None
-    strings_per_mppt: Optional[str] = None
+
+    # ===== Communication =====
     slave_id: Optional[int] = None
     comm_id: Optional[int] = None
-    usage_start_at: Optional[str] = None
-    usage_end_at: Optional[str] = None
+
+    # ===== Electrical config =====
+    capacity_kw: Optional[float] = None
+    rate_dc_kwp: Optional[float] = None
+    rate_ac_kw: Optional[float] = None
+    mppt_count: Optional[int] = None
+    string_count: Optional[int] = None
+    phase_count: Optional[int] = None
+    # ===== Optional info =====
+    firmware_version: Optional[str] = None
+    strings_per_mppt: Optional[int] = None
+
+    # ===== Logic =====
+    inverter_index: Optional[int] = None
+    is_active: Optional[bool] = None
+
+    # ===== Lifecycle =====
+    usage_start_at: Optional[datetime] = None
+    usage_end_at: Optional[datetime] = None
     replaced_by_id: Optional[int] = None
 
+
+# =========================
+# RESPONSE (READ)
+# =========================
 @dataclass
 class InverterResponse:
+    # ===== Primary =====
     id: int
-    inverter_index: int
     project_id: int
+
+    # ===== Identity =====
     brand: str
     model: str
     serial_number: str
-    capacity_kw: float
-    mppt_count: int
-    firmware_version: str
-    phase_count: int
-    string_count: int
-    rate_dc_kwp: float
-    rate_ac_kw: float
-    is_active: bool
-    strings_per_mppt: Optional[str] = None
-    slave_id: Optional[int] = None
-    comm_id: Optional[int] = None
+
+    # ===== Communication =====
+    slave_id: Optional[int]
+    comm_id: Optional[int]
+
+    # ===== Electrical config =====
+    capacity_kw: Optional[float]
+    rate_dc_kwp: Optional[float]
+    rate_ac_kw: Optional[float]
+    mppt_count: Optional[int]
+    string_count: Optional[int]
+    phase_count: Optional[int]
+    # ===== Optional info =====
+    firmware_version: Optional[str]
+    strings_per_mppt: Optional[int] = None
+
+    # ===== Logic =====
+    inverter_index: Optional[int] = None
+    is_active: Optional[bool] = None
+
+    # ===== Lifecycle =====
+    usage_start_at: Optional[datetime] = None
+    usage_end_at: Optional[datetime] = None
+    replaced_by_id: Optional[int] = None
+
+    # ===== System / Sync =====
     server_id: Optional[int] = None
     server_request_id: Optional[int] = None
-    sync_status: str = 'pending'
-    usage_start_at: Optional[str] = None
-    usage_end_at: Optional[str] = None
-    replaced_by_id: Optional[int] = None
+    sync_status: Optional[str] = None
+
+    # ===== Optional info moved to end to avoid TypeError =====
+    strings_per_mppt: Optional[int] = None

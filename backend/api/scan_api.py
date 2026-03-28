@@ -179,7 +179,7 @@ def sync_to_server():
         metadata_db = MetadataDB(app_config.METADATA_DB)
         auth = AuthService()
         setup_svc = SetupService(auth, metadata_db)
-        all_projects = metadata_db.get_all_projects()
+        all_projects = metadata_db.get_projects()
         total_inverters = 0
         for project in all_projects:
             setup_svc.sync_project_to_server(project.id)
@@ -194,7 +194,7 @@ def get_setup_status():
     try:
         from dataclasses import asdict
         metadata_db = MetadataDB(app_config.METADATA_DB)
-        all_projects = metadata_db.get_all_projects()
+        all_projects = metadata_db.get_projects()
         all_inverters = []
         for p in all_projects:
             invs = metadata_db.get_inverters_by_project(p.id)

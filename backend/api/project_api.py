@@ -22,7 +22,7 @@ def get_db() -> MetadataDB:
 def list_projects(db: MetadataDB = Depends(get_db), current_user = Depends(get_current_user_id)):
     """Trả về toàn bộ danh sách project trong local DB."""
     try:
-        projects = db.get_all_projects()
+        projects = db.get_projects()
         return {"projects": [asdict(p) for p in projects]}
     except Exception as e:
         logger.error(f"list_projects error: {e}")

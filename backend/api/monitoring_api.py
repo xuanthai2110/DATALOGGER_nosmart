@@ -59,7 +59,7 @@ def get_dashboard_summary(db: MetadataDB = Depends(get_db), rdb: RealtimeDB = De
     """Lấy tóm tắt dữ liệu cho dashboard."""
     try:
         projects = db.get_projects() # MetadataDB method
-        inverters = db.get_all_inverters()
+        inverters = db.get_inverter()
         
         # Create map for inverter counts per project
         inv_counts = {}

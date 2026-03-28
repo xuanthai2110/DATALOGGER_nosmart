@@ -5,14 +5,18 @@ from typing import Optional
 class CommConfig:
     driver: str 
     comm_type: str
-    host: str = "127.0.0.1"
-    port: int = 502
-    com_port: str = "COM1"
-    baudrate: int = 9600
-    databits: int = 8
-    parity: str = "N"
-    stopbits: int = 1
-    timeout: float = 1.0
-    slave_id_start: int = 1
-    slave_id_end: int = 10
+
+    host: Optional[str] = None
+    port: Optional[int] = None
+
+    com_port: Optional[str] = None
+    baudrate: Optional[int] = None
+    databits: Optional[int] = None
+    parity: Optional[str] = None
+    stopbits: Optional[int] = None
+
+    timeout: Optional[float] = None
+    slave_id_start: Optional[int] = None
+    slave_id_end: Optional[int] = None
+
     id: Optional[int] = None
