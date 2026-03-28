@@ -95,10 +95,15 @@ def print_full_cache_snapshot(project, cache_db):
         
         for r in ac_list:
             inv_id = r['inverter_id']
-            fault = err_map.get(inv_id, {}).get('fault_code', 0)
-            status_str = "RUNNING" if fault == 0 else f"FAULT:{fault}"
             
-            print(f"{inv_id:<4} | {r.get('P_ac',0):<10} | {r.get('E_daily',0):<10} | {r.get('V_a',0):<8} | {r.get('Temp_C',0):<5} | {status_str}")
+            # Lấy mã Status và Fault từ cache
+            err_data = err_map.get(inv_id, {})
+            status_code = err_data.get('status_code', 0)
+            fault_code = err_data.get('fault_code', 0)
+            
+            # Hiển thị dạng Code:Code (ví dụ 2:0)
+            status_display = f"{status_code}:{fault_code}"
+            print(f"{inv_id:<4} | {r.get('P_ac',0):<10} | {r.get('E_daily',0):<10} | {r.get('V_a',0):<8} | {r.get('Temp_C',0):<5} | {status_display}")
 
         # 5. In chi tiết MPPT & Strings
         print(f"\n--- [MPPT & STRINGS DETAIL] ---")
