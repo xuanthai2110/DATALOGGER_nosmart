@@ -104,3 +104,62 @@ class CacheDB(BaseDB):
                     fault_text=COALESCE(excluded.fault_text, error_cache.fault_text),
                     fault_json=COALESCE(excluded.fault_json, error_cache.fault_json), updated_at=excluded.updated_at
             """, (inverter_id, project_id, status_code, fault_code, status_text, fault_text, fault_json, now_str))
+
+    # --- MPPT ---
+    def get_mppt_cache_by_inverter(self, inverter_id: int) -> List[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM mppt_cache WHERE inverter_id = ? ORDER BY mppt_index ASC", (inverter_id,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def upsert_mppt(self, inverter_id: int, mppt_index: int, project_id: int, data: dict):
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO mppt_cache (inverter_id, mppt_index, project_id, V_mppt, I_mppt, P_mppt, Max_V, Max_I, Max_P, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(inverter_id, mppt_index) DO UPDATE SET
+                    project_id=excluded.project_id,
+                    V_mppt=excluded.V_mppt, I_mppt=excluded.I_mppt, P_mppt=excluded.P_mppt,
+                    Max_V=MAX(excluded.Max_V, mppt_cache.Max_V),
+                    Max_I=MAX(excluded.Max_I, mppt_cache.Max_I),
+                    Max_P=MAX(excluded.Max_P, mppt_cache.Max_P),
+                    updated_at=excluded.updated_at
+            """, (inverter_id, mppt_index, project_id,
+                  data.get("v_mppt", 0), data.get("i_mppt", 0), data.get("p_mppt", 0),
+                  data.get("v_mppt", 0), data.get("i_mppt", 0), data.get("p_mppt", 0),
+                  now_str))
+
+    # --- String ---
+    def get_string_cache_by_inverter(self, inverter_id: int) -> List[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM string_cache WHERE inverter_id = ? ORDER BY string_id ASC", (inverter_id,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def upsert_string(self, inverter_id: int, string_id: int, project_id: int, mppt_id: int, i_string: float):
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO string_cache (inverter_id, string_id, project_id, mppt_id, I_string, max_I, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(inverter_id, string_id) DO UPDATE SET
+                    project_id=excluded.project_id, mppt_id=excluded.mppt_id,
+                    I_string=excluded.I_string,
+                    max_I=MAX(excluded.I_string, string_cache.max_I),
+                    updated_at=excluded.updated_at
+            """, (inverter_id, string_id, project_id, mppt_id, i_string, i_string, now_str))
+
+    def reset_mppt_max(self, inverter_id: int):
+        """Reset Max values hàng ngày — gọi từ PersistenceWorker khi sang ngày mới."""
+        with self._connect() as conn:
+            conn.execute("UPDATE mppt_cache SET Max_V=0, Max_I=0, Max_P=0 WHERE inverter_id=?", (inverter_id,))
+
+    def reset_string_max(self, inverter_id: int):
+        """Reset max_I hàng ngày."""
+        with self._connect() as conn:
+            conn.execute("UPDATE string_cache SET max_I=0 WHERE inverter_id=?", (inverter_id,))
