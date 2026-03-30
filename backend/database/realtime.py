@@ -2,7 +2,7 @@ import sqlite3
 import json
 from typing import Optional, List
 from dataclasses import asdict
-from database.base_db import BaseDB, to_dataclass
+from .base_db import BaseDB, to_dataclass
 
 from models.realtime import (
     ProjectRealtimeCreate, ProjectRealtimeResponse,

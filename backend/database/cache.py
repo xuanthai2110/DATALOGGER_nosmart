@@ -1,7 +1,7 @@
 import sqlite3
 import json
 from typing import List, Dict, Optional
-from database.base_db import BaseDB
+from .base_db import BaseDB
 
 class CacheDB(BaseDB):
     """Quản lý dữ liệu thay đổi nhanh (RAM-based)."""

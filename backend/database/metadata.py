@@ -1,7 +1,7 @@
 import sqlite3
 from typing import Optional, Dict, List
 from dataclasses import asdict, fields
-from database.base_db import BaseDB, to_dataclass
+from .base_db import BaseDB, to_dataclass
 
 from models.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from models.inverter import InverterCreate, InverterResponse, InverterUpdate
