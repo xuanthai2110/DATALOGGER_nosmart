@@ -2,7 +2,7 @@ import logging
 import json
 from datetime import datetime
 from typing import Any, List
-from backend.database import CacheDB
+from backend.db_manager import CacheDB
 
 logger = logging.getLogger(__name__)
 

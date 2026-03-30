@@ -5,7 +5,7 @@ import sys
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(BASE_DIR)
 
-from backend.database import RealtimeDB
+from backend.db_manager import RealtimeDB
 from config import REALTIME_DB
 
 def test_realtime():

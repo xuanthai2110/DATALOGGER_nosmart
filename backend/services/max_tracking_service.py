@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 from typing import Dict, Any
-from backend.database import RealtimeDB
+from backend.db_manager import RealtimeDB
 
 logger = logging.getLogger(__name__)
 

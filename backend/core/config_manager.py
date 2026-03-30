@@ -11,7 +11,7 @@ import logging
 from dataclasses import asdict
 
 from backend.core import config as app_config
-from backend.database import MetadataDB
+from backend.db_manager import MetadataDB
 from backend.models.comm import CommConfig
 
 logger = logging.getLogger(__name__)

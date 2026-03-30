@@ -2,7 +2,22 @@ import requests
 import logging
 import json
 import os
-from config import API_BASE_URL, API_USERNAME, API_PASSWORD, TOKEN_FILE
+from backend.core import config as _cfg
+
+# URL và TOKEN_FILE lấy từ config
+API_BASE_URL = _cfg.API_BASE_URL
+TOKEN_FILE   = _cfg.TOKEN_FILE
+
+# Credentials KHÔNG lưu cứng — đọc từ biến môi trường
+# Export trước khi chạy: export API_USERNAME=xxx API_PASSWORD=yyy
+API_USERNAME = os.environ.get("API_USERNAME", "")
+API_PASSWORD = os.environ.get("API_PASSWORD", "")
+
+if not API_USERNAME or not API_PASSWORD:
+    logging.getLogger(__name__).warning(
+        "[Auth] API_USERNAME / API_PASSWORD not set in environment. "
+        "Upload to server will fail. Set env vars before running."
+    )
 
 logger = logging.getLogger(__name__)
 

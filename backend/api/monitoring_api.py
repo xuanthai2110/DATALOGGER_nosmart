@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from backend.database import MetadataDB, RealtimeDB, CacheDB
+from backend.db_manager import MetadataDB, RealtimeDB, CacheDB
 from backend.api.auth_api import get_current_user_id, get_db, get_rdb, get_cdb
 from dataclasses import asdict
 import logging

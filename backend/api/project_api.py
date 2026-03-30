@@ -3,7 +3,7 @@ web/routes/project_route.py — CRUD routes cho Projects
 """
 from fastapi import APIRouter, Depends, Body
 from fastapi.responses import JSONResponse
-from backend.database import MetadataDB
+from backend.db_manager import MetadataDB
 from backend.models.project import ProjectCreate, ProjectResponse
 from backend.api.auth_api import get_current_user_id
 from dataclasses import asdict, fields

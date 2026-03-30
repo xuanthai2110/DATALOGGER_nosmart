@@ -2,10 +2,10 @@ import time
 import logging
 import threading
 from datetime import datetime
-from backend.database import CacheDB, RealtimeDB
+from backend.db_manager import CacheDB, RealtimeDB
 from backend.services.energy_service import EnergyService
 from backend.models.realtime import InverterACRealtimeCreate, mpptRealtimeCreate, stringRealtimeCreate
-import config
+from backend.core import config
 
 logger = logging.getLogger(__name__)
 

@@ -330,3 +330,43 @@ class FaultStateService:
             "HUAWEI": HUAWEI_FAULT_MAP,
             "SUNGROW": SUNGROW_FAULT_MAP
             }
+
+
+# ============================================================
+# ALIASES — dùng cho fault_service.py
+# ============================================================
+
+# Dict theo brand: FAULT_MAPS["HUAWEI"] -> HUAWEI_FAULT_MAP
+FAULT_MAPS = {
+    "HUAWEI": HUAWEI_FAULT_MAP,
+    "SUNGROW": SUNGROW_FAULT_MAP,
+}
+
+# Dict theo brand: STATE_MAPS["HUAWEI"] -> HUAWEI_STATE_MAP
+STATE_MAPS = {
+    "HUAWEI": HUAWEI_STATE_MAP,
+    "SUNGROW": SUNGROW_STATE_MAP,
+}
+
+# Huawei Modbus: map raw status_code từ thanh ghi Modbus 
+# sang id_unified (state code trong HUAWEI_STATE_MAP)
+# Với Huawei SUN2000, thanh ghi 32089 trả về integer state trực tiếp
+# (0=Standby, 1=Grid-connected, 2=Grid-connected normally, ...)
+# map này convert về id Huawei state map (0-13)
+HUAWEI_MODBUS_MAP = {
+    0: 0,    # INITIAL_STANDBY
+    1: 5,    # RUNNING
+    2: 5,    # RUNNING (grid connected normally)
+    3: 6,    # ALARM_RUNNING
+    4: 7,    # DERATING
+    5: 8,    # STOPPED
+    6: 9,    # FAULT
+    7: 10,   # UPGRADING
+    8: 11,   # SHUTTING_DOWN
+    9: 1,    # GRID_DETECTING
+    10: 2,   # INSULATION_CHECK
+    11: 3,   # SELF_CHECK
+    12: 4,   # STARTING
+    13: 12,  # GRID_FAULT_WAIT
+    14: 13,  # MAINTENANCE_MODE
+}

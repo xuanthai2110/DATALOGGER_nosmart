@@ -2,7 +2,7 @@ import time
 import json
 import logging
 import threading
-from backend.database import CacheDB, MetadataDB, RealtimeDB
+from backend.db_manager import CacheDB, MetadataDB, RealtimeDB
 from backend.services.energy_service import EnergyService
 from backend.services.max_tracking_service import MaxTrackingService
 from backend.services.fault_service import FaultService

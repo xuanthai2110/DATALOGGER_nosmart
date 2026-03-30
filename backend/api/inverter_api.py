@@ -4,7 +4,7 @@ web/routes/inverter_route.py — CRUD routes cho Inverters
 
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
-from backend.database import MetadataDB
+from backend.db_manager import MetadataDB
 from backend.models.inverter import InverterCreate, InverterUpdate
 from dataclasses import asdict, fields
 import logging

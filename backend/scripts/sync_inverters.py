@@ -19,10 +19,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from backend.database import MetadataDB
+from backend.db_manager import MetadataDB
 from backend.services.auth_service import AuthService
 from backend.services.setup_service import SetupService
-import config
+from backend.core import config
 
 # Cấu hình logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

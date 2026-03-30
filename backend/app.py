@@ -24,7 +24,7 @@ from backend.api.monitoring_api import router as monitoring_router
 from backend.api.comm_api import router as comm_router
 from backend.api.sync_api import router as sync_router
 
-from backend.database import MetadataDB
+from backend.db_manager import MetadataDB
 from backend.models.user import UserCreate
 from backend.services.local_auth_utils import hash_password
 from backend.core import config as app_config

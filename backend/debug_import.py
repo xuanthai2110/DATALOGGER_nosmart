@@ -11,9 +11,9 @@ print(f"Backend Dir Added: {backend_dir}")
 print(f"sys.path[0]: {sys.path[0]}")
 
 try:
-    import backend.database
+    import backend.db_manager
     print(f"Database module found at: {database.__file__}")
-    from backend.database import MetadataDB
+    from backend.db_manager import MetadataDB
     print("MetadataDB imported successfully")
 except Exception as e:
     print(f"Error: {e}")

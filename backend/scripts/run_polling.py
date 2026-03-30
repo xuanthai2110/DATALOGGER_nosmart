@@ -17,7 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 print(f"DEBUG - sys.path[0]: {sys.path[0]}")
 
 # 2. Imports using absolute package names
-from backend.database import MetadataDB, CacheDB, RealtimeDB
+from backend.db_manager import MetadataDB, CacheDB, RealtimeDB
 from backend.workers.polling_worker import PollingWorker
 from backend.workers.logic_worker import LogicWorker
 from backend.workers.persistence_worker import PersistenceWorker

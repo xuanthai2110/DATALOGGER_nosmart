@@ -1,9 +1,9 @@
 import time
 import logging
 import threading
-from backend.database import MetadataDB, CacheDB
+from backend.db_manager import MetadataDB, CacheDB
 from backend.services.polling_service import PollingService
-import config
+from backend.core import config
 
 logger = logging.getLogger(__name__)
 

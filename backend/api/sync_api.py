@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from backend.database import MetadataDB
+from backend.db_manager import MetadataDB
 from backend.api.auth_api import get_current_user, get_db
 from backend.core import config as app_config
 import requests

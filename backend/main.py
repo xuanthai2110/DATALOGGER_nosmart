@@ -1,7 +1,7 @@
 import time
 import logging
 from backend.core import config
-from backend.database import MetadataDB, RealtimeDB, CacheDB
+from backend.db_manager import MetadataDB, RealtimeDB, CacheDB
 from backend.workers.polling_worker import PollingWorker
 from backend.workers.logic_worker import LogicWorker
 from backend.services.fault_service import FaultService
