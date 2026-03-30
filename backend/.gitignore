@@ -8,3 +8,6 @@ database/datalogger.db-shm
 test/
 Test_modbus.py
 prod
+*.db
+*.db-shm
+*.db-wal
