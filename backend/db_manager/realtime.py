@@ -98,3 +98,25 @@ class RealtimeDB(BaseDB):
         values = [(r.project_id, r.inverter_id, r.IR, r.Temp_C, r.P_ac, r.Q_ac, r.V_a, r.V_b, r.V_c, r.I_a, r.I_b, r.I_c, r.PF, r.H, r.E_daily, r.E_monthly, r.E_total, r.created_at) for r in records]
         with self._connect() as conn:
             conn.executemany("INSERT INTO inverter_ac_realtime (project_id, inverter_id, IR, Temp_C, P_ac, Q_ac, V_a, V_b, V_c, I_a, I_b, I_c, PF, H, E_daily, E_monthly, E_total, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values)
+
+    def get_latest_inverter_ac_realtime(self, inverter_id: int) -> Optional[InverterACRealtimeResponse]:
+        """Lấy bản ghi AC realtime mới nhất của inverter từ Disk (dùng khi seed EnergyService)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM inverter_ac_realtime WHERE inverter_id = ? ORDER BY created_at DESC LIMIT 1",
+                (inverter_id,)
+            ).fetchone()
+            return to_dataclass(InverterACRealtimeResponse, row)
+
+    def get_latest_ac_batch(self, project_id: int) -> List[InverterACRealtimeResponse]:
+        """Lấy bản ghi AC realtime mới nhất của mỗi inverter trong một project."""
+        with self._connect() as conn:
+            rows = conn.execute("""
+                SELECT * FROM inverter_ac_realtime
+                WHERE id IN (
+                    SELECT MAX(id) FROM inverter_ac_realtime
+                    WHERE project_id = ?
+                    GROUP BY inverter_id
+                )
+            """, (project_id,)).fetchall()
+            return [to_dataclass(InverterACRealtimeResponse, r) for r in rows]
