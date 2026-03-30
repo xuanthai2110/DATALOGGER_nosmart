@@ -25,6 +25,13 @@ class CacheDB(BaseDB):
                 delta_E_monthly REAL DEFAULT 0, E_monthly REAL DEFAULT 0, updated_at TEXT
             );
             """)
+            # Migration cache DB cho các cột mới nếu trước đó chưa có
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(inverter_ac_cache)").fetchall()}
+            if "E_monthly" not in cols:
+                conn.execute("ALTER TABLE inverter_ac_cache ADD COLUMN E_monthly REAL DEFAULT 0")
+            if "delta_E_monthly" not in cols:
+                conn.execute("ALTER TABLE inverter_ac_cache ADD COLUMN delta_E_monthly REAL DEFAULT 0")
+
             # MPPT Cache
             conn.execute("""
             CREATE TABLE IF NOT EXISTS mppt_cache (
