@@ -5,7 +5,8 @@ from pathlib import Path
 # BASE DIR – luôn là thư mục chứa file config.py này
 # Dù chạy từ bất kỳ working directory nào cũng đúng
 # ===========================================================
-BASE_DIR = Path(__file__).resolve().parent
+# BASE_DIR – luôn là thư mục backend/ (thư mục cha của core/)
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ===========================================================
 # PATHS

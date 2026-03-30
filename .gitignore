@@ -27,7 +27,6 @@ venv/
 ENV/
 
 # Database
-*.db
 *.sqlite3
 
 # IDEs
@@ -41,3 +40,22 @@ Thumbs.db
 # App specific
 config.json
 backend/static/uploads/
+prod
+backend/metadata.db
+backend/cache.db
+backend/realtime.db
+backendmetadata.db
+backendcache.db
+backendrealtime.db
+config.json
+data.json
+data.txt
+metadata.db
+cache.db
+realtime.db
+polling.log
+test_cache.db
+test_meta.db
+test_rt.db
+data_true.txt
+.gitignore

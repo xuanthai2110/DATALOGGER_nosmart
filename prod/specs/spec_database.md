@@ -22,7 +22,7 @@ Tách biệt để tránh xung đột write giữa 2 luồng: **Polling** (ghi r
 | `id` | INT PK | ID nội bộ |
 | `server_id` | INT | ID từ Cloud Server (sau khi approve) |
 | `server_request_id` | INT | ID Request trên Server |
-| `sync_status` | TEXT | `local_only`, `pending`, `synced`, `needs_update` |
+| `sync_status` | TEXT | `local_only`, `pending`, `synced`, `approved` |
 | `name` | TEXT | Tên dự án |
 | `location` | TEXT | Vị trí |
 | `capacity_kwp` | REAL | Công suất DC (kWp) |

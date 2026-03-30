@@ -1,66 +1,70 @@
-# Tài liệu Kỹ thuật: Luồng Polling & Thu thập Dữ liệu
+# Tài liệu Kỹ thuật: Luồng Polling & Thu thập Dữ liệu (Cập nhật 2026)
 
-Tài liệu này mô tả chi tiết kiến trúc và luồng thực hiện của hệ thống Polling trong Datalogger, bao gồm các service, hàm quan trọng và quy trình tương tác.
+Tài liệu này mô tả chi tiết kiến trúc và luồng thực hiện của hệ thống Polling trong Datalogger, được tối ưu hóa cho hiệu suất cao và giảm tải Database.
 
 ---
 
-## 1. Kiến trúc Service
-Hệ thống được thiết kế theo mô hình Service-Oriented nhằm tách biệt trách nhiệm:
+## 1. Kiến trúc Tổng quan
+Hệ thống Polling hoạt động theo mô hình **Producer-Cache**, trong đó Polling Service liên tục thu thập dữ liệu và đẩy vào bộ nhớ RAM (SQLite Cache) để các dịch vụ khác tiêu thụ.
 
-| Service | Vai trò | Hàm quan trọng |
+| Thành phần | Vai trò | Tệp tin |
 |---|---|---|
-| `main.py` | Orchestration (Khởi tạo và chạy luồng chính) | `main()` |
-| `PollingService` | Điều phối việc quét dữ liệu và quản lý Snapshot | `run_forever()`, `poll_all_inverters()`, `save_to_database()` |
-| `ProjectService` | Tổng hợp dữ liệu từ nhiều bảng DB thành snapshot | `get_project_snapshot()` |
-| `TelemetryService` | Đóng gói JSON theo format Server | `build_and_buffer()`, `_build_payload()` |
-| `BufferService` | Quản lý hàng đợi gửi dữ liệu (Outbox) | `save()`, `get_all()`, `delete()` |
-| `RealtimeDB` | Tương tác SQLite cho dữ liệu thực tế | `post_inverter_ac_batch()`, `upsert_latest_realtime()`, `post_to_outbox()` |
-| `UploaderService` | Gửi dữ liệu lên Server qua API | `upload()`, `send_immediate()` |
-| `NormalizationService` | Chuẩn hóa đơn vị và kiểm tra giải giá trị | `normalize()` |
-| `TrackingService` | Tính toán năng lượng tháng và giá trị MAX | `update_energy()`, `update_max_values()` |
+| **Runner** | Điều phối vòng lặp chính, quản lý nhịp độ (pacing) và in log snapshot. | `run_polling.py` |
+| **Polling Service** | Thực hiện kết nối Modbus, nạp Driver, và ghi dữ liệu vào Cache. | `polling_service.py` |
+| **Cache DB** | Database SQLite nằm trên RAM (`/dev/shm`) lưu trạng thái realtime 10s. | `sqlite_manager.py` |
+| **Drivers** | Thư viện giao tiếp riêng cho từng hãng (Huawei, Sungrow...). | `drivers/` |
 
 ---
 
-## 2. Quy trình Chi tiết (Polling Flow)
+## 2. Luồng Thực hiện Chi tiết (Step-by-Step)
 
-### Giai đoạn 1: Chu kỳ Quét (Mỗi 10 giây)
-1. **`PollingService.run_forever()`**: Gọi `metadata_db.get_all_projects()` để lấy danh sách dự án.
-2. **`poll_all_inverters(project_id)`**:
-    - Kiểm tra danh sách Inverter của dự án.
-    - Với mỗi Inverter:
-        - Gọi **Driver** (`read_all()`) để lấy dữ liệu qua Modbus.
-        - **`TrackingService.update_energy()`**: Tính năng lượng lũy kế.
-        - **`NormalizationService.normalize()`**: Làm sạch dữ liệu.
-        - **`RealtimeDB.upsert_latest_realtime()`**: Lưu bản ghi 10s vào bảng `latest_realtime` (để Web UI local truy cập).
-        - **`_check_and_send_immediate()`**: Nếu trạng thái/lỗi thay đổi so với chu kỳ trước -> Gọi ngay `telemetry_service.build_and_buffer()` và `uploader.upload()` để cập nhật Server tức thì.
-3. **Cơ chế Night Mode**: Nếu tổng `P_ac` của toàn dự án = 0, đánh dấu dự án vào trạng thái "Night Mode" để tối ưu tài nguyên.
+### Bước 1: Khởi tạo (Initialization)
+- Nạp cấu hình từ `backend/config.py`.
+- Kết nối `MetadataDB` (chứa thông tin thiết bị) và `CacheDB` (RAM).
+- Khởi tạo `PollingService`.
 
-### Giai đoạn 2: Chu kỳ Snapshot (Mỗi 5 phút)
-1. **`PollingService.save_to_database(project_id)`**:
-    - Thu thập tất cả dữ liệu thành công từ bộ nhớ đệm (`self.buffer`).
-    - Lưu các bản ghi snapshot vào DB local: `inverter_ac_realtime`, `mppt_realtime`, `string_realtime`, `project_realtime`.
-2. **`TelemetryService.build_and_buffer(project_id)`**:
-    - Gọi **`ProjectService.get_project_snapshot(project_id)`**: Hàm này sử dụng **Batch Loading (SQL Window Function)** để thu thập Snapshot mới nhất của toàn bộ AC, MPPT, String và Errors của một dự án chỉ qua vài câu query hiệu quả.
-    - **`_build_payload()`**: Đóng gói thành cấu trúc JSON phân cấp sâu.
-    - **`BufferService.save()`**: Lưu JSON payload vào bảng `uploader_outbox` trong `realtime.db`.
+### Bước 2: Quản lý Cấu hình (Config Caching) - *Mới*
+Để tránh việc truy vấn SQL liên tục vào ổ cứng, hệ thống sử dụng cơ chế Cache cấu hình:
+- Gọi `service.get_polling_config()`.
+- **Logic Refresh**: Cấu hình (danh sách Project/Inverter) được lưu trong RAM. Chỉ sau mỗi **5 phút** (`CONFIG_REFRESH_INTERVAL`), hệ thống mới truy vấn Database một lần để cập nhật thay đổi (nếu có).
+- Nếu cache còn hiệu lực, hệ thống sử dụng danh sách Inverter từ RAM.
 
-### Giai đoạn 3: Chu kỳ Tải lên (Độc lập hoặc Tuần tự)
-1. **`UploaderService.upload()`**:
-    - Lấy danh sách từ hàng đợi `uploader_outbox`.
-    - Gửi `POST` lên Server Endpoint.
-    - Nếu Server phản hồi 200 OK -> Xoá bản ghi trong hàng đợi (`delete_from_outbox`).
+### Bước 3: Thu thập Dữ liệu (Data Acquisition)
+- Duyệt qua danh sách Inverter của từng Project.
+- **Xác định Transport**: Tự động chọn Modbus TCP (Cổng 502) hoặc Modbus RTU (RS485) dựa trên Brand.
+- **Đọc dữ liệu thô**: Gọi `driver.read_all()` để quét toàn bộ các register (Input/Holding).
+
+### Bước 4: Chuẩn hóa & Xử lý (Normalization)
+- Gọi `NormalizationService.normalize()`:
+    - Áp dụng các hệ số scale (ví dụ: nhân 0.1, 0.01).
+    - Làm tròn số thập phân.
+    - Xử lý các giá trị đặc biệt (Invalid/NaN).
+
+### Bước 5: Lưu trữ vào RAM Cache (Persistence)
+Dữ liệu được đẩy vào `CacheDB` qua 4 nhóm bảng chính:
+1. **AC Cache**: Công suất tổng, sản lượng ngày, điện áp pha.
+2. **MPPT Cache**: Điện áp/Dòng điện từng kênh MPPT.
+3. **String Cache**: Dòng điện từng chuỗi PV String.
+4. **Error Cache**: Mã Status thô và mã Fault từ thiết bị.
+
+### Bước 6: Hiển thị & Giám sát (Reporting)
+- Sau khi kết thúc một vòng quét của Project, Runner gọi hàm `print_full_cache_snapshot()`.
+- Hàm này truy vấn ngược lại từ `CacheDB` và in bảng tổng hợp ra Terminal:
+    - Bảng AC Summary (P_ac, E_daily, V_a, Temp, Status:Fault).
+    - Chi tiết MPPT (Watt).
+    - Chi tiết Strings (Ampere).
 
 ---
 
-## 3. Cấu trúc Cơ sở dữ liệu liên quan (RealtimeDB)
-- `latest_realtime`: Lưu 1 bản ghi duy nhất/1 inverter (Upsert mỗi 10s).
-- `project_realtime` & `inverter_ac_realtime`: Lưu lịch sử snapshot (Mỗi 5 phút).
-- `uploader_outbox`: Hàng đợi dữ liệu JSON chờ Cloud sync.
-- `inverter_errors`: Lưu vết các lỗi quan trọng.
+## 3. Các tham số điều khiển (`config.py`)
+
+- `POLL_INTERVAL`: Thời gian nghỉ giữa các vòng quét (Mặc định 10-30s).
+- `CONFIG_REFRESH_INTERVAL`: Thời gian giữ cache cấu hình thiết bị trong RAM (Mặc định 300s/5 phút).
+- `CACHE_DB`: Đường dẫn file DB trên RAM (Thường là `/dev/shm/hirubic_cache.db`).
 
 ---
 
-## 4. Tham số Cấu hình chính (`config.py`)
-- `POLL_INTERVAL = 10`
-- `SNAPSHOT_INTERVAL = 300`
-- `API_BASE_URL = "..."`
+## 4. Ưu điểm của Luồng Hiện tại
+1. **Zero Database I/O Overhead**: Gần như không ghi xuống ổ cứng trong quá trình quét, bảo vệ thẻ nhớ SD.
+2. **High Visibility**: Snapshot hiển thị đầy đủ mã code Status:Fault thô để kỹ thuật dễ đối soát.
+3. **Dynamic Refresh**: Tự động nhận diện thiết bị mới sau 5 phút mà không cần restart service.
