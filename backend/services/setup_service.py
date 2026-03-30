@@ -3,8 +3,8 @@ import logging
 import time
 from dataclasses import asdict
 from config import API_BASE_URL
-from models.project import ProjectCreate, ProjectUpdate
-from models.inverter import InverterCreate, InverterUpdate
+from backend.models.project import ProjectCreate, ProjectUpdate
+from backend.models.inverter import InverterCreate, InverterUpdate
 
 logger = logging.getLogger(__name__)
 

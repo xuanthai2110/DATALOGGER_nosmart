@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from backend.database import MetadataDB
-from models.user import UserCreate, UserResponse
-from services.local_auth_utils import hash_password
+from backend.models.user import UserCreate, UserResponse
+from backend.services.local_auth_utils import hash_password
 from backend.api.auth_api import get_current_user_id, get_db
 from typing import List
 import logging

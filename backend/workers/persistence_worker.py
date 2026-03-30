@@ -2,8 +2,8 @@ import time
 import logging
 import threading
 from backend.database import CacheDB, RealtimeDB
-from services.energy_service import EnergyService
-from models.realtime import (
+from backend.services.energy_service import EnergyService
+from backend.models.realtime import (
     InverterACRealtimeCreate, mpptRealtimeCreate, 
     stringRealtimeCreate, ProjectRealtimeCreate
 )

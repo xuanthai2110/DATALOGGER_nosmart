@@ -2,7 +2,7 @@ import time
 import logging
 import threading
 from backend.database import RealtimeDB
-from services.uploader_service import UploaderService
+from backend.services.uploader_service import UploaderService
 import config
 
 logger = logging.getLogger(__name__)

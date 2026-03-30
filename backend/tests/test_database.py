@@ -5,9 +5,9 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(BASE_DIR)
 
 from backend.database import MetadataDB 
-from models.project import ProjectCreate
+from backend.models.project import ProjectCreate
 from config import METADATA_DB,REALTIME_DB
-from services.project_service import ProjectService
+from backend.services.project_service import ProjectService
 
 def test():
     metadata_db = MetadataDB(METADATA_DB)

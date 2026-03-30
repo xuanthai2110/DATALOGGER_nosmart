@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, BackgroundTasks
 from fastapi.responses import JSONResponse
 from backend.config_manager import load_config
 from backend.database import MetadataDB
-from models.inverter import InverterCreate
+from backend.models.inverter import InverterCreate
 import logging
 import time
 import threading
@@ -30,16 +30,16 @@ scan_state = ScanState()
 
 def _get_driver_class(driver_name: str):
     if driver_name == "Huawei":
-        from drivers.huawei_sun2000110KTL import HuaweiSUN2000
+        from backend.drivers.huawei_sun2000110KTL import HuaweiSUN2000
         return HuaweiSUN2000
     elif driver_name == "Sungrow":
-        from drivers.sungrow_sg110cx import SungrowSG110CXDriver
+        from backend.drivers.sungrow_sg110cx import SungrowSG110CXDriver
         return SungrowSG110CXDriver
     raise ValueError(f"Unknown driver: {driver_name}")
 
 def _get_transport(comm: dict):
     if comm["comm_type"] == "TCP":
-        from communication.modbus_tcp import ModbusTCP
+        from backend.communication.modbus_tcp import ModbusTCP
         t = ModbusTCP(
             host=comm["host"], 
             port=comm.get("port", 502),
@@ -48,7 +48,7 @@ def _get_transport(comm: dict):
         t.connect()
         return t
     else:
-        from communication.modbus_rtu import ModbusRTU
+        from backend.communication.modbus_rtu import ModbusRTU
         t = ModbusRTU(
             port=comm["com_port"],
             baudrate=comm.get("baudrate", 9600),
@@ -174,8 +174,8 @@ def save_inverters(body: dict = Body(...)):
 @router.post("/sync")
 def sync_to_server():
     try:
-        from services.auth_service import AuthService
-        from services.setup_service import SetupService
+        from backend.services.auth_service import AuthService
+        from backend.services.setup_service import SetupService
         metadata_db = MetadataDB(app_config.METADATA_DB)
         auth = AuthService()
         setup_svc = SetupService(auth, metadata_db)

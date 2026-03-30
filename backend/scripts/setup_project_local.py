@@ -20,10 +20,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from backend.database import MetadataDB
-from services.setup_service import SetupService
-from models.project import ProjectCreate, ProjectUpdate
-from drivers.huawei_sun2000110KTL import HuaweiSUN2000
-from communication.modbus_tcp import ModbusTCP
+from backend.services.setup_service import SetupService
+from backend.models.project import ProjectCreate, ProjectUpdate
+from backend.drivers.huawei_sun2000110KTL import HuaweiSUN2000
+from backend.communication.modbus_tcp import ModbusTCP
 import config
 
 # Cấu hình logging

@@ -1,9 +1,9 @@
 import logging
 from dataclasses import asdict
 from typing import Optional, List, Dict, Any
-from models.project import ProjectCreate, ProjectResponse, ProjectUpdate
-from models.inverter import InverterCreate, InverterResponse, InverterUpdate
-from models.realtime import ProjectRealtimeResponse, ProjectRealtimeCreate
+from backend.models.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from backend.models.inverter import InverterCreate, InverterResponse, InverterUpdate
+from backend.models.realtime import ProjectRealtimeResponse, ProjectRealtimeCreate
 
 logger = logging.getLogger(__name__)
 

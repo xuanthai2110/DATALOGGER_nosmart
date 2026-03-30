@@ -4,7 +4,7 @@ from typing import Optional, List
 from dataclasses import asdict
 from .base_db import BaseDB, to_dataclass
 
-from models.realtime import (
+from backend.models.realtime import (
     ProjectRealtimeCreate, ProjectRealtimeResponse,
     InverterACRealtimeCreate, InverterACRealtimeResponse,
     InverterErrorCreate, InverterErrorResponse,

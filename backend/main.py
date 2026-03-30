@@ -2,9 +2,9 @@ import time
 import logging
 from backend.core import config
 from backend.database import MetadataDB, RealtimeDB, CacheDB
-from workers.polling_worker import PollingWorker
-from workers.logic_worker import LogicWorker
-from services.fault_service import FaultService
+from backend.workers.polling_worker import PollingWorker
+from backend.workers.logic_worker import LogicWorker
+from backend.services.fault_service import FaultService
 
 logger = logging.getLogger("LegacyMain")
 

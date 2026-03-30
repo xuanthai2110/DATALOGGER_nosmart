@@ -42,7 +42,7 @@ async def sync_project(project_id: int, current_user = Depends(get_current_user)
     }
     # In a real scenario, we might need a server-side token here.
     # The uploader_service uses AuthService to get a token for the central server.
-    from services.auth_service import AuthService
+    from backend.services.auth_service import AuthService
     auth_service = AuthService()
     server_token = auth_service.get_access_token()
     if server_token:

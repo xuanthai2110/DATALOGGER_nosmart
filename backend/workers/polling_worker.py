@@ -2,7 +2,7 @@ import time
 import logging
 import threading
 from backend.database import MetadataDB, CacheDB
-from services.polling_service import PollingService
+from backend.services.polling_service import PollingService
 import config
 
 logger = logging.getLogger(__name__)

@@ -12,7 +12,7 @@ from dataclasses import asdict
 
 from backend.core import config as app_config
 from backend.database import MetadataDB
-from models.comm import CommConfig
+from backend.models.comm import CommConfig
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ def save_config(data: dict):
             logger.info("Comm config saved to metadata.db")
             
         if "project" in data:
-            from models.project import ProjectCreate
+            from backend.models.project import ProjectCreate
             proj_data = data["project"]
             
             proj_create = ProjectCreate(

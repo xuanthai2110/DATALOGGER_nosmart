@@ -3,10 +3,10 @@ from typing import Optional, Dict, List
 from dataclasses import asdict, fields
 from .base_db import BaseDB, to_dataclass
 
-from models.project import ProjectCreate, ProjectResponse, ProjectUpdate
-from models.inverter import InverterCreate, InverterResponse, InverterUpdate
-from models.user import UserCreate, UserResponse
-from models.comm import CommConfig
+from backend.models.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from backend.models.inverter import InverterCreate, InverterResponse, InverterUpdate
+from backend.models.user import UserCreate, UserResponse
+from backend.models.comm import CommConfig
 
 class MetadataDB(BaseDB):
     """Quản lý cấu hình Project, Inverter, User và Communication."""

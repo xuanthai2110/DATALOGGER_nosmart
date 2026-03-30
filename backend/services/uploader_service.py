@@ -1,8 +1,8 @@
 import requests
 import json
 import logging
-from core.config import API_BASE_URL
-from services.auth_service import AuthService
+from backend.core.config import API_BASE_URL
+from backend.services.auth_service import AuthService
 
 logger = logging.getLogger(__name__)
 

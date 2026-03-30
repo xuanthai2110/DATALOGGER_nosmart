@@ -1,7 +1,7 @@
 # drivers/huawei_sun2000110KTL.py
 
 from typing import Dict, Any
-from drivers.base import BaseDriver
+from backend.drivers.base import BaseDriver
 class HuaweiSUN2000(BaseDriver):
 
     def __init__(self, transport, slave_id=1):

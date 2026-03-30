@@ -3,8 +3,8 @@ import json
 from datetime import datetime
 from typing import Dict, Set, List, Tuple
 from backend.database import RealtimeDB, MetadataDB
-from services.fault_state_service import FaultStateService
-from models.realtime import InverterErrorCreate
+from backend.services.fault_state_service import FaultStateService
+from backend.models.realtime import InverterErrorCreate
 
 logger = logging.getLogger(__name__)
 
