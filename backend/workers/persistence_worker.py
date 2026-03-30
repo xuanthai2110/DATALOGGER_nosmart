@@ -62,3 +62,43 @@ class PersistenceWorker(threading.Thread):
         if ac_records:
             self.realtime_db.post_inverter_ac_batch(ac_records)
             logger.info(f"Persistence Worker: Saved {len(ac_records)} inverter records to disk.")
+
+        # 2. MPPT Snapshot
+        mppt_rows = self.cache_db.get_all_mppt_cache()
+        if mppt_rows:
+            mppt_records = []
+            for item in mppt_rows:
+                rec = mpptRealtimeCreate(
+                    project_id=item["project_id"],
+                    inverter_id=item["inverter_id"],
+                    mppt_index=item["mppt_index"],
+                    string_on_mppt=0,
+                    V_mppt=item.get("V_mppt", 0),
+                    I_mppt=item.get("I_mppt", 0),
+                    P_mppt=item.get("P_mppt", 0),
+                    Max_I=item.get("Max_I", 0),
+                    Max_V=item.get("Max_V", 0),
+                    Max_P=item.get("Max_P", 0),
+                    created_at=item.get("updated_at", "")
+                )
+                mppt_records.append(rec)
+            self.realtime_db.post_mppt_batch(mppt_records)
+            logger.info(f"Persistence Worker: Saved {len(mppt_records)} MPPT records to disk.")
+
+        # 3. String Snapshot
+        string_rows = self.cache_db.get_all_string_cache()
+        if string_rows:
+            string_records = []
+            for item in string_rows:
+                rec = stringRealtimeCreate(
+                    project_id=item["project_id"],
+                    inverter_id=item["inverter_id"],
+                    mppt_id=item["mppt_id"],
+                    string_id=item["string_id"],
+                    I_string=item.get("I_string", 0),
+                    max_I=item.get("max_I", 0),
+                    created_at=item.get("updated_at", "")
+                )
+                string_records.append(rec)
+            self.realtime_db.post_string_batch(string_records)
+            logger.info(f"Persistence Worker: Saved {len(string_records)} String records to disk.")

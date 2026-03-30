@@ -48,7 +48,7 @@ def main():
         poll_worker = PollingWorker(metadata_db, cache_db, config.POLL_INTERVAL)
         logic_worker = LogicWorker(cache_db, metadata_db, realtime_db, fault_service)
         persist_worker = PersistenceWorker(cache_db, realtime_db, logic_worker.energy_service, config.SNAPSHOT_INTERVAL)
-        upload_worker = UploaderWorker(realtime_db, config.SNAPSHOT_INTERVAL)
+        upload_worker = UploaderWorker(cache_db, metadata_db, realtime_db, config.SNAPSHOT_INTERVAL)
         
         # Start Threads
         poll_worker.start()
