@@ -77,7 +77,7 @@ class BuildTeleWorker(threading.Thread):
             
             if payload_list:
                 # Lưu vào DB Outbox
-                self.realtime_db.post_to_outbox(project_id, payload_list[0])
+                self.realtime_db.post_to_outbox(project_id, proj_meta.server_id, payload_list[0])
                 logger.info(f"BuildTeleWorker: Payload saved to outbox for project {project_id}")
                 
                 # Giới hạn 1000 hàng
