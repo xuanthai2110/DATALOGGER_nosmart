@@ -1,6 +1,7 @@
 import requests
 import logging
 import time
+import logger       
 from typing import Optional
 from dataclasses import asdict
 from backend.core.config import API_BASE_URL
