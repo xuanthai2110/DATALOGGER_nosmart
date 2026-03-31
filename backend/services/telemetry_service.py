@@ -128,8 +128,6 @@ class TelemetryService:
             "created_at": ts_str
         }
             
-        if not inverters_json: return []
-            
         # Final Payload EXACTLY as data.json
         payload = {
             "project": project_json,

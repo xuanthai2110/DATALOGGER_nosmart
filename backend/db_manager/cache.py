@@ -41,6 +41,15 @@ class CacheDB(BaseDB):
                 updated_at TEXT, PRIMARY KEY (inverter_id, mppt_index)
             );
             """)
+            # Migration MPPT
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(mppt_cache)").fetchall()}
+            if "Max_V" not in cols:
+                conn.execute("ALTER TABLE mppt_cache ADD COLUMN Max_V REAL DEFAULT 0")
+            if "Max_I" not in cols:
+                conn.execute("ALTER TABLE mppt_cache ADD COLUMN Max_I REAL DEFAULT 0")
+            if "Max_P" not in cols:
+                conn.execute("ALTER TABLE mppt_cache ADD COLUMN Max_P REAL DEFAULT 0")
+
             # String Cache
             conn.execute("""
             CREATE TABLE IF NOT EXISTS string_cache (
@@ -49,6 +58,10 @@ class CacheDB(BaseDB):
                 PRIMARY KEY (inverter_id, string_id)
             );
             """)
+            # Migration String
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(string_cache)").fetchall()}
+            if "max_I" not in cols:
+                conn.execute("ALTER TABLE string_cache ADD COLUMN max_I REAL DEFAULT 0")
             # Error Cache
             conn.execute("""
             CREATE TABLE IF NOT EXISTS error_cache (

@@ -29,10 +29,15 @@ class RealtimeDB(BaseDB):
             CREATE TABLE IF NOT EXISTS uploader_outbox (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 project_id INTEGER,
+                server_id INTEGER,
                 data_json TEXT,
                 created_at TEXT
             );
             """)
+            # Migration uploader_outbox
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(uploader_outbox)").fetchall()}
+            if "server_id" not in cols:
+                conn.execute("ALTER TABLE uploader_outbox ADD COLUMN server_id INTEGER")
             # Project Realtime
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS project_realtime (
@@ -75,20 +80,21 @@ class RealtimeDB(BaseDB):
 
 
     # --- Outbox API ---
-    def post_to_outbox(self, project_id: int, data: dict):
+    def post_to_outbox(self, project_id: int, server_id: int, data: dict):
         from datetime import datetime
         now_str = datetime.now().isoformat()
         with self._connect() as conn:
-            conn.execute("INSERT INTO uploader_outbox (project_id, data_json, created_at) VALUES (?, ?, ?)",
-                         (project_id, json.dumps(data), now_str))
+            conn.execute("INSERT INTO uploader_outbox (project_id, server_id, data_json, created_at) VALUES (?, ?, ?, ?)",
+                         (project_id, server_id, json.dumps(data), now_str))
 
     def get_all_outbox(self) -> List[dict]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT id, project_id, data_json, created_at FROM uploader_outbox").fetchall()
+            rows = conn.execute("SELECT id, project_id, server_id, data_json, created_at FROM uploader_outbox").fetchall()
             result = []
             for r in rows:
                 d = json.loads(r["data_json"])
                 d["id"] = r["id"]
+                d["server_id"] = r["server_id"]
                 result.append(d)
             return result
 
