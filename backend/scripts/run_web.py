@@ -23,7 +23,7 @@ if __name__ == "__main__":
     print("=" * 50)
     uvicorn.run(
         "backend.app:app",
-        host="0.0.0.0",
+        host="10.8.0.3",
         port=5000,
         reload=False,
         log_level="info"
