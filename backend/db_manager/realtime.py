@@ -43,7 +43,7 @@ class RealtimeDB(BaseDB):
             CREATE TABLE IF NOT EXISTS project_realtime (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 project_id INTEGER, Temp_C REAL, P_ac REAL, P_dc REAL,
-                E_daily REAL, denta_E_monthly REAL, E_monthly REAL, E_total REAL,
+                E_daily REAL, delta_E_monthly REAL, E_monthly REAL, E_total REAL,
                 severity TEXT, created_at TEXT
             );
             """)
@@ -111,9 +111,9 @@ class RealtimeDB(BaseDB):
 
     def post_inverter_ac_batch(self, records: List[InverterACRealtimeCreate]):
         if not records: return
-        values = [(r.project_id, r.inverter_id, r.IR, r.Temp_C, r.P_ac, r.Q_ac, r.V_a, r.V_b, r.V_c, r.I_a, r.I_b, r.I_c, r.PF, r.H, r.E_daily, r.E_monthly, r.E_total, r.created_at) for r in records]
+        values = [(r.project_id, r.inverter_id, r.IR, r.Temp_C, r.P_ac, r.Q_ac, r.V_a, r.V_b, r.V_c, r.I_a, r.I_b, r.I_c, r.PF, r.H, r.E_daily, r.delta_E_monthly, r.E_monthly, r.E_total, r.created_at) for r in records]
         with self._connect() as conn:
-            conn.executemany("INSERT INTO inverter_ac_realtime (project_id, inverter_id, IR, Temp_C, P_ac, Q_ac, V_a, V_b, V_c, I_a, I_b, I_c, PF, H, E_daily, E_monthly, E_total, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values)
+            conn.executemany("INSERT INTO inverter_ac_realtime (project_id, inverter_id, IR, Temp_C, P_ac, Q_ac, V_a, V_b, V_c, I_a, I_b, I_c, PF, H, E_daily, delta_E_monthly, E_monthly, E_total, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values)
 
     def get_latest_inverter_ac_realtime(self, inverter_id: int) -> Optional[InverterACRealtimeResponse]:
         """Lấy bản ghi AC realtime mới nhất của inverter từ Disk (dùng khi seed EnergyService)."""
@@ -190,9 +190,9 @@ class RealtimeDB(BaseDB):
         with self._connect() as conn:
             conn.execute("""
                 INSERT INTO project_realtime (
-                    project_id, Temp_C, P_ac, P_dc, E_daily, denta_E_monthly, E_monthly, E_total, severity, created_at
+                    project_id, Temp_C, P_ac, P_dc, E_daily, delta_E_monthly, E_monthly, E_total, severity, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (d["project_id"], d["Temp_C"], d["P_ac"], d["P_dc"], d["E_daily"], d["denta_E_monthly"], d["E_monthly"], d["E_total"], d["severity"], d["created_at"]))
+            """, (d["project_id"], d["Temp_C"], d["P_ac"], d["P_dc"], d["E_daily"], d["delta_E_monthly"], d["E_monthly"], d["E_total"], d["severity"], d["created_at"]))
 
     def get_latest_project_realtime(self, project_id: int) -> Optional[ProjectRealtimeResponse]:
         with self._connect() as conn:

@@ -12,7 +12,7 @@ class ProjectRealtimeCreate:
     P_dc: float = 0
     E_daily: float = 0
     E_monthly: float = 0
-    denta_E_monthly: float = 0
+    delta_E_monthly: float = 0
     E_total: float = 0
     severity: str = "STABLE"
     created_at: str = ""
@@ -27,7 +27,7 @@ class ProjectRealtimeResponse:
     P_dc: float = 0
     E_daily: float = 0
     E_monthly: float = 0
-    denta_E_monthly: float = 0
+    delta_E_monthly: float = 0
     E_total: float = 0
     severity: str = "STABLE"
     created_at: str = ""
@@ -52,6 +52,7 @@ class InverterACRealtimeCreate:
     PF: float
     H: float
     E_daily: float
+    delta_E_monthly: float
     E_monthly: float
     E_total: float
     created_at: Optional[str] = None
@@ -74,6 +75,7 @@ class InverterACRealtimeResponse:
     PF: float
     H: float
     E_daily: float
+    delta_E_monthly: float
     E_monthly: float
     E_total: float
     created_at: Optional[str] = None    
@@ -149,4 +151,3 @@ class stringRealtimeResponse:
     I_string: float = 0
     max_I: float = 0
     created_at: Optional[str] = None
-    
