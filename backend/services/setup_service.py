@@ -1,8 +1,9 @@
 import requests
 import logging
 import time
+from typing import Optional
 from dataclasses import asdict
-from config import API_BASE_URL
+from backend.core.config import API_BASE_URL
 from backend.models.project import ProjectCreate, ProjectUpdate
 from backend.models.inverter import InverterCreate, InverterUpdate
 
