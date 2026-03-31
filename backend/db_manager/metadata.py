@@ -170,6 +170,30 @@ class MetadataDB(BaseDB):
                   data_dict.get("server_id"), data_dict.get("server_request_id")))
             return cursor.lastrowid
 
+    def patch_project(self, project_id: int, data: ProjectUpdate):
+        data_dict = asdict(data)
+        fields = [f"{k} = ?" for k, v in data_dict.items() if v is not None]
+        values = [v for v in data_dict.values() if v is not None]
+        if not fields: return
+        values.append(project_id)
+        with self._connect() as conn:
+            conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id=?", tuple(values))
+
+    def update_project_sync(self, project_id: int, server_id: Optional[int] = None, server_request_id: Optional[int] = None, status: str = 'pending'):
+        with self._connect() as conn:
+            conn.execute("""
+                UPDATE projects 
+                SET server_id = COALESCE(?, server_id), 
+                    server_request_id = COALESCE(?, server_request_id),
+                    sync_status = ? 
+                WHERE id = ?
+            """, (server_id, server_request_id, status, project_id))
+
+    def get_project_sync_info(self, project_id: int) -> Optional[dict]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT server_id, server_request_id, sync_status FROM projects WHERE id=?", (project_id,)).fetchone()
+            return dict(row) if row else None
+
     def delete_project(self, project_id: int):
         with self._connect() as conn:
             conn.execute("DELETE FROM inverters WHERE project_id=?", (project_id,))
@@ -225,6 +249,24 @@ class MetadataDB(BaseDB):
             
             row = conn.execute("SELECT * FROM inverters WHERE id=?", (final_id,)).fetchone()
             return to_dataclass(InverterResponse, row)
+
+    def patch_inverter(self, inverter_id: int, data: InverterUpdate):
+        data_dict = asdict(data)
+        fields = [f"{k} = ?" for k, v in data_dict.items() if v is not None]
+        values = [v for v in data_dict.values() if v is not None]
+        if not fields: return
+        values.append(inverter_id)
+        with self._connect() as conn:
+            conn.execute(f"UPDATE inverters SET {', '.join(fields)} WHERE id=?", tuple(values))
+
+    def update_inverter_sync(self, inverter_id: int, server_id: Optional[int] = None, status: str = 'pending'):
+        with self._connect() as conn:
+            conn.execute("""
+                UPDATE inverters 
+                SET server_id = COALESCE(?, server_id), 
+                    sync_status = ? 
+                WHERE id = ?
+            """, (server_id, status, inverter_id))
 
     # --- Comm/Auth API (Rút gọn) ---
     def get_comm_config(self) -> List[CommConfig]:

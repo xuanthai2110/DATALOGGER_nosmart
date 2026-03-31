@@ -16,76 +16,29 @@ logger = logging.getLogger(__name__)
 SERVER_URL = app_config.API_BASE_URL
 
 @router.post("/project/{project_id}")
-async def sync_project(project_id: int, current_user = Depends(get_current_user), svc: ProjectService = Depends(get_project_service)):
-    # 1. Get project data
-    project = svc.get_project(project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+async def sync_project(project_id: int, background_tasks: BackgroundTasks, svc: ProjectService = Depends(get_project_service)):
+    # 1. Kiểm tra xem đã có trên server chưa (Pre-sync check)
+    # So khớp bằng elec_meter_no và serial_number
+    if svc.pre_sync_check(project_id):
+        return {"ok": True, "message": "Project matched and approved automatically from server."}
     
-    # 2. Get inverters for this project
-    inverters = svc.get_inverters_by_project(project_id)
+    # 2. Nếu chưa có, gửi yêu cầu đồng bộ mới
+    request_id = svc.initiate_sync_request(project_id)
+    if not request_id:
+        raise HTTPException(status_code=500, detail="Failed to initiate sync request to server.")
     
-    # 3. Prepare payload
-    # Note: The server expects a specific format. Based on instructions:
-    # Admin -> /api/project/
-    # User -> /api/inverters/requests/
+    # 3. Chạy polling trong background để theo dõi kết quả phê duyệt
+    background_tasks.add_task(svc.background_poll_status, request_id, project_id)
     
-    payload = {
-        "project": asdict(project),
-        "inverters": [asdict(inv) for inv in inverters]
+    return {
+        "ok": True, 
+        "server_request_id": request_id, 
+        "message": "Sync request sent. Waiting for Admin approval. Polling started in background."
     }
-    
-    # Remove local IDs from payload to avoid confusion on server
-    payload["project"].pop("id", None)
-    for inv in payload["inverters"]:
-        inv.pop("id", None)
-        inv.pop("project_id", None)
 
-    headers = {
-        "Content-Type": "application/json"
-    }
-    # In a real scenario, we might need a server-side token here.
-    # The uploader_service uses AuthService to get a token for the central server.
-    from backend.services.auth_service import AuthService
-    auth_service = AuthService()
-    server_token = auth_service.get_access_token()
-    if server_token:
-        headers["Authorization"] = f"Bearer {server_token}"
-
-    try:
-        if current_user["role"] == "admin":
-            url = f"{SERVER_URL}/api/project/"
-            logger.info(f"Admin syncing project {project_id} to {url}")
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-            if response.status_code in [200, 201]:
-                res_data = response.json()
-                server_id = res_data.get("server_id") or res_data.get("id")
-                if server_id:
-                    svc.update_project_sync(project_id, server_id=server_id, status='approved')
-                    # Also update inverters if server returned their IDs, or just mark as approved
-                    for inv in inverters:
-                        svc.update_inverter_sync(inv.id, status='approved')
-                    return {"ok": True, "server_id": server_id, "message": "Project synced and approved by Admin"}
-            
-            logger.error(f"Sync failed (Admin): {response.status_code} - {response.text}")
-            raise HTTPException(status_code=response.status_code, detail=f"Server error: {response.text}")
-            
-        else: # User role
-            url = f"{SERVER_URL}/api/inverters/requests/"
-            logger.info(f"User syncing project {project_id} to {url}")
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-            if response.status_code in [200, 201, 202]:
-                res_data = response.json()
-                request_id = res_data.get("server_request_id") or res_data.get("id")
-                if request_id:
-                    svc.update_project_sync(project_id, server_request_id=request_id, status='pending')
-                    for inv in inverters:
-                        svc.update_inverter_sync(inv.id, status='pending')
-                    return {"ok": True, "server_request_id": request_id, "message": "Project sync request sent, pending approval"}
-
-            logger.error(f"Sync failed (User): {response.status_code} - {response.text}")
-            raise HTTPException(status_code=response.status_code, detail=f"Server error: {response.text}")
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Connection error during sync: {e}")
-        raise HTTPException(status_code=503, detail="Could not connect to central server")
+@router.delete("/project/{project_id}/stop")
+async def stop_sync(project_id: int, svc: ProjectService = Depends(get_project_service)):
+    success = svc.cancel_sync(project_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Could not cancel sync (maybe no pending request exists).")
+    return {"ok": True, "message": "Sync request cancelled and local status reset."}
