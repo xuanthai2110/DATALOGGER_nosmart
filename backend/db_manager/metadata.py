@@ -196,6 +196,36 @@ class MetadataDB(BaseDB):
             rows = conn.execute("SELECT * FROM inverters ORDER BY id ASC").fetchall()
             return [to_dataclass(InverterResponse, r) for r in rows]
 
+    def upsert_inverter(self, data: InverterCreate) -> InverterResponse:
+        data_dict = asdict(data)
+        serial = data_dict.get("serial_number")
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            # Check if exists
+            row = conn.execute("SELECT id FROM inverters WHERE serial_number=?", (serial,)).fetchone()
+            if row:
+                inv_id = row["id"]
+                fields = []
+                values = []
+                for k, v in data_dict.items():
+                    if k != "serial_number" and v is not None:
+                        fields.append(f"{k} = ?")
+                        values.append(v)
+                if fields:
+                    values.append(inv_id)
+                    cursor.execute(f"UPDATE inverters SET {', '.join(fields)} WHERE id=?", tuple(values))
+                final_id = inv_id
+            else:
+                # Insert
+                keys = [k for k, v in data_dict.items() if v is not None]
+                placeholders = ["?" for _ in keys]
+                values = [data_dict[k] for k in keys]
+                cursor.execute(f"INSERT INTO inverters ({', '.join(keys)}) VALUES ({', '.join(placeholders)})", tuple(values))
+                final_id = cursor.lastrowid
+            
+            row = conn.execute("SELECT * FROM inverters WHERE id=?", (final_id,)).fetchone()
+            return to_dataclass(InverterResponse, row)
+
     # --- Comm/Auth API (Rút gọn) ---
     def get_comm_config(self) -> List[CommConfig]:
         with self._connect() as conn:

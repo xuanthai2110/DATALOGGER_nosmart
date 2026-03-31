@@ -50,12 +50,9 @@ class ConfigService:
             comm_data = data.get("comm", {})
             comm_id = None
             if comm_data:
-                with self.metadata_db._connect() as conn:
-                    cursor = conn.execute(
-                        "INSERT INTO comm_config (driver, comm_type, host, port, com_port, baudrate, databits, parity, stopbits, timeout, slave_id_start, slave_id_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (comm_data.get("driver"), comm_data.get("comm_type", "TCP"), comm_data.get("host"), comm_data.get("port"), comm_data.get("com_port"), comm_data.get("baudrate"), comm_data.get("databits"), comm_data.get("parity"), comm_data.get("stopbits"), comm_data.get("timeout"), comm_data.get("slave_id_start", 1), comm_data.get("slave_id_end", 30))
-                    )
-                    comm_id = cursor.lastrowid
+                # Use the service-wrapped post_comm which now handles UPSERT logic
+                comm = CommConfig(**comm_data)
+                comm_id = self.metadata_db.post_comm(comm)
 
             invs_data = data.get("inverters", [])
             for i, inv in enumerate(invs_data):
