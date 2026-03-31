@@ -57,6 +57,19 @@ class CacheDB(BaseDB):
                 status_text TEXT, fault_text TEXT, fault_json TEXT, updated_at TEXT
             );
             """)
+            # Migration error_cache
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(error_cache)").fetchall()}
+            if "status_text" not in cols:
+                conn.execute("ALTER TABLE error_cache ADD COLUMN status_text TEXT")
+            if "fault_text" not in cols:
+                conn.execute("ALTER TABLE error_cache ADD COLUMN fault_text TEXT")
+            if "fault_json" not in cols:
+                conn.execute("ALTER TABLE error_cache ADD COLUMN fault_json TEXT")
+
+    def get_ac_cache(self, inverter_id: int) -> Optional[dict]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM inverter_ac_cache WHERE inverter_id = ?", (inverter_id,)).fetchone()
+            return dict(row) if row else None
 
     def upsert_inverter_ac(self, inverter_id: int, project_id: int, data: dict):
         from datetime import datetime

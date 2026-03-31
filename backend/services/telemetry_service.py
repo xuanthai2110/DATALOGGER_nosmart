@@ -15,36 +15,39 @@ class TelemetryService:
         now = datetime.now()
         ts_str = now.isoformat()
         
-        # 1. Project Summary from RealtimeDB (Latest snapshot)
-        proj_latest = self.realtime_db.get_latest_project_realtime(project_id)
-        project_json = {
-            "Temp_C": proj_latest.Temp_C if proj_latest else 0.0,
-            "P_ac": proj_latest.P_ac if proj_latest else 0.0,
-            "P_dc": proj_latest.P_dc if proj_latest else 0.0,
-            "E_daily": proj_latest.E_daily if proj_latest else 0.0,
-            "E_monthly": proj_latest.E_monthly if proj_latest else 0.0,
-            "E_total": proj_latest.E_total if proj_latest else 0.0,
-            "severity": proj_latest.severity if proj_latest else "UNKNOWN",
-            "created_at": ts_str
-        }
-
-        # 2. Inverters Data
+        # Aggregate Project Data from Inverters in Cache
+        total_p_ac = 0.0
+        total_p_dc = 0.0
+        total_e_daily = 0.0
+        total_e_monthly = 0.0
+        total_e_total = 0.0
+        temp_list = []
+        
         inverters_json = []
         for inv in inverters_meta:
             inv_id = inv.id
             
             # AC Data (from Cache)
-            ac = cache_db.get_latest_realtime(inv_id) # ac_cache
+            ac = cache_db.get_ac_cache(inv_id)
             if not ac: continue
+            
+            # Totals
+            total_p_ac += ac.get("P_ac", 0.0)
+            total_e_daily += ac.get("E_daily", 0.0)
+            total_e_monthly += ac.get("E_monthly", 0.0)
+            total_e_total += ac.get("E_total", 0.0)
+            if ac.get("Temp_C"): temp_list.append(ac["Temp_C"])
             
             # MPPT & Strings (from Cache)
             mppts_cache = cache_db.get_mppt_cache_by_inverter(inv_id)
             strings_cache = cache_db.get_string_cache_by_inverter(inv_id)
             
-            # Map strings to MPPTs
+            inv_dc_sum = 0.0
             mppt_list = []
             for m in mppts_cache:
                 m_idx = m["mppt_index"]
+                inv_dc_sum += m.get("P_mppt", 0.0)
+                
                 m_strings = [
                     {
                         "string_index": s["string_id"],
@@ -52,14 +55,12 @@ class TelemetryService:
                         "Max_I": s["max_I"],
                         "created_at": self._format_ts(s.get("updated_at"))
                     }
-                    for s in strings_cache if s["mppt_id"] == m["id"] # Check mapping logic
+                    for s in strings_cache if s["mppt_id"] == m_idx
                 ]
-                # If mapping by mppt_id fails (ID vs Index), fallback or adjust
-                # In CacheDB, mppt_id is the auto-inc ID of the MPPT row.
                 
                 mppt_list.append({
                     "mppt_index": m_idx,
-                    "string_on_mppt": m["string_on_mppt"],
+                    "string_on_mppt": m.get("string_on_mppt", 2),
                     "V_mppt": m["V_mppt"],
                     "I_mppt": m["I_mppt"],
                     "P_mppt": m["P_mppt"],
@@ -69,22 +70,22 @@ class TelemetryService:
                     "created_at": self._format_ts(m.get("updated_at")),
                     "strings": m_strings
                 })
+            
+            total_p_dc += inv_dc_sum
 
             # Error Payload
             err_row = cache_db.get_error_cache(inv_id)
             errors = []
             if err_row:
-                # Use fault_json if exists, else build from status/fault codes
                 if err_row.get("fault_json"):
                     errors = json.loads(err_row["fault_json"])
                 else:
-                    # Minimal error object to match structure
                     errors = [{
                         "fault_code": err_row.get("fault_code", 0),
-                        "fault_description": "STATUS: " + str(err_row.get("status_code", 0)),
+                        "fault_description": err_row.get("fault_text") or ("STATUS: " + str(err_row.get("status_code", 0))),
                         "repair_instruction": "",
                         "severity": "STABLE",
-                        "created_at": ts_str
+                        "created_at": self._format_ts(err_row.get("updated_at"))
                     }]
             
             inv_data = {
@@ -111,9 +112,25 @@ class TelemetryService:
                 "errors": errors
             }
             inverters_json.append(inv_data)
+        
+        if not inverters_json: return []
+
+        # Final Project Summary
+        avg_temp = round(sum(temp_list) / len(temp_list), 1) if temp_list else 0.0
+        project_json = {
+            "Temp_C": avg_temp,
+            "P_ac": round(total_p_ac, 2),
+            "P_dc": round(total_p_dc, 2),
+            "E_daily": round(total_e_daily, 2),
+            "E_monthly": round(total_e_monthly, 2),
+            "E_total": round(total_e_total, 2),
+            "severity": "STABLE",
+            "created_at": ts_str
+        }
             
         if not inverters_json: return []
             
+        # Final Payload EXACTLY as data.json
         payload = {
             "project": project_json,
             "inverters": inverters_json
