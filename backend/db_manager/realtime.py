@@ -145,6 +145,14 @@ class RealtimeDB(BaseDB):
             """, (inverter_id, inverter_id)).fetchall()
             return [to_dataclass(mpptRealtimeResponse, r) for r in rows]
 
+    def get_inverter_errors(self, inverter_id: int) -> List[InverterErrorResponse]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM inverter_errors WHERE inverter_id = ? ORDER BY created_at DESC",
+                (inverter_id,)
+            ).fetchall()
+            return [to_dataclass(InverterErrorResponse, r) for r in rows]
+
     def post_mppt_batch(self, records: List[mpptRealtimeCreate]):
         if not records: return
         values = [(r.project_id, r.inverter_id, r.mppt_index, r.string_on_mppt, r.V_mppt, r.I_mppt, r.P_mppt, r.Max_I, r.Max_V, r.Max_P, r.created_at) for r in records]
@@ -169,3 +177,37 @@ class RealtimeDB(BaseDB):
         values = [(r.project_id, r.inverter_id, r.mppt_id, r.string_id, r.I_string, r.max_I, r.created_at) for r in records]
         with self._connect() as conn:
             conn.executemany("INSERT INTO string_realtime (project_id, inverter_id, mppt_id, string_id, I_string, max_I, created_at) VALUES (?,?,?,?,?,?,?)", values)
+
+    # --- Project Realtime API ---
+    def post_project_realtime(self, data: ProjectRealtimeCreate):
+        d = asdict(data)
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO project_realtime (
+                    project_id, Temp_C, P_ac, P_dc, E_daily, denta_E_monthly, E_monthly, E_total, severity, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (d["project_id"], d["Temp_C"], d["P_ac"], d["P_dc"], d["E_daily"], d["denta_E_monthly"], d["E_monthly"], d["E_total"], d["severity"], d["created_at"]))
+
+    def get_latest_project_realtime(self, project_id: int) -> Optional[ProjectRealtimeResponse]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM project_realtime WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+                (project_id,)
+            ).fetchone()
+            return to_dataclass(ProjectRealtimeResponse, row)
+
+    def get_project_realtime_range(self, project_id: int, start: str, end: str) -> List[ProjectRealtimeResponse]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM project_realtime WHERE project_id = ? AND created_at BETWEEN ? AND ? ORDER BY created_at ASC",
+                (project_id, start, end)
+            ).fetchall()
+            return [to_dataclass(ProjectRealtimeResponse, r) for r in rows]
+
+    def get_inverter_ac_range(self, inverter_id: int, start: str, end: str) -> List[InverterACRealtimeResponse]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM inverter_ac_realtime WHERE inverter_id = ? AND created_at BETWEEN ? AND ? ORDER BY created_at ASC",
+                (inverter_id, start, end)
+            ).fetchall()
+            return [to_dataclass(InverterACRealtimeResponse, r) for r in rows]

@@ -1,5 +1,5 @@
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from backend.models.project import ProjectCreate
 from backend.models.comm import CommConfig
 from backend.models.inverter import InverterCreate
@@ -59,12 +59,11 @@ class ConfigService:
                 inv["project_id"] = proj_id
                 inv["comm_id"] = comm_id
                 inv["inverter_index"] = i + 1
-                if "rate_ac_kw" not in inv:
-                    inv["rate_ac_kw"] = inv.get("capacity_kw", 0.0)
-                if "rate_dc_kwp" not in inv:
-                    inv["rate_dc_kwp"] = inv.get("capacity_kw", 0.0)
+                # Filter fields for InverterCreate
+                inv_fields = {f.name for f in fields(InverterCreate)}
+                inv_data = {k: v for k, v in inv.items() if k in inv_fields}
                 
-                self.metadata_db.upsert_inverter(InverterCreate(**inv))
+                self.metadata_db.upsert_inverter(InverterCreate(**inv_data))
 
             return True
         except Exception as e:
