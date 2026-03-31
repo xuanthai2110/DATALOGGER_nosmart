@@ -2,8 +2,9 @@
 web/routes/scan_route.py — POST /api/scan
 Refactored to support background scanning and cancellation.
 """
-from fastapi import APIRouter, Body, BackgroundTasks
+from fastapi import APIRouter, Body, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
+from backend.services.setup_service import SetupService
 from dataclasses import asdict
 from backend.models.inverter import InverterCreate
 import logging
