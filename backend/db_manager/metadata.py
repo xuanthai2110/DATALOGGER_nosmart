@@ -1,4 +1,5 @@
 import sqlite3
+import logging
 from typing import Optional, Dict, List
 from dataclasses import asdict, fields
 from .base_db import BaseDB, to_dataclass
@@ -7,6 +8,8 @@ from backend.models.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from backend.models.inverter import InverterCreate, InverterResponse, InverterUpdate
 from backend.models.user import UserCreate, UserResponse
 from backend.models.comm import CommConfig
+
+logger = logging.getLogger(__name__)
 
 class MetadataDB(BaseDB):
     """Quản lý cấu hình Project, Inverter, User và Communication."""
