@@ -32,11 +32,13 @@ class FaultService:
         if brand == "HUAWEI": mapped_state_id = HUAWEI_MODBUS_MAP.get(raw_state, 5)
         state_info = STATE_MAPS.get(brand, {}).get(mapped_state_id, {"name": "RUNNING", "severity": "STABLE"})
         
-        errors = [{
-            "fault_code": 0, "fault_description": state_info["name"],
-            "repair_instruction": "", "severity": state_info["severity"],
-            "created_at": polling_time
-        }]
+        errors = []
+        if state_info["severity"] != "STABLE":
+            errors.append({
+                "fault_code": 0, "fault_description": state_info["name"],
+                "repair_instruction": "", "severity": state_info["severity"],
+                "created_at": polling_time
+            })
         
         # 2. Map Fault
         if raw_fault != 0:
