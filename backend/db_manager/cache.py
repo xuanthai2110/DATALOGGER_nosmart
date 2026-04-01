@@ -102,7 +102,7 @@ class CacheDB(BaseDB):
                     E_monthly=COALESCE(excluded.E_monthly, inverter_ac_cache.E_monthly), updated_at=excluded.updated_at
             """, (inverter_id, project_id, data.get("ir"), data.get("temp_c"), data.get("p_inv_w"), data.get("q_inv_var"),
                   data.get("v_a"), data.get("v_b"), data.get("v_c"), data.get("i_a"), data.get("i_b"), data.get("i_c"),
-                  data.get("pf"), data.get("grid_hz"), data.get("e_daily"), data.get("e_total"), 0.0, 0.0, now_str))
+                  data.get("pf"), data.get("grid_hz"), data.get("e_daily"), data.get("e_total"), None, None, now_str))
 
     def update_ac_processed(self, inverter_id: int, e_monthly: float, delta_e: float):
         with self._connect() as conn:

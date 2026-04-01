@@ -95,21 +95,19 @@ class PollingService:
                 
                 # MPPT & String Cache
                 for i in range(1, inv.mppt_count + 1):
-                    v_mppt = clean.get(f"mppt_{i}_voltage")
-                    i_mppt = clean.get(f"mppt_{i}_current")
+                    v_mppt = clean.get(f"mppt_{i}_voltage", 0.0)
+                    i_mppt = clean.get(f"mppt_{i}_current", 0.0)
                     
-                    if v_mppt is not None and i_mppt is not None:
-                        self.cache_db.upsert_mppt(inv.id, i, project_id, {
-                            "v_mppt": v_mppt,
-                            "i_mppt": i_mppt,
-                            "p_mppt": round(v_mppt * i_mppt, 2)
-                        })
+                    self.cache_db.upsert_mppt(inv.id, i, project_id, {
+                        "v_mppt": v_mppt,
+                        "i_mppt": i_mppt,
+                        "p_mppt": round(v_mppt * i_mppt, 2)
+                    })
                         
-                        # String Cache (Mapping: strings 2i-1 and 2i for MPPT i)
-                        for s_idx in [2*i-1, 2*i]:
-                            i_str = clean.get(f"string_{s_idx}_current")
-                            if i_str is not None:
-                                self.cache_db.upsert_string(inv.id, s_idx, project_id, i, i_str)
+                    # String Cache (Mapping: strings 2i-1 and 2i for MPPT i)
+                    for s_idx in [2*i-1, 2*i]:
+                        i_str = clean.get(f"string_{s_idx}_current", 0.0)
+                        self.cache_db.upsert_string(inv.id, s_idx, project_id, i, i_str)
 
                 # Error Cache (Mã trạng thái thô)
                 status_code = raw_data.get("state_id", 0)
