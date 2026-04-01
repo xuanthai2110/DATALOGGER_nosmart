@@ -9,6 +9,9 @@ from backend.services.max_tracking_service import MaxTrackingService
 from backend.services.fault_service import FaultService
 from backend.services.telemetry_service import TelemetryService
 from backend.services.uploader_service import UploaderService
+from backend.models.realtime import (
+    InverterErrorCreate
+)
 from backend.core import config
 
 logger = logging.getLogger(__name__)
@@ -44,13 +47,36 @@ class LogicWorker(threading.Thread):
             e_state = self.energy_service.calculate(inv_id, ac["E_total"])
             mppts = self.cache_db.get_mppt_cache_by_inverter(inv_id)
             strings = self.cache_db.get_string_cache_by_inverter(inv_id)
-            max_res = self.max_service.update(inv_id, mppts, strings)
-            err = self.cache_db.get_error_cache(inv_id)
-            s_code = err["status_code"] if err else 0
-            f_code = err["fault_code"] if err else 0
-            payload, changed = self.fault_logic.process(inv_id, proj_id, s_code, f_code, ac["updated_at"])
+            
+            # Update Max Tracking (Vmax, Pmax, Imax)
+            self.max_service.update(inv_id, mppts, strings)
+            
+            # Process Faults and States
+            err_cache = self.cache_db.get_error_cache(inv_id)
+            s_code = err_cache["status_code"] if err_cache else 0
+            f_code = err_cache["fault_code"] if err_cache else 0
+            
+            errors, changed = self.fault_logic.process(inv_id, proj_id, s_code, f_code, ac["updated_at"])
+            
+            # Persist Errors to Disk (RealtimeDB)
+            for err_dict in errors:
+                err_rec = InverterErrorCreate(
+                    project_id=proj_id,
+                    inverter_id=inv_id,
+                    fault_code=err_dict["fault_code"],
+                    fault_description=err_dict["fault_description"],
+                    repair_instruction=err_dict["repair_instruction"],
+                    severity=err_dict["severity"],
+                    created_at=err_dict["created_at"]
+                )
+                self.realtime_db.post_inverter_error(err_rec)
+
+            # Update cache with calculated energy values
             self.cache_db.update_ac_processed(inv_id, e_state["E_monthly"], e_state["current_delta"])
-            if changed: projects_to_trigger.add(proj_id)
+            
+            if changed: 
+                projects_to_trigger.add(proj_id)
+                
         for pid in projects_to_trigger:
             self._trigger_immediate(pid)
 

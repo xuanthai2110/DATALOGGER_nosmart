@@ -35,14 +35,19 @@ class PersistenceWorker(threading.Thread):
         ac_rows = self.cache_db.get_all_ac_cache()
         if not ac_rows: return
 
-        # 1. AC & Error Snapshot
+        # 1. AC & Project Snapshot
         ac_records = []
+        project_aggs = {} # project_id -> {metrics}
+
         for ac in ac_rows:
             inv_id = ac["inverter_id"]
             proj_id = ac["project_id"]
             polling_time = ac["updated_at"]
             
-            # Ghi AC
+            delta_e = ac.get("delta_E_monthly", 0)
+            e_month = ac.get("E_monthly", 0)
+
+            # Inverter AC Record
             rec = InverterACRealtimeCreate(
                 project_id=proj_id, inverter_id=inv_id,
                 IR=ac.get("IR", 0), Temp_C=ac.get("Temp_C", 0),
@@ -51,17 +56,54 @@ class PersistenceWorker(threading.Thread):
                 I_a=ac.get("I_a", 0), I_b=ac.get("I_b", 0), I_c=ac.get("I_c", 0),
                 PF=ac.get("PF", 0), H=ac.get("H", 0),
                 E_daily=ac.get("E_daily", 0), 
-                E_monthly=ac.get("E_monthly", 0),
+                delta_E_monthly=delta_e,
+                E_monthly=e_month,
                 E_total=ac.get("E_total", 0),
                 created_at=polling_time
             )
             ac_records.append(rec)
+
+            # Project Aggregation
+            if proj_id not in project_aggs:
+                project_aggs[proj_id] = {
+                    "Temp_C": 0, "P_ac": 0, "P_dc": 0,
+                    "E_daily": 0, "delta_E_monthly": 0, "E_monthly": 0, "E_total": 0,
+                    "count": 0, "time": polling_time
+                }
+            agg = project_aggs[proj_id]
+            agg["Temp_C"] += ac.get("Temp_C", 0)
+            agg["P_ac"] += ac.get("P_ac", 0)
+            agg["E_daily"] += ac.get("E_daily", 0)
+            agg["delta_E_monthly"] += delta_e
+            agg["E_monthly"] += e_month
+            agg["E_total"] += ac.get("E_total", 0)
+            agg["count"] += 1
+
             # Commit energy mốc tham chiếu
             self.energy_service.commit_snapshot(inv_id, ac.get("E_total", 0))
 
         if ac_records:
             self.realtime_db.post_inverter_ac_batch(ac_records)
-            logger.info(f"Persistence Worker: Saved {len(ac_records)} inverter records to disk.")
+            logger.info(f"Persistence Worker: Saved {len(ac_records)} inverter AC records to disk.")
+
+        # Save Project Aggregates
+        for pid, agg in project_aggs.items():
+            if agg["count"] > 0:
+                p_rec = ProjectRealtimeCreate(
+                    project_id=pid,
+                    Temp_C=round(agg["Temp_C"] / agg["count"], 2),
+                    P_ac=round(agg["P_ac"], 2),
+                    P_dc=0, # Optional: Sum sum(P_mppt) later
+                    E_daily=round(agg["E_daily"], 2),
+                    delta_E_monthly=round(agg["delta_E_monthly"], 2),
+                    E_monthly=round(agg["E_monthly"], 2),
+                    E_total=round(agg["E_total"], 2),
+                    severity="STABLE", # TODO: Aggregate from inverter severities
+                    created_at=agg["time"]
+                )
+                self.realtime_db.post_project_realtime(p_rec)
+        if project_aggs:
+            logger.info(f"Persistence Worker: Saved {len(project_aggs)} project aggregates to disk.")
 
         # 2. MPPT Snapshot
         mppt_rows = self.cache_db.get_all_mppt_cache()
