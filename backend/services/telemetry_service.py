@@ -78,15 +78,21 @@ class TelemetryService:
             errors = []
             if err_row:
                 if err_row.get("fault_json"):
-                    errors = json.loads(err_row["fault_json"])
+                    try:
+                        errors = self._normalize_error_items(json.loads(err_row["fault_json"]))
+                    except Exception:
+                        logger.warning(f"Invalid fault_json in cache for inverter {inv_id}. Using fallback error payload.")
+                        errors = []
                 else:
-                    errors = [{
+                    errors = self._normalize_error_items([{
                         "fault_code": err_row.get("fault_code", 0),
-                        "fault_description": err_row.get("fault_text"),
+                        "fault_description": err_row.get("status_text") or err_row.get("fault_text") or "UNKNOWN",
                         "repair_instruction": "",
                         "severity": "STABLE",
                         "created_at": self._format_ts(err_row.get("updated_at"))
-                    }]
+                    }])
+            if not errors:
+                errors = [self._default_error_item(err_row, ac)]
             
             inv_data = {
                 "serial_number": inv.serial_number,
@@ -150,3 +156,31 @@ class TelemetryService:
         if "T" not in ts: ts = ts.replace(" ", "T")
         if "+" not in ts and not ts.endswith("Z"): ts += "+07:00"
         return ts
+
+    def _normalize_error_items(self, errors: list) -> list:
+        normalized = []
+        for item in errors or []:
+            if not isinstance(item, dict):
+                continue
+            normalized.append({
+                "fault_code": item.get("fault_code", 0),
+                "fault_description": item.get("fault_description", "UNKNOWN"),
+                "repair_instruction": item.get("repair_instruction", ""),
+                "severity": item.get("severity", "STABLE"),
+                "created_at": self._format_ts(item.get("created_at"))
+            })
+        return normalized
+
+    def _default_error_item(self, err_row: dict | None, ac_row: dict | None) -> dict:
+        ts = None
+        if err_row:
+            ts = err_row.get("updated_at")
+        if not ts and ac_row:
+            ts = ac_row.get("updated_at")
+        return {
+            "fault_code": 0,
+            "fault_description": (err_row or {}).get("status_text") or "UNKNOWN",
+            "repair_instruction": "",
+            "severity": "STABLE",
+            "created_at": self._format_ts(ts)
+        }

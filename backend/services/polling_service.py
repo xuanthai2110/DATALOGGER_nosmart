@@ -117,10 +117,11 @@ class PollingService:
                 
                 polling_time = datetime.now().isoformat()
                 errors_payload = self.fault_service.get_inverter_status_payload(inv.brand, status_code, fault_code, polling_time)
+                state_snapshot = self.fault_service.get_state_snapshot(inv.brand, status_code)
                 
                 import json
                 fault_json = json.dumps(errors_payload, ensure_ascii=False) if errors_payload else "[]"
-                status_text = errors_payload[0].get("fault_description", "") if errors_payload else "RUNNING"
+                status_text = state_snapshot["name"]
                 
                 self.cache_db.upsert_error(inv.id, project_id, status_code, fault_code, status_text=status_text, fault_json=fault_json)
                 

@@ -1,10 +1,7 @@
 import logging
-import json
-from datetime import datetime
-from typing import Dict, Set, List, Tuple
+from typing import Dict, Set, Tuple
 from backend.db_manager import RealtimeDB, MetadataDB
-from backend.services.fault_mappings import FAULT_MAPS, STATE_MAPS
-from backend.models.realtime import InverterErrorCreate
+from backend.services.fault_mappings import FAULT_MAPS, STATE_MAPS, UNIFIED_FAULTS, UNIFIED_STATES
 
 logger = logging.getLogger(__name__)    
 
@@ -27,28 +24,43 @@ class FaultService:
 
     def get_inverter_status_payload(self, brand: str, raw_state: int, raw_fault: int, polling_time: str) -> list:
         brand = brand.upper()
-        # 1. Map State — raw_state is already the hex code value (e.g. 512 = 0x0200)
-        state_info = STATE_MAPS.get(brand, {}).get(raw_state, {"name": "RUNNING", "severity": "STABLE"})
+        state_map = STATE_MAPS.get(brand, {})
+        fault_map = FAULT_MAPS.get(brand, {})
 
-        
-        errors = []
-        if state_info["severity"] != "STABLE":
-            errors.append({
-                "fault_code": 0, "fault_description": state_info["name"],
-                "repair_instruction": "", "severity": state_info["severity"],
-                "created_at": polling_time
-            })
-        
-        # 2. Map Fault
+        # raw_state is already the vendor status code read from inverter.
+        state_info = state_map.get(raw_state, {"id_unified": raw_state, "name": "UNKNOWN_STATE", "severity": "STABLE"})
+        state_unified_code = state_info.get("id_unified", raw_state)
+        state_name = UNIFIED_STATES.get(state_unified_code, state_info.get("name", "UNKNOWN_STATE"))
+
         if raw_fault != 0:
-            f_info = FAULT_MAPS.get(brand, {}).get(raw_fault, {"name": f"ERROR {raw_fault}", "severity": "ERROR"})
-            errors.append({
-                "fault_code": f_info.get("id_unified", raw_fault),
-                "fault_description": f_info["name"],
-                "repair_instruction": f_info.get("repair_instruction", "Check manual."),
-                "severity": f_info["severity"], "created_at": polling_time
-            })
-        return errors
+            fault_info = fault_map.get(raw_fault, {"id_unified": raw_fault, "name": f"ERROR_{raw_fault}", "severity": "ERROR"})
+            fault_unified_code = fault_info.get("id_unified", raw_fault)
+            return [{
+                "fault_code": fault_unified_code,
+                "fault_description": UNIFIED_FAULTS.get(fault_unified_code, fault_info.get("name", f"ERROR_{raw_fault}")),
+                "repair_instruction": fault_info.get("repair_instruction", ""),
+                "severity": fault_info.get("severity", "ERROR"),
+                "created_at": polling_time
+            }]
+
+        return [{
+            "fault_code": state_unified_code,
+            "fault_description": state_name,
+            "repair_instruction": state_info.get("description", ""),
+            "severity": state_info.get("severity", "STABLE"),
+            "created_at": polling_time
+        }]
+
+    def get_state_snapshot(self, brand: str, raw_state: int) -> dict:
+        brand = brand.upper()
+        state_info = STATE_MAPS.get(brand, {}).get(raw_state, {"id_unified": raw_state, "name": "UNKNOWN_STATE", "severity": "STABLE"})
+        state_unified_code = state_info.get("id_unified", raw_state)
+        return {
+            "code": state_unified_code,
+            "name": UNIFIED_STATES.get(state_unified_code, state_info.get("name", "UNKNOWN_STATE")),
+            "severity": state_info.get("severity", "STABLE"),
+            "description": state_info.get("description", "")
+        }
 
     def process(self, inv_id: int, proj_id: int, status_code: int, fault_code: int, polling_time: str) -> Tuple[list, bool]:
         self.seed_if_needed(inv_id)
