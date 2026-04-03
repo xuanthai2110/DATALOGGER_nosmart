@@ -29,9 +29,11 @@ class UploaderService:
                 url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
                 response = requests.post(url, json=payload, headers=headers)
-                if response.status_code == 200:
+                if response.status_code in (200, 201):
                     self.db.delete_from_outbox(data["id"])
-                    logger.info(f"Uploaded project {server_id}")
+                    logger.info(f"Uploaded project {server_id} (status={response.status_code})")
+                else:
+                    logger.warning(f"Upload failed for project {server_id} (status={response.status_code}): {response.text}")
             except Exception as e:
                 logger.error(f"Upload error: {e}")
 
