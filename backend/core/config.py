@@ -34,8 +34,8 @@ DEV_MODE     = True
 # ===========================================================
 # POLLING   
 # ===========================================================
-POLL_INTERVAL = 10           # giây
-SNAPSHOT_INTERVAL = 30      # giây (30s cho verification)
+POLL_INTERVAL = 10          # giây
+SNAPSHOT_INTERVAL = 300     # giây (5 phút)
 CONFIG_REFRESH_INTERVAL = 300 # giây (5 phút) - Thời gian làm mới cache cấu hình
 
 # ===========================================================
