@@ -25,6 +25,7 @@ class LogicWorker(threading.Thread):
         self.fault_logic = fault_service
         self.energy_service = EnergyService(realtime_db)
         self.max_service = MaxTrackingService(realtime_db)
+        self.telemetry = TelemetryService(realtime_db)
         self.build_tele_worker = build_tele_worker
         self.daemon = True
         self._stop_event = threading.Event()
@@ -42,6 +43,16 @@ class LogicWorker(threading.Thread):
         ac_rows = self.cache_db.get_all_ac_cache()
         if not ac_rows: return
         projects_to_trigger = set()
+        project_inverter_ids = {}
+        for ac in ac_rows:
+            project_inverter_ids.setdefault(ac["project_id"], []).append(ac["inverter_id"])
+
+        sleep_projects = {
+            project_id
+            for project_id, inverter_ids in project_inverter_ids.items()
+            if self.telemetry.is_all_inverters_sleep(inverter_ids, self.cache_db)
+        }
+
         for ac in ac_rows:
             inv_id, proj_id = ac["inverter_id"], ac["project_id"]
             e_state = self.energy_service.calculate(inv_id, ac["E_total"])
@@ -58,18 +69,20 @@ class LogicWorker(threading.Thread):
             
             errors, changed = self.fault_logic.process(inv_id, proj_id, s_code, f_code, ac["updated_at"])
             
-            # Persist Errors to Disk (RealtimeDB)
-            for err_dict in errors:
-                err_rec = InverterErrorCreate(
-                    project_id=proj_id,
-                    inverter_id=inv_id,
-                    fault_code=err_dict["fault_code"],
-                    fault_description=err_dict["fault_description"],
-                    repair_instruction=err_dict["repair_instruction"],
-                    severity=err_dict["severity"],
-                    created_at=err_dict["created_at"]
-                )
-                self.realtime_db.post_inverter_error(err_rec)
+            # Skip inverter_errors only when the whole project is sleeping.
+            if changed:
+                if proj_id not in sleep_projects:
+                    for err_dict in errors:
+                        err_rec = InverterErrorCreate(
+                            project_id=proj_id,
+                            inverter_id=inv_id,
+                            fault_code=err_dict["fault_code"],
+                            fault_description=err_dict["fault_description"],
+                            repair_instruction=err_dict["repair_instruction"],
+                            severity=err_dict["severity"],
+                            created_at=err_dict["created_at"]
+                        )
+                        self.realtime_db.post_inverter_error(err_rec)
 
             # Update cache with calculated energy values
             self.cache_db.update_ac_processed(inv_id, e_state["E_monthly"], e_state["current_delta"])
