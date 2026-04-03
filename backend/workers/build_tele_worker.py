@@ -21,6 +21,7 @@ class BuildTeleWorker(threading.Thread):
         self._stop_event = threading.Event()
         self._trigger_queue = queue.Queue()
         self.max_outbox_rows = 1000
+        self._sleep_notified_projects = {}
 
     def stop(self):
         self._stop_event.set()
@@ -71,14 +72,31 @@ class BuildTeleWorker(threading.Thread):
                 return
 
             invs = self.project_svc.get_inverters_by_project(project_id)
+            active_invs = [inv for inv in invs if getattr(inv, "is_active", True)]
+            inverter_ids = [inv.id for inv in active_invs]
+            all_sleep = self.telemetry.is_all_inverters_sleep(inverter_ids, self.cache_db)
+            sleep_notified = self._sleep_notified_projects.get(project_id, False)
+
+            if all_sleep and sleep_notified:
+                logger.info(f"BuildTeleWorker: Project {project_id} is still all SLEEP. Skipping duplicate sleep telemetry.")
+                return
+
+            if not all_sleep and sleep_notified:
+                self._sleep_notified_projects.pop(project_id, None)
+                logger.info(f"BuildTeleWorker: Project {project_id} exited all SLEEP state. Resuming normal telemetry.")
+
             payload_list = self.telemetry.build_payload_from_cache(
-                project_id, proj_meta.server_id, invs, self.cache_db
+                project_id, proj_meta.server_id, active_invs, self.cache_db
             )
             
             if payload_list:
                 # Lưu vào DB Outbox
                 self.realtime_db.post_to_outbox(project_id, proj_meta.server_id, payload_list[0])
-                logger.info(f"BuildTeleWorker: Payload saved to outbox for project {project_id}")
+                if all_sleep:
+                    self._sleep_notified_projects[project_id] = True
+                    logger.info(f"BuildTeleWorker: Final all-sleep payload saved to outbox for project {project_id}")
+                else:
+                    logger.info(f"BuildTeleWorker: Payload saved to outbox for project {project_id}")
                 
                 # Giới hạn 1000 hàng
                 self._enforce_limit()

@@ -3,6 +3,7 @@ import logging
 import threading
 from backend.db_manager import CacheDB, RealtimeDB
 from backend.services.energy_service import EnergyService
+from backend.services.telemetry_service import TelemetryService
 from backend.models.realtime import (
     InverterACRealtimeCreate, mpptRealtimeCreate, 
     stringRealtimeCreate, ProjectRealtimeCreate
@@ -17,6 +18,7 @@ class PersistenceWorker(threading.Thread):
         self.cache_db = cache_db
         self.realtime_db = realtime_db
         self.energy_service = energy_service
+        self.telemetry = TelemetryService(realtime_db)
         self.interval = interval
         self.daemon = True
         self._stop_event = threading.Event()
@@ -42,6 +44,19 @@ class PersistenceWorker(threading.Thread):
             logger.info("Persistence Worker: No AC data in cache. Skipping snapshot.")
             return
 
+        project_inverter_ids = {}
+        for ac in ac_rows:
+            project_inverter_ids.setdefault(ac["project_id"], []).append(ac["inverter_id"])
+
+        sleep_projects = {
+            project_id
+            for project_id, inverter_ids in project_inverter_ids.items()
+            if self.telemetry.is_all_inverters_sleep(inverter_ids, self.cache_db)
+        }
+
+        if sleep_projects:
+            logger.info(f"Persistence Worker: Skipping snapshot for all-sleep projects: {sorted(sleep_projects)}")
+
         project_aggs = {} # project_id -> {metrics}
 
         # 2. Process Inverter AC & Start Project Aggregation
@@ -49,6 +64,8 @@ class PersistenceWorker(threading.Thread):
         for ac in ac_rows:
             inv_id = ac["inverter_id"]
             proj_id = ac["project_id"]
+            if proj_id in sleep_projects:
+                continue
             polling_time = ac["updated_at"]
             
             delta_e = ac.get("delta_E_monthly", 0)
@@ -95,6 +112,8 @@ class PersistenceWorker(threading.Thread):
             p_mppt_kw = round(item.get("P_mppt", 0) / 1000.0, 3)
             max_p_kw = round(item.get("Max_P", 0) / 1000.0, 3)
             proj_id = item["project_id"]
+            if proj_id in sleep_projects:
+                continue
             
             mppt_records.append(mpptRealtimeCreate(
                 project_id=proj_id,
@@ -116,6 +135,8 @@ class PersistenceWorker(threading.Thread):
         # 4. Process String
         string_records = []
         for item in string_rows:
+            if item["project_id"] in sleep_projects:
+                continue
             string_records.append(stringRealtimeCreate(
                 project_id=item["project_id"],
                 inverter_id=item["inverter_id"],

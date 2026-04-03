@@ -13,7 +13,7 @@ class TelemetryService:
 
     def build_payload_from_cache(self, project_id: int, server_id: int, inverters_meta: list, cache_db: CacheDB) -> list:
         now = datetime.now()
-        ts_str = now.isoformat()
+        payload_created_at = self._format_ts(now.isoformat())
         
         # Aggregate Project Data from Inverters in Cache
         total_p_ac = 0.0
@@ -53,7 +53,7 @@ class TelemetryService:
                         "string_index": s["string_id"],
                         "I_mppt": s["I_string"],
                         "Max_I": s["max_I"],
-                        "created_at": self._format_ts(s.get("updated_at"))
+                        "created_at": payload_created_at
                     }
                     for s in strings_cache if s["mppt_id"] == m_idx
                 ]
@@ -67,7 +67,7 @@ class TelemetryService:
                     "Max_I": m["Max_I"],
                     "Max_V": m["Max_V"],
                     "Max_P": m["Max_P"],
-                    "created_at": self._format_ts(m.get("updated_at")),
+                    "created_at": payload_created_at,
                     "strings": m_strings
                 })
             
@@ -79,7 +79,7 @@ class TelemetryService:
             if err_row:
                 if err_row.get("fault_json"):
                     try:
-                        errors = self._normalize_error_items(json.loads(err_row["fault_json"]))
+                        errors = self._normalize_error_items(json.loads(err_row["fault_json"]), payload_created_at)
                     except Exception:
                         logger.warning(f"Invalid fault_json in cache for inverter {inv_id}. Using fallback error payload.")
                         errors = []
@@ -89,10 +89,10 @@ class TelemetryService:
                         "fault_description": err_row.get("status_text") or err_row.get("fault_text") or "UNKNOWN",
                         "repair_instruction": "",
                         "severity": "STABLE",
-                        "created_at": self._format_ts(err_row.get("updated_at"))
-                    }])
+                        "created_at": payload_created_at
+                    }], payload_created_at)
             if not errors:
-                errors = [self._default_error_item(err_row, ac)]
+                errors = [self._default_error_item(err_row, ac, payload_created_at)]
             
             inv_data = {
                 "serial_number": inv.serial_number,
@@ -112,7 +112,7 @@ class TelemetryService:
                     "E_daily": ac.get("E_daily", 0.0),
                     "E_monthly": ac.get("E_monthly", 0.0),
                     "E_total": ac.get("E_total", 0.0),
-                    "created_at": self._format_ts(ac.get("updated_at"))
+                    "created_at": payload_created_at
                 },
                 "mppts": mppt_list,
                 "errors": errors
@@ -131,7 +131,7 @@ class TelemetryService:
             "E_monthly": round(total_e_monthly, 2),
             "E_total": round(total_e_total, 2),
             "severity": "STABLE",
-            "created_at": ts_str
+            "created_at": payload_created_at
         }
             
         # Final Payload EXACTLY as data.json
@@ -140,6 +140,22 @@ class TelemetryService:
             "inverters": inverters_json
         }
         return [self._normalize_payload(payload)]
+
+    def is_all_inverters_sleep(self, inverter_ids: list[int], cache_db: CacheDB) -> bool:
+        if not inverter_ids:
+            return False
+
+        for inv_id in inverter_ids:
+            ac_row = cache_db.get_ac_cache(inv_id)
+            err_row = cache_db.get_error_cache(inv_id)
+            if ac_row is None or err_row is None:
+                return False
+
+            status_text = (err_row.get("status_text") or "").strip().upper()
+            if status_text != "SLEEP":
+                return False
+
+        return True
 
     def _normalize_payload(self, data: Any) -> Any:
         if isinstance(data, dict):
@@ -157,7 +173,7 @@ class TelemetryService:
         if "+" not in ts and not ts.endswith("Z"): ts += "+07:00"
         return ts
 
-    def _normalize_error_items(self, errors: list) -> list:
+    def _normalize_error_items(self, errors: list, payload_created_at: str | None = None) -> list:
         normalized = []
         for item in errors or []:
             if not isinstance(item, dict):
@@ -167,11 +183,11 @@ class TelemetryService:
                 "fault_description": item.get("fault_description", "UNKNOWN"),
                 "repair_instruction": item.get("repair_instruction", ""),
                 "severity": item.get("severity", "STABLE"),
-                "created_at": self._format_ts(item.get("created_at"))
+                "created_at": payload_created_at or self._format_ts(item.get("created_at"))
             })
         return normalized
 
-    def _default_error_item(self, err_row: dict | None, ac_row: dict | None) -> dict:
+    def _default_error_item(self, err_row: dict | None, ac_row: dict | None, payload_created_at: str | None = None) -> dict:
         ts = None
         if err_row:
             ts = err_row.get("updated_at")
@@ -182,5 +198,5 @@ class TelemetryService:
             "fault_description": (err_row or {}).get("status_text") or "UNKNOWN",
             "repair_instruction": "",
             "severity": "STABLE",
-            "created_at": self._format_ts(ts)
+            "created_at": payload_created_at or self._format_ts(ts)
         }
