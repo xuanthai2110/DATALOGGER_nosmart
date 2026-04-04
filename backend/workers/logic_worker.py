@@ -55,19 +55,24 @@ class LogicWorker(threading.Thread):
 
         for ac in ac_rows:
             inv_id, proj_id = ac["inverter_id"], ac["project_id"]
+            polling_time = ac["updated_at"]
             e_state = self.energy_service.calculate(inv_id, ac["E_total"])
             mppts = self.cache_db.get_mppt_cache_by_inverter(inv_id)
             strings = self.cache_db.get_string_cache_by_inverter(inv_id)
             
             # Update Max Tracking (Vmax, Pmax, Imax)
-            self.max_service.update(inv_id, mppts, strings)
+            hold_zero_max = self.max_service.prepare_for_poll(inv_id, polling_time)
+            if hold_zero_max:
+                self.cache_db.reset_mppt_max(inv_id)
+                self.cache_db.reset_string_max(inv_id)
+            self.max_service.update(inv_id, mppts, strings, polling_time=polling_time) if not hold_zero_max else None
             
             # Process Faults and States
             err_cache = self.cache_db.get_error_cache(inv_id)
             s_code = err_cache["status_code"] if err_cache else 0
             f_code = err_cache["fault_code"] if err_cache else 0
             
-            errors, changed = self.fault_logic.process(inv_id, proj_id, s_code, f_code, ac["updated_at"])
+            errors, changed = self.fault_logic.process(inv_id, proj_id, s_code, f_code, polling_time)
             
             # Skip inverter_errors only when the whole project is sleeping.
             if changed:
