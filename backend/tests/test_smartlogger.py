@@ -29,6 +29,10 @@ def test_smartlogger():
         print("=== SMARTLOGGER STATUS ===")
         status = smartlogger.control_status()
         print(status)
+        
+        print("\n=== SMARTLOGGER CONTROL ===")
+        smartlogger.control_P(400)
+        print("Đã điều khiển công suất")
 
         print("\n=== SMARTLOGGER ACTUAL POWER ===")
         actual_power = smartlogger.read_actual_power()
