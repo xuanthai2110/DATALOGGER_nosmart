@@ -7,7 +7,7 @@ IP = "192.168.1.8"
 PORT = 502
 SLAVE_ID = 1
 
-SET_PERCENT = 10  # công suất bạn muốn giữ
+SET_PERCENT = 5 # công suất bạn muốn giữ
 
 client = ModbusTcpClient(IP, port=PORT)
 running = True
