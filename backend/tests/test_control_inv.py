@@ -7,7 +7,7 @@ IP = "192.168.1.8"
 PORT = 502
 SLAVE_ID = 1
 
-SET_PERCENT = 50  # công suất bạn muốn giữ
+SET_PERCENT = 10  # công suất bạn muốn giữ
 
 client = ModbusTcpClient(IP, port=PORT)
 running = True
@@ -24,6 +24,7 @@ def set_power_percent(percent):
         print("❌ Write lỗi")
     else:
         print(f"→ Set {percent}%")
+    return res.isError()
 
 
 # =========================
@@ -75,7 +76,9 @@ def main():
     # chạy thread đọc phím
     t = threading.Thread(target=keyboard_listener, daemon=True)
     t.start()
-
+    # gửi lệnh giữ công suất
+    r = set_power_percent(SET_PERCENT)
+    print(r)
     try:
         while running:
 
