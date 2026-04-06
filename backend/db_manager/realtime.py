@@ -11,6 +11,9 @@ from backend.models.realtime import (
     mpptRealtimeCreate, mpptRealtimeResponse,
     stringRealtimeCreate, stringRealtimeResponse
 )
+from backend.models.schedule import (
+    ControlScheduleCreate, ControlScheduleUpdate, ControlScheduleResponse
+)
 
 class RealtimeDB(BaseDB):
     """Quản lý dữ liệu Snapshot ghi xuống Disk (RealtimeDB)."""
@@ -68,6 +71,23 @@ class RealtimeDB(BaseDB):
             # MPPT & String Realtime tables
             cursor.execute("CREATE TABLE IF NOT EXISTS mppt_realtime (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, inverter_id INTEGER, mppt_index INTEGER, string_on_mppt INTEGER, V_mppt REAL, I_mppt REAL, P_mppt REAL, Max_I REAL, Max_V REAL, Max_P REAL, created_at TEXT);")
             cursor.execute("CREATE TABLE IF NOT EXISTS string_realtime (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, inverter_id INTEGER, mppt_id INTEGER, string_id INTEGER, I_string REAL, max_I REAL, created_at TEXT);")
+
+            # Control Schedules
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS control_schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER,
+                scope TEXT,
+                inverter_index INTEGER,
+                mode TEXT,
+                limit_watts REAL,
+                limit_percent REAL,
+                start_at TEXT,
+                end_at TEXT,
+                status TEXT DEFAULT 'SCHEDULED',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
 
             # --- Migration: project_realtime ---
             cols_proj = {row[1] for row in conn.execute("PRAGMA table_info(project_realtime)").fetchall()}
@@ -224,3 +244,53 @@ class RealtimeDB(BaseDB):
                 (inverter_id, start, end)
             ).fetchall()
             return [to_dataclass(InverterACRealtimeResponse, r) for r in rows]
+
+    # --- Control Schedule API ---
+    def get_schedule(self, schedule_id: int) -> Optional[ControlScheduleResponse]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM control_schedules WHERE id=?", (schedule_id,)).fetchone()
+            return to_dataclass(ControlScheduleResponse, row)
+
+    def get_all_schedules(self) -> List[ControlScheduleResponse]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM control_schedules ORDER BY start_at ASC").fetchall()
+            return [to_dataclass(ControlScheduleResponse, r) for r in rows]
+
+    def upsert_schedule(self, data: ControlScheduleCreate, schedule_id: Optional[int] = None) -> ControlScheduleResponse:
+        data_dict = asdict(data)
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            if schedule_id:
+                fields = []
+                values = []
+                for k, v in data_dict.items():
+                    if v is not None:
+                        fields.append(f"{k} = ?")
+                        values.append(v)
+                if not fields:
+                    return self.get_schedule(schedule_id)
+                values.append(schedule_id)
+                cursor.execute(f"UPDATE control_schedules SET {', '.join(fields)} WHERE id=?", tuple(values))
+                final_id = schedule_id
+            else:
+                keys = [k for k, v in data_dict.items() if v is not None]
+                placeholders = ["?" for _ in keys]
+                values = [data_dict[k] for k in keys]
+                cursor.execute(f"INSERT INTO control_schedules ({', '.join(keys)}) VALUES ({', '.join(placeholders)})", tuple(values))
+                final_id = cursor.lastrowid
+            
+            row = conn.execute("SELECT * FROM control_schedules WHERE id=?", (final_id,)).fetchone()
+            return to_dataclass(ControlScheduleResponse, row)
+
+    def patch_schedule(self, schedule_id: int, data: ControlScheduleUpdate):
+        data_dict = asdict(data)
+        fields = [f"{k} = ?" for k, v in data_dict.items() if v is not None]
+        values = [v for v in data_dict.values() if v is not None]
+        if not fields: return
+        values.append(schedule_id)
+        with self._connect() as conn:
+            conn.execute(f"UPDATE control_schedules SET {', '.join(fields)} WHERE id=?", tuple(values))
+
+    def delete_schedule(self, schedule_id: int):
+        with self._connect() as conn:
+            conn.execute("DELETE FROM control_schedules WHERE id=?", (schedule_id,))

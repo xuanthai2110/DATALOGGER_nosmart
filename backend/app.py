@@ -28,6 +28,7 @@ from backend.api.user_api import router as user_router
 from backend.api.monitoring_api import router as monitoring_router
 from backend.api.comm_api import router as comm_router
 from backend.api.sync_api import router as sync_router
+from backend.api.schedule_api import router as schedule_router
 
 from backend.core import config as app_config
 
@@ -44,6 +45,7 @@ app.include_router(comm_router, dependencies=[Depends(get_current_user_id)])
 app.include_router(user_router) 
 app.include_router(monitoring_router, prefix="/api/monitoring", dependencies=[Depends(get_current_user_id)])
 app.include_router(sync_router, dependencies=[Depends(get_current_user_id)])
+app.include_router(schedule_router, dependencies=[Depends(get_current_user_id)])
 
 # --- WebSocket Manager ---
 class ConnectionManager:

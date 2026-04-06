@@ -74,6 +74,14 @@ class HuaweiSUN2000(BaseDriver):
                 {"name": "e_daily",  "address": 32114, "length": 2, "type": "uint32", "scale": 0.01},
                 # Sản lượng tổng (kWh)
                 {"name": "e_total",  "address": 32106, "length": 2, "type": "uint32", "scale": 0.01},
+            ],
+            "control": [
+                {"name": "p_set_kw","address": 40120,"length": 1,"type": "uint16","scale": 0.1},
+                {"name": "p_set_percent","address": 40125,"length": 1,"type": "uint16","scale": 0.1},       
+                {"name": "p_set_w","address": 40126,"length": 2,"type": "uint32","scale": 1      },
+                {"name": "power_factor","address": 40122,"length": 1,"type": "sint16","scale": 0.001 },
+                {"name": "q_over_s","address": 40123,"length": 1,"type": "sint16","scale": 0.001},
+                {"name": "q_set_var","address": 40129,"length": 2,"type": "sint32","scale": 1 }
             ]
 
         }

@@ -13,7 +13,23 @@ class SmartLoggerHuawei(BaseDriver):
     # =========================================================
     # ================= LOW LEVEL =============================
     # =========================================================
-
+    def register_map(cls, subclass):
+        return {
+            "control": {
+                "p_set_kw": {"addr": 40420, "type": "u32", "gain": 10},
+                "percent": {"addr": 40428, "type": "u16", "gain": 10},
+                
+            },
+            "status": {
+                "plant_status": {"addr": 40543, "type": "u16"},
+                "control_mode": {"addr": 40737, "type": "u16"},
+                "setpoint_kw": {"addr": 40738, "type": "u32", "gain": 10},
+                "percent": {"addr": 40802, "type": "u32"},
+            },
+            "actuals": {
+                "actual_power_kw": {"addr": 40525, "type": "s32", "gain": 1000},
+            }
+        }
     def _read_u16(self, addr):
         res = self.transport.read_holding_registers(
             address=addr,
@@ -94,12 +110,6 @@ class SmartLoggerHuawei(BaseDriver):
     # =========================================================
 
     def control_P(self, kw: float) -> bool:
-        """
-        Điều khiển công suất tổng (kW)
-        -> register 40420
-        gain = 10
-        """
-
         value = int(kw * 10)
 
         return self._write_u32(40420, value)
@@ -109,12 +119,6 @@ class SmartLoggerHuawei(BaseDriver):
     # =========================================================
 
     def control_percent(self, percent: float) -> bool:
-        """
-        Điều khiển theo %
-        -> register 40428
-        gain = 10
-        """
-
         value = int(percent * 10)
 
         return self._write_u16(40428, value)

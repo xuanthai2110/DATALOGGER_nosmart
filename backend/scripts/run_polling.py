@@ -22,8 +22,12 @@ from backend.workers.polling_worker import PollingWorker
 from backend.workers.logic_worker import LogicWorker
 from backend.workers.persistence_worker import PersistenceWorker
 from backend.workers.build_tele_worker import BuildTeleWorker
+from backend.workers.schedule_worker import ScheduleWorker
 from backend.services.fault_service import FaultService
 from backend.services.project_service import ProjectService
+from backend.services.schedule_service import ScheduleService
+from backend.services.control_service import ControlService
+from backend.communication.mqtt_subscriber import MqttSubscriber
 from backend.core import config
 
 logging.basicConfig(
@@ -45,6 +49,7 @@ def main():
         # 2. Service Layer
         project_svc = ProjectService(metadata_db=meta_db, realtime_db=realtime_db)
         fault_service = FaultService(realtime_db, meta_db)
+        schedule_svc = ScheduleService(realtime_db)
         
         # 3. Worker Layer
         # Chú ý: Cần BuildTeleWorker trước để truyền vào LogicWorker
@@ -53,11 +58,19 @@ def main():
         logic_worker = LogicWorker(cache_db, project_svc, realtime_db, fault_service, build_tele_worker)
         persist_worker = PersistenceWorker(cache_db, realtime_db, logic_worker.energy_service, config.SNAPSHOT_INTERVAL)
         
+        # Khởi tạo Control Service dựa vào polling service nội bộ của poll_worker
+        control_svc = ControlService(polling_service=poll_worker.service)
+        schedule_worker = ScheduleWorker(schedule_svc, control_svc, interval=1.0)
+        
+        mqtt_sub = MqttSubscriber(broker=config.MQTT_BROKER,port=config.MQTT_PORT,schedule_service=schedule_svc)
+        
         # Start Threads
         poll_worker.start()
         logic_worker.start()
         persist_worker.start()
         build_tele_worker.start()
+        schedule_worker.start()
+        mqtt_sub.connect()
         
         logger.info("System operational (Polling/Logic/BuildTele). Press Ctrl+C to exit.")
         while True:
