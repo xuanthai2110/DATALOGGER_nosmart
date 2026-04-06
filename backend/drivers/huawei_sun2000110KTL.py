@@ -442,6 +442,8 @@ class HuaweiSUN2000(BaseDriver):
 
         addr = 40126
 
+        watt = int(round(watt))
+
         high = (watt >> 16) & 0xFFFF
         low = watt & 0xFFFF
 
