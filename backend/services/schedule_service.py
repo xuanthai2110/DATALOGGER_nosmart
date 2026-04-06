@@ -78,7 +78,8 @@ class ScheduleService:
         if not headers:
             return None
 
-        url = f"{API_BASE_URL}/api/control-schedules/{schedule_id}"
+        base = API_BASE_URL.rstrip("/")
+        url = f"{base}/api/control-schedules/{schedule_id}"
         logger.info("[ScheduleService] GET %s", url)
         try:
             response = requests.get(url, headers=headers, timeout=10)
@@ -121,7 +122,8 @@ class ScheduleService:
         if not headers:
             return False
 
-        url = f"{API_BASE_URL}/api/control-schedules/{schedule_id}"
+        base = API_BASE_URL.rstrip("/")
+        url = f"{base}/api/control-schedules/{schedule_id}"
         payload = {"status": status}
         logger.info("[ScheduleService] PATCH %s payload=%s", url, payload)
         try:
