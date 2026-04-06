@@ -77,17 +77,36 @@ class RealtimeDB(BaseDB):
             CREATE TABLE IF NOT EXISTS control_schedules (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 project_id INTEGER,
+                project_name TEXT,
                 scope TEXT,
                 inverter_index INTEGER,
+                inverter_id INTEGER,
+                serial_number TEXT,
                 mode TEXT,
                 limit_watts REAL,
                 limit_percent REAL,
                 start_at TEXT,
                 end_at TEXT,
                 status TEXT DEFAULT 'SCHEDULED',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                hours REAL,
+                day TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT
             );
             """)
+            cols_sched = {row[1] for row in conn.execute("PRAGMA table_info(control_schedules)").fetchall()}
+            if "project_name" not in cols_sched:
+                conn.execute("ALTER TABLE control_schedules ADD COLUMN project_name TEXT")
+            if "inverter_id" not in cols_sched:
+                conn.execute("ALTER TABLE control_schedules ADD COLUMN inverter_id INTEGER")
+            if "serial_number" not in cols_sched:
+                conn.execute("ALTER TABLE control_schedules ADD COLUMN serial_number TEXT")
+            if "hours" not in cols_sched:
+                conn.execute("ALTER TABLE control_schedules ADD COLUMN hours REAL")
+            if "day" not in cols_sched:
+                conn.execute("ALTER TABLE control_schedules ADD COLUMN day TEXT")
+            if "updated_at" not in cols_sched:
+                conn.execute("ALTER TABLE control_schedules ADD COLUMN updated_at TEXT")
 
             # --- Migration: project_realtime ---
             cols_proj = {row[1] for row in conn.execute("PRAGMA table_info(project_realtime)").fetchall()}

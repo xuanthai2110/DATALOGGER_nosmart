@@ -3,7 +3,6 @@ import logging
 
 import paho.mqtt.client as mqtt
 
-from backend.models.schedule import ControlScheduleCreate, ControlScheduleUpdate
 from backend.services.schedule_service import ScheduleService
 
 
@@ -50,20 +49,14 @@ class MqttSubscriber:
         try:
             payload = json.loads(msg.payload.decode("utf-8"))
             event = payload.get("event")
-            schedule_data = payload.get("schedule")
-            schedule_id = schedule_data.get("id") if schedule_data else None
+            schedule_data = payload.get("schedule") or {}
+            schedule_id = schedule_data.get("id")
 
-            if not schedule_data or not event:
+            if not event or schedule_id is None:
                 return
 
-            if event == "schedule_created":
-                s = ControlScheduleCreate(**schedule_data)
-                self.schedule_service.create(s)
-            elif event == "schedule_updated":
-                if "id" in schedule_data:
-                    del schedule_data["id"]
-                s = ControlScheduleUpdate(**schedule_data)
-                self.schedule_service.update(schedule_id, s)
+            if event in ("schedule_created", "schedule_updated"):
+                self.schedule_service.sync_schedule_from_server(schedule_id)
             elif event == "schedule_deleted":
                 self.schedule_service.delete(schedule_id)
 

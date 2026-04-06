@@ -44,7 +44,6 @@ class ControlService:
         if not inverters:
             return None, None
 
-        # Current codebase only has a project-level plant controller implementation for Huawei SmartLogger.
         if not all("Huawei" in (inv.brand or "") for inv in inverters):
             return None, None
 
@@ -52,13 +51,30 @@ class ControlService:
         controller = SmartLoggerHuawei(transport, slave_id=0)
         return transport, controller
 
+    def _find_target_inverters(self, project_item, schedule: ControlScheduleResponse):
+        inverters = project_item["inverters"]
+
+        if not schedule.serial_number:
+            logger.error(
+                "[ControlService] INVERTER scope requires serial_number from server schedule. schedule_id=%s",
+                schedule.id,
+            )
+            return []
+
+        target = [inv for inv in inverters if inv.serial_number == schedule.serial_number]
+        if not target:
+            logger.error(
+                "[ControlService] No local inverter matched serial_number=%s for schedule_id=%s",
+                schedule.serial_number,
+                schedule.id,
+            )
+        return target
+
     def _apply_project_scope(self, project_item, schedule: ControlScheduleResponse) -> bool:
         transport, controller = self._get_project_controller(project_item)
         if not controller:
-            logger.warning(
-                "[ControlService] PROJECT scope has no SmartLogger controller, falling back to per-inverter writes."
-            )
-            return self._apply_inverters(project_item["inverters"], schedule)
+            logger.error("[ControlService] PROJECT scope requires SmartLogger controller but none was resolved.")
+            return False
 
         try:
             with transport.arbiter.operation("control"):
@@ -82,13 +98,11 @@ class ControlService:
             logger.error(f"[ControlService] SmartLogger write fail for PROJECT scope: {e}")
             return False
 
-    def _reset_project_scope(self, project_item, schedule: ControlScheduleResponse) -> bool:
+    def _reset_project_scope(self, project_item) -> bool:
         transport, controller = self._get_project_controller(project_item)
         if not controller:
-            logger.warning(
-                "[ControlService] PROJECT scope has no SmartLogger controller, falling back to per-inverter reset."
-            )
-            return self._reset_inverters(project_item["inverters"])
+            logger.error("[ControlService] PROJECT scope reset requires SmartLogger controller but none was resolved.")
+            return False
 
         try:
             with transport.arbiter.operation("control"):
@@ -165,13 +179,13 @@ class ControlService:
             if schedule.scope == "PROJECT":
                 return self._apply_project_scope(project_item, schedule)
 
-            target_inverters = [
-                inv for inv in project_item["inverters"]
-                if inv.inverter_index == schedule.inverter_index
-            ]
+            target_inverters = self._find_target_inverters(project_item, schedule)
 
             if not target_inverters:
-                logger.error("[ControlService] No target inverters found for schedule.")
+                logger.error(
+                    "[ControlService] No target inverters found for schedule. serial_number=%s",
+                    schedule.serial_number,
+                )
                 return False
 
             return self._apply_inverters(target_inverters, schedule)
@@ -189,12 +203,15 @@ class ControlService:
                 return False
 
             if schedule.scope == "PROJECT":
-                return self._reset_project_scope(project_item, schedule)
+                return self._reset_project_scope(project_item)
 
-            target_inverters = [
-                inv for inv in project_item["inverters"]
-                if inv.inverter_index == schedule.inverter_index
-            ]
+            target_inverters = self._find_target_inverters(project_item, schedule)
+            if not target_inverters:
+                logger.error(
+                    "[ControlService] No target inverters found for reset. serial_number=%s",
+                    schedule.serial_number,
+                )
+                return False
 
             return self._reset_inverters(target_inverters)
 
