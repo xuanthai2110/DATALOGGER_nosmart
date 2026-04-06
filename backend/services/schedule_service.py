@@ -1,5 +1,6 @@
 from typing import List, Optional
 import logging
+import time
 
 import requests
 
@@ -16,6 +17,8 @@ class ScheduleService:
     def __init__(self, db: RealtimeDB):
         self.db = db
         self.auth = AuthService()
+        self.fetch_retry_count = 5
+        self.fetch_retry_delay_sec = 0.5
 
     def _short_body(self, value, limit: int = 500) -> str:
         text = value if isinstance(value, str) else str(value)
@@ -80,16 +83,29 @@ class ScheduleService:
 
         base = API_BASE_URL.rstrip("/")
         url = f"{base}/api/control-schedules/{schedule_id}"
-        logger.info("[ScheduleService] GET %s", url)
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            logger.info(
-                "[ScheduleService] GET %s -> status=%s body=%s",
-                url,
-                response.status_code,
-                self._short_body(response.text),
-            )
-            if response.status_code != 200:
+        for attempt in range(1, self.fetch_retry_count + 1):
+            logger.info("[ScheduleService] GET %s attempt=%s/%s", url, attempt, self.fetch_retry_count)
+            try:
+                response = requests.get(url, headers=headers, timeout=10)
+                logger.info(
+                    "[ScheduleService] GET %s -> status=%s body=%s",
+                    url,
+                    response.status_code,
+                    self._short_body(response.text),
+                )
+                if response.status_code == 200:
+                    return response.json()
+
+                is_retryable_404 = response.status_code == 404 and attempt < self.fetch_retry_count
+                if is_retryable_404:
+                    logger.warning(
+                        "[ScheduleService] Remote schedule %s not visible yet. Retrying in %.1fs...",
+                        schedule_id,
+                        self.fetch_retry_delay_sec,
+                    )
+                    time.sleep(self.fetch_retry_delay_sec)
+                    continue
+
                 logger.error(
                     "[ScheduleService] Fetch remote schedule %s failed (status=%s): %s",
                     schedule_id,
@@ -97,10 +113,19 @@ class ScheduleService:
                     response.text,
                 )
                 return None
-            return response.json()
-        except Exception as e:
-            logger.error(f"[ScheduleService] Fetch remote schedule {schedule_id} error: {e}")
-            return None
+            except Exception as e:
+                if attempt < self.fetch_retry_count:
+                    logger.warning(
+                        "[ScheduleService] Fetch remote schedule %s attempt %s error: %s. Retrying in %.1fs...",
+                        schedule_id,
+                        attempt,
+                        e,
+                        self.fetch_retry_delay_sec,
+                    )
+                    time.sleep(self.fetch_retry_delay_sec)
+                    continue
+                logger.error(f"[ScheduleService] Fetch remote schedule {schedule_id} error: {e}")
+                return None
 
     def sync_schedule_from_server(self, schedule_id: int) -> Optional[ControlScheduleResponse]:
         remote_schedule = self.fetch_remote_schedule(schedule_id)

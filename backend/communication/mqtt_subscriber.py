@@ -56,7 +56,9 @@ class MqttSubscriber:
                 return
 
             if event in ("schedule_created", "schedule_updated"):
-                self.schedule_service.sync_schedule_from_server(schedule_id)
+                synced = self.schedule_service.sync_schedule_from_server(schedule_id)
+                if not synced:
+                    logger.error(f"[MQTT] Failed to sync {event} for schedule {schedule_id}")
             elif event == "schedule_deleted":
                 self.schedule_service.delete(schedule_id)
 
