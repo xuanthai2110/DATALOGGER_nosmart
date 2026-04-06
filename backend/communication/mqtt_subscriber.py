@@ -1,17 +1,21 @@
 import json
 import logging
+
 import paho.mqtt.client as mqtt
+
 from backend.models.schedule import ControlScheduleCreate, ControlScheduleUpdate
 from backend.services.schedule_service import ScheduleService
 
+
 logger = logging.getLogger(__name__)
+
 
 class MqttSubscriber:
     def __init__(self, broker: str, port: int, schedule_service: ScheduleService, project_id: int = None, username: str = None, password: str = None):
         self.broker = broker
         self.port = port
         self.schedule_service = schedule_service
-        self.project_id_filter = project_id # can be None for all projects
+        self.project_id_filter = project_id
         self.username = username
         self.password = password
         self.client = mqtt.Client()
@@ -44,27 +48,26 @@ class MqttSubscriber:
 
     def on_message(self, client, userdata, msg):
         try:
-            payload = json.loads(msg.payload.decode('utf-8'))
+            payload = json.loads(msg.payload.decode("utf-8"))
             event = payload.get("event")
             schedule_data = payload.get("schedule")
-            
+            schedule_id = schedule_data.get("id") if schedule_data else None
+
             if not schedule_data or not event:
                 return
-                
+
             if event == "schedule_created":
                 s = ControlScheduleCreate(**schedule_data)
                 self.schedule_service.create(s)
             elif event == "schedule_updated":
-                s_id = schedule_data.get("id")
                 if "id" in schedule_data:
                     del schedule_data["id"]
                 s = ControlScheduleUpdate(**schedule_data)
-                self.schedule_service.update(s_id, s)
+                self.schedule_service.update(schedule_id, s)
             elif event == "schedule_deleted":
-                s_id = schedule_data.get("id")
-                self.schedule_service.delete(s_id)
-                
-            logger.info(f"[MQTT] Processed {event} for schedule {schedule_data.get('id')}")
-                
+                self.schedule_service.delete(schedule_id)
+
+            logger.info(f"[MQTT] Processed {event} for schedule {schedule_id}")
+
         except Exception as e:
             logger.error(f"[MQTT] Event Parse Error: {e}")

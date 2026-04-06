@@ -46,10 +46,10 @@ class PollingService:
                     self.transports[key] = t
                 return self.transports[key]
 
-    def get_polling_config(self) -> List[Dict[str, Any]]:
+    def get_polling_config(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Lấy cấu hình polling (Projects & Inverters) từ RAM Cache hoặc Database"""
         now = time.time()
-        if not self._config_cache or (now - self._last_refresh > config.CONFIG_REFRESH_INTERVAL):
+        if force_refresh or not self._config_cache or (now - self._last_refresh > config.CONFIG_REFRESH_INTERVAL):
             logger.info("Refreshing Polling Configuration Cache from DB through Service...")
             projects = self.project_svc.get_projects()
             new_cache = []
