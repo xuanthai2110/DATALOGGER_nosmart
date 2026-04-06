@@ -1,5 +1,6 @@
 import logging
 
+from backend.drivers.smartloggerHuawei import SmartLoggerHuawei
 from backend.models.schedule import ControlScheduleResponse
 
 
@@ -38,6 +39,119 @@ class ControlService:
 
         return None
 
+    def _get_project_controller(self, project_item):
+        inverters = project_item["inverters"]
+        if not inverters:
+            return None, None
+
+        # Current codebase only has a project-level plant controller implementation for Huawei SmartLogger.
+        if not all("Huawei" in (inv.brand or "") for inv in inverters):
+            return None, None
+
+        transport = self.polling_service._get_transport(inverters[0].brand)
+        controller = SmartLoggerHuawei(transport, slave_id=0)
+        return transport, controller
+
+    def _apply_project_scope(self, project_item, schedule: ControlScheduleResponse) -> bool:
+        transport, controller = self._get_project_controller(project_item)
+        if not controller:
+            logger.warning(
+                "[ControlService] PROJECT scope has no SmartLogger controller, falling back to per-inverter writes."
+            )
+            return self._apply_inverters(project_item["inverters"], schedule)
+
+        try:
+            with transport.arbiter.operation("control"):
+                if schedule.mode == "MAXP" and schedule.limit_watts is not None:
+                    controller.control_P(schedule.limit_watts / 1000.0)
+                    logger.info(
+                        f"[ControlService] Set {schedule.limit_watts}W cho PROJECT qua SmartLogger"
+                    )
+                elif schedule.mode == "LIMIT_PERCENT" and schedule.limit_percent is not None:
+                    controller.control_percent(schedule.limit_percent)
+                    logger.info(
+                        f"[ControlService] Set {schedule.limit_percent} percent cho PROJECT qua SmartLogger"
+                    )
+                else:
+                    logger.error(
+                        f"[ControlService] Unsupported schedule payload for PROJECT scope: mode={schedule.mode}"
+                    )
+                    return False
+            return True
+        except Exception as e:
+            logger.error(f"[ControlService] SmartLogger write fail for PROJECT scope: {e}")
+            return False
+
+    def _reset_project_scope(self, project_item, schedule: ControlScheduleResponse) -> bool:
+        transport, controller = self._get_project_controller(project_item)
+        if not controller:
+            logger.warning(
+                "[ControlService] PROJECT scope has no SmartLogger controller, falling back to per-inverter reset."
+            )
+            return self._reset_inverters(project_item["inverters"])
+
+        try:
+            with transport.arbiter.operation("control"):
+                controller.control_percent(100.0)
+            logger.info("[ControlService] Reset PROJECT limit to 100 percent qua SmartLogger")
+            return True
+        except Exception as e:
+            logger.error(f"[ControlService] SmartLogger reset fail for PROJECT scope: {e}")
+            return False
+
+    def _apply_inverters(self, target_inverters, schedule: ControlScheduleResponse) -> bool:
+        success = True
+        for inv in target_inverters:
+            transport = self.polling_service._get_transport(inv.brand)
+            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
+
+            if not driver:
+                continue
+
+            try:
+                with transport.arbiter.operation("control"):
+                    if schedule.mode == "MAXP" and schedule.limit_watts is not None:
+                        if hasattr(driver, "control_P"):
+                            driver.control_P(schedule.limit_watts / 1000.0)
+                        elif hasattr(driver, "set_power_w"):
+                            driver.set_power_w(schedule.limit_watts)
+                        elif hasattr(driver, "set_power_kw"):
+                            driver.set_power_kw(schedule.limit_watts / 1000.0)
+                        logger.info(f"[ControlService] Set {schedule.limit_watts}W cho Inv ID {inv.id}")
+
+                    elif schedule.mode == "LIMIT_PERCENT" and schedule.limit_percent is not None:
+                        if hasattr(driver, "control_percent"):
+                            driver.control_percent(schedule.limit_percent)
+                        elif hasattr(driver, "set_power_percent"):
+                            driver.set_power_percent(schedule.limit_percent)
+                        logger.info(f"[ControlService] Set {schedule.limit_percent} percent cho Inv ID {inv.id}")
+            except Exception as e:
+                logger.error(f"[ControlService] Modbus write fail on Inv {inv.id}: {e}")
+                success = False
+
+        return success
+
+    def _reset_inverters(self, target_inverters) -> bool:
+        success = True
+        for inv in target_inverters:
+            transport = self.polling_service._get_transport(inv.brand)
+            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
+            if not driver:
+                continue
+
+            try:
+                with transport.arbiter.operation("control"):
+                    if hasattr(driver, "control_percent"):
+                        driver.control_percent(100.0)
+                    elif hasattr(driver, "set_power_percent"):
+                        driver.set_power_percent(100.0)
+                logger.info(f"[ControlService] Reset to 100 percent limit cho Inv ID {inv.id}")
+            except Exception as e:
+                logger.error(f"[ControlService] Reset Modbus fail limit Inv {inv.id}: {e}")
+                success = False
+
+        return success
+
     def apply(self, schedule: ControlScheduleResponse):
         logger.info(f"[ControlService] Applying schedule: {schedule.id}")
 
@@ -49,47 +163,18 @@ class ControlService:
                 return False
 
             if schedule.scope == "PROJECT":
-                target_inverters = project_item["inverters"]
-            else:
-                target_inverters = [
-                    inv for inv in project_item["inverters"]
-                    if inv.inverter_index == schedule.inverter_index
-                ]
+                return self._apply_project_scope(project_item, schedule)
+
+            target_inverters = [
+                inv for inv in project_item["inverters"]
+                if inv.inverter_index == schedule.inverter_index
+            ]
 
             if not target_inverters:
                 logger.error("[ControlService] No target inverters found for schedule.")
                 return False
 
-            success = True
-            for inv in target_inverters:
-                transport = self.polling_service._get_transport(inv.brand)
-                driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
-
-                if not driver:
-                    continue
-
-                try:
-                    with transport.arbiter.operation("control"):
-                        if schedule.mode == "MAXP" and schedule.limit_watts is not None:
-                            if hasattr(driver, "control_P"):
-                                driver.control_P(schedule.limit_watts / 1000.0)
-                            elif hasattr(driver, "set_power_w"):
-                                driver.set_power_w(schedule.limit_watts)
-                            elif hasattr(driver, "set_power_kw"):
-                                driver.set_power_kw(schedule.limit_watts / 1000.0)
-                            logger.info(f"[ControlService] Set {schedule.limit_watts}W cho Inv ID {inv.id}")
-
-                        elif schedule.mode == "LIMIT_PERCENT" and schedule.limit_percent is not None:
-                            if hasattr(driver, "control_percent"):
-                                driver.control_percent(schedule.limit_percent)
-                            elif hasattr(driver, "set_power_percent"):
-                                driver.set_power_percent(schedule.limit_percent)
-                            logger.info(f"[ControlService] Set {schedule.limit_percent} percent cho Inv ID {inv.id}")
-                except Exception as e:
-                    logger.error(f"[ControlService] Modbus write fail on Inv {inv.id}: {e}")
-                    success = False
-
-            return success
+            return self._apply_inverters(target_inverters, schedule)
 
         except Exception as e:
             logger.error(f"[ControlService] Error apply schedule: {e}")
@@ -104,29 +189,14 @@ class ControlService:
                 return False
 
             if schedule.scope == "PROJECT":
-                target_inverters = project_item["inverters"]
-            else:
-                target_inverters = [
-                    inv for inv in project_item["inverters"]
-                    if inv.inverter_index == schedule.inverter_index
-                ]
+                return self._reset_project_scope(project_item, schedule)
 
-            for inv in target_inverters:
-                transport = self.polling_service._get_transport(inv.brand)
-                driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
-                if not driver:
-                    continue
+            target_inverters = [
+                inv for inv in project_item["inverters"]
+                if inv.inverter_index == schedule.inverter_index
+            ]
 
-                try:
-                    with transport.arbiter.operation("control"):
-                        if hasattr(driver, "control_percent"):
-                            driver.control_percent(100.0)
-                        elif hasattr(driver, "set_power_percent"):
-                            driver.set_power_percent(100.0)
-                    logger.info(f"[ControlService] Reset to 100 percent limit cho Inv ID {inv.id}")
-                except Exception as e:
-                    logger.error(f"[ControlService] Reset Modbus fail limit Inv {inv.id}: {e}")
-            return True
+            return self._reset_inverters(target_inverters)
 
         except Exception as e:
             logger.error(f"[ControlService] Error reset limit: {e}")
