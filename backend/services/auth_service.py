@@ -4,7 +4,7 @@ import os
 
 import requests
 
-from backend.core import config as _cfg
+from backend.core import settings as _cfg
 
 API_BASE_URL = _cfg.API_BASE_URL
 TOKEN_FILE = _cfg.TOKEN_FILE
@@ -15,8 +15,10 @@ MAX_LOGIN_RETRIES = 1
 
 
 def _get_credentials() -> tuple[str, str]:
-    # Read env at login time so credentials can be set after module import.
-    return os.environ.get("API_USERNAME", ""), os.environ.get("API_PASSWORD", "")
+    # Read env from settings now
+    from backend.core import settings
+    return settings.API_USERNAME, settings.API_PASSWORD
+
 
 
 class AuthService:

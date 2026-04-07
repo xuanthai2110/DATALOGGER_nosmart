@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 from backend.db_manager.realtime import RealtimeDB
 from backend.services.uploader_service import UploaderService
-from backend.core import config
+from backend.core import settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +21,7 @@ def main():
     logger.info("Starting Telemetry Uploader Script...")
     
     # 1. Initialize RealtimeDB
-    realtime_db = RealtimeDB(config.REALTIME_DB)
+    realtime_db = RealtimeDB(settings.REALTIME_DB)
     
     # 2. Initialize UploaderService
     uploader = UploaderService(realtime_db)

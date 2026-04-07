@@ -3,7 +3,7 @@ import logging
 import threading
 from backend.db_manager import RealtimeDB
 from backend.services.uploader_service import UploaderService
-from backend.core import config
+from backend.core import settings
 
 logger = logging.getLogger(__name__)
 

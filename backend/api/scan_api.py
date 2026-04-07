@@ -10,7 +10,7 @@ from backend.models.inverter import InverterCreate
 import logging
 import time
 import threading
-from backend.core import config as app_config
+from backend.core import settings as app_config
 
 def get_project_service():
     from backend.db_manager import MetadataDB, RealtimeDB

@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    container_name: datalogger_web
+    command: ["python", "backend/app.py"]
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend/db_manager/data:/app/backend/db_manager/data
+      - /dev/shm:/dev/shm
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  polling:
+    build: .
+    restart: unless-stopped
+    container_name: datalogger_polling
+    command: ["python", "backend/scripts/run_polling.py"]
+    env_file:
+      - .env
+    devices:
+      # Map the USB serial port to the container for Modbus RTU communication
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
+    volumes:
+      - ./backend/db_manager/data:/app/backend/db_manager/data
+      - /dev/shm:/dev/shm
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - web
+
+  uploader:
+    build: .
+    restart: unless-stopped
+    container_name: datalogger_uploader
+    command: ["python", "backend/scripts/run_uploader.py"]
+    env_file:
+      - .env
+    volumes:
+      - ./backend/db_manager/data:/app/backend/db_manager/data
+      - /dev/shm:/dev/shm
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - web

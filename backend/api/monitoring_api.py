@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.services.monitoring_service import MonitoringService
-from backend.core import config as app_config
+from backend.core import settings as app_config
 import logging
 from backend.api.auth_api import get_current_user_id
 

@@ -7,7 +7,7 @@ from backend.models.realtime import ProjectRealtimeResponse, ProjectRealtimeCrea
 import requests
 import time
 import threading
-from backend.core.config import API_BASE_URL
+from backend.core.settings import API_BASE_URL
 
 logger = logging.getLogger(__name__)
 

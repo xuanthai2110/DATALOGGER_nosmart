@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import List
 from backend.models.comm import CommConfig
 from backend.services.comm_service import CommService
-from backend.core import config as app_config
+from backend.core import settings as app_config
 import logging
 
 def get_comm_service() -> CommService:

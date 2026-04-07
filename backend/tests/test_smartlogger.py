@@ -6,21 +6,21 @@ if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
 from backend.communication.modbus_tcp import ModbusTCP
-from backend.core import config
+from backend.core import settings
 from backend.drivers.smartloggerHuawei import SmartLoggerHuawei
 
 
 def test_smartlogger():
     transport = ModbusTCP(
-        host=config.MODBUS_TCP_HOST,
-        port=config.MODBUS_TCP_PORT,
-        timeout=config.TIMEOUT,
-        retries=max(1, config.RETRIES),
+        host=settings.MODBUS_TCP_HOST,
+        port=settings.MODBUS_TCP_PORT,
+        timeout=settings.TIMEOUT,
+        retries=max(1, settings.RETRIES),
     )
 
     if not transport.connect():
         raise ConnectionError(
-            f"Cannot connect to SmartLogger at {config.MODBUS_TCP_HOST}:{config.MODBUS_TCP_PORT}"
+            f"Cannot connect to SmartLogger at {settings.MODBUS_TCP_HOST}:{settings.MODBUS_TCP_PORT}"
         )
 
     try:

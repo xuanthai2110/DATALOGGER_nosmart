@@ -8,3 +8,4 @@ python-jose[cryptography]
 passlib[bcrypt]
 PyJWT
 paho-mqtt
+python-dotenv

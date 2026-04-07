@@ -3,7 +3,6 @@ import os
 import logging
 import time
 from pathlib import Path
-
 # Add project root correctly
 # script_dir = .../backend/scripts
 # backend_dir = .../backend
@@ -28,7 +27,7 @@ from backend.services.project_service import ProjectService
 from backend.services.schedule_service import ScheduleService
 from backend.services.control_service import ControlService
 from backend.communication.mqtt_subscriber import MqttSubscriber
-from backend.core import config
+from backend.core import settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,9 +41,9 @@ def main():
         logger.info("Starting Modular Telemetry Datalogger...")
         
         # 1. DB Layer
-        meta_db = MetadataDB(config.METADATA_DB)
-        cache_db = CacheDB(config.CACHE_DB)
-        realtime_db = RealtimeDB(config.REALTIME_DB)
+        meta_db = MetadataDB(settings.METADATA_DB)
+        cache_db = CacheDB(settings.CACHE_DB)
+        realtime_db = RealtimeDB(settings.REALTIME_DB)
         
         # 2. Service Layer
         project_svc = ProjectService(metadata_db=meta_db, realtime_db=realtime_db)
@@ -53,21 +52,24 @@ def main():
         
         # 3. Worker Layer
         # Chú ý: Cần BuildTeleWorker trước để truyền vào LogicWorker
-        build_tele_worker = BuildTeleWorker(cache_db, project_svc, realtime_db, config.SNAPSHOT_INTERVAL)
-        poll_worker = PollingWorker(project_svc, cache_db, config.POLL_INTERVAL)
+        build_tele_worker = BuildTeleWorker(cache_db, project_svc, realtime_db, settings.SNAPSHOT_INTERVAL)
+        poll_worker = PollingWorker(project_svc, cache_db, settings.POLL_INTERVAL)
         logic_worker = LogicWorker(cache_db, project_svc, realtime_db, fault_service, build_tele_worker)
-        persist_worker = PersistenceWorker(cache_db, realtime_db, logic_worker.energy_service, config.SNAPSHOT_INTERVAL)
+        persist_worker = PersistenceWorker(cache_db, realtime_db, logic_worker.energy_service, settings.SNAPSHOT_INTERVAL)
         
         # Khởi tạo Control Service dựa vào polling service nội bộ của poll_worker
         control_svc = ControlService(polling_service=poll_worker.service)
         schedule_worker = ScheduleWorker(schedule_svc, control_svc, interval=1.0)
         
         mqtt_sub = MqttSubscriber(
-            broker=config.MQTT_BROKER, 
-            port=config.MQTT_PORT,
+            broker=settings.MQTT_BROKER, 
+            port=settings.MQTT_PORT,
             schedule_service=schedule_svc,
-            username=config.MQTT_USERNAME,
-            password=config.MQTT_PASSWORD
+            username=settings.MQTT_USERNAME,
+            password=settings.MQTT_PASSWORD,
+            project_server_ids_provider=lambda: [
+                project.server_id for project in project_svc.get_projects() if getattr(project, "server_id", None) is not None
+            ],
         )
         
         # Start Threads

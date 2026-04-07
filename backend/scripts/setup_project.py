@@ -30,7 +30,7 @@ from backend.services.project_service import ProjectService
 from backend.models.project import ProjectCreate, ProjectUpdate
 from backend.drivers.huawei_sun2000110KTL import HuaweiSUN2000
 from backend.communication.modbus_tcp import ModbusTCP
-from backend.core import config
+from backend.core import settings
 
 # Cấu hình logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 
 def main():
     # 1. Khởi tạo DB & Services
-    meta_db = MetadataDB(config.METADATA_DB)
-    realtime_db = RealtimeDB(config.REALTIME_DB)
+    meta_db = MetadataDB(settings.METADATA_DB)
+    realtime_db = RealtimeDB(settings.REALTIME_DB)
     project_svc = ProjectService(metadata_db=meta_db, realtime_db=realtime_db)
     
     auth_svc = AuthService()
@@ -55,7 +55,7 @@ def main():
     project_existing = setup_svc.get_local_project()
     
     if not project_existing:
-        print(f"ℹ️ Khởi tạo dự án mới: {config.PROJECT_INFO.get('name', 'Datalogger Project')}")
+        print(f"ℹ️ Khởi tạo dự án mới: {settings.PROJECT_INFO.get('name', 'Datalogger Project')}")
         project_data = {
             "elec_meter_no": "N/A",
             "elec_price_per_kwh": 0.0,
@@ -67,7 +67,7 @@ def main():
             "ac_capacity_kw": 0.0,
             "inverter_count": 0
         }
-        project_data.update(config.PROJECT_INFO)
+        project_data.update(settings.PROJECT_INFO)
         new_project = ProjectCreate(**project_data)
         project_id = project_svc.upsert_project(new_project)
         print(f"✅ Đã lưu Project local (ID: {project_id})")
@@ -77,8 +77,8 @@ def main():
 
     # Quét Inverter qua Modbus TCP và lưu vào local DB
     print("\n>>> [PHASE 1.5] INVERTER SCANNING")
-    HOST = config.MODBUS_TCP_HOST
-    PORT = config.MODBUS_TCP_PORT
+    HOST = settings.MODBUS_TCP_HOST
+    PORT = settings.MODBUS_TCP_PORT
     transport = ModbusTCP(host=HOST, port=PORT, timeout=2.0)
     
     found_ids = []

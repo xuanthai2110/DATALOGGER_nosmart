@@ -4,7 +4,7 @@ import threading
 from backend.db_manager import CacheDB
 from backend.services.polling_service import PollingService
 from backend.services.project_service import ProjectService
-from backend.core import config
+from backend.core import settings
 
 logger = logging.getLogger(__name__)
 

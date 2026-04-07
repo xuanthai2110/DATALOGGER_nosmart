@@ -1,4 +1,14 @@
-# Python
+# ========================
+# OS & IDEs
+# ========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ========================
+# Python & Environments
+# ========================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,42 +30,61 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
 
 # Virtual Environment
 venv/
 .venv/
 ENV/
 
-# Database
-*.sqlite3
-
-# IDEs
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# App specific
+# ========================
+# Confidential & Secrets
+# ========================
+.env
+tokengithub.txt
 config.json
-backend/static/uploads/
-prod
+
+# ========================
+# Databases & Caches
+# ========================
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# Ignore all legacy DB locations
+backend/database/
 backend/metadata.db
 backend/cache.db
 backend/realtime.db
 backendmetadata.db
 backendcache.db
 backendrealtime.db
-config.json
-data.json
-data.txt
-metadata.db
-cache.db
-realtime.db
-polling.log
 test_cache.db
 test_meta.db
 test_rt.db
+
+# Specifically protect the data folder but keep the directory layout
+backend/db_manager/data/*
+!backend/db_manager/data/.gitkeep
+
+# ========================
+# Logs, Outputs & Test Artifacts
+# ========================
+data.json
+data.txt
 data_true.txt
-.gitignore
+output_cache.txt
+output_cache.md
+polling.log
+
+test/
+backend/test/
+backend/Test_modbus.py
+
+# ========================
+# Project specific folders
+# ========================
+backend/static/uploads/
+prod/
+backend/prod/

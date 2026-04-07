@@ -23,7 +23,7 @@ from backend.db_manager import MetadataDB, RealtimeDB
 from backend.services.auth_service import AuthService
 from backend.services.setup_service import SetupService
 from backend.services.project_service import ProjectService
-from backend.core import config
+from backend.core import settings
 
 # Cấu hình logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 
 def main():
     # 1. Khởi tạo DB & Services
-    meta_db = MetadataDB(config.METADATA_DB)
-    realtime_db = RealtimeDB(config.REALTIME_DB)
+    meta_db = MetadataDB(settings.METADATA_DB)
+    realtime_db = RealtimeDB(settings.REALTIME_DB)
     project_svc = ProjectService(metadata_db=meta_db, realtime_db=realtime_db)
     
     auth_svc = AuthService()

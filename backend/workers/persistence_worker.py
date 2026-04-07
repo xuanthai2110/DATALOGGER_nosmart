@@ -8,7 +8,7 @@ from backend.models.realtime import (
     InverterACRealtimeCreate, mpptRealtimeCreate, 
     stringRealtimeCreate, ProjectRealtimeCreate
 )
-from backend.core import config
+from backend.core import settings
 
 logger = logging.getLogger(__name__)
 

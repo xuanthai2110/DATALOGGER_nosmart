@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from backend.services.setup_service import SetupService
-from backend.core import config as app_config
+from backend.core import settings as app_config
 
 def get_setup_service() -> SetupService:
     from backend.db_manager import MetadataDB, RealtimeDB

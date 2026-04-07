@@ -9,7 +9,7 @@ from backend.services.project_service import ProjectService
 from backend.api.auth_api import get_current_user_id
 from dataclasses import asdict, fields
 import logging
-from backend.core import config as app_config
+from backend.core import settings as app_config
 
 router = APIRouter(tags=["projects"])
 logger = logging.getLogger(__name__)

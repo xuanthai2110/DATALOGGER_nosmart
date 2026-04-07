@@ -5,7 +5,7 @@ from datetime import datetime
 from backend.db_manager import CacheDB, RealtimeDB
 from backend.services.energy_service import EnergyService
 from backend.models.realtime import InverterACRealtimeCreate, mpptRealtimeCreate, stringRealtimeCreate
-from backend.core import config
+from backend.core import settings
 
 logger = logging.getLogger(__name__)
 

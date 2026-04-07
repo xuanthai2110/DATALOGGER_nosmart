@@ -30,7 +30,7 @@ from backend.api.comm_api import router as comm_router
 from backend.api.sync_api import router as sync_router
 from backend.api.schedule_api import router as schedule_router
 
-from backend.core import config as app_config
+from backend.core import settings as app_config
 
 
 app = FastAPI(title="Solar Datalogger Backend", version="2.0.0")
@@ -78,7 +78,7 @@ async def websocket_endpoint(websocket: WebSocket):
 def startup_event():
     from backend.db_manager import MetadataDB
     from backend.services.user_service import UserService
-    from backend.core import config as app_config
+    from backend.core import settings as app_config
     
     db = MetadataDB(app_config.METADATA_DB)
     user_svc = UserService(db)
@@ -99,5 +99,7 @@ def index():
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info("Starting Solar Datalogger Backend on http://0.0.0.0:5000")
-    uvicorn.run("backend.app:app", host="0.0.0.0", port=5000, reload=True)
+    host = app_config.WEB_HOST
+    port = app_config.WEB_PORT
+    logger.info(f"Starting Solar Datalogger Backend on http://{host}:{port}")
+    uvicorn.run("backend.app:app", host=host, port=port, reload=True)

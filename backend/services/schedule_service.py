@@ -4,7 +4,7 @@ import time
 
 import requests
 
-from backend.core.config import API_BASE_URL
+from backend.core.settings import API_BASE_URL
 from backend.db_manager.realtime import RealtimeDB
 from backend.models.schedule import ControlScheduleCreate, ControlScheduleUpdate, ControlScheduleResponse
 from backend.services.auth_service import AuthService
@@ -20,6 +20,10 @@ class ScheduleService:
         self.fetch_retry_count = 5
         self.fetch_retry_delay_sec = 0.5
 
+    def _remote_schedule_url(self, schedule_id: int) -> str:
+        base = API_BASE_URL.rstrip("/")
+        return f"{base}/api/control_schedules/{schedule_id}"
+
     def _short_body(self, value, limit: int = 500) -> str:
         text = value if isinstance(value, str) else str(value)
         return text if len(text) <= limit else text[:limit] + "...<truncated>"
@@ -33,6 +37,14 @@ class ScheduleService:
 
     def _build_local_schedule(self, remote_schedule: dict) -> ControlScheduleCreate:
         maxp_kw = remote_schedule.get("maxp_kw")
+        limit_watts = remote_schedule.get("limit_watts")
+        if limit_watts is None and maxp_kw is not None:
+            limit_watts = float(maxp_kw) * 1000.0
+
+        limit_percent = remote_schedule.get("limit_percent")
+        if limit_percent is None:
+            limit_percent = remote_schedule.get("percent")
+
         return ControlScheduleCreate(
             id=remote_schedule.get("id"),
             project_id=remote_schedule.get("project_id"),
@@ -44,8 +56,8 @@ class ScheduleService:
             status=remote_schedule.get("status", "SCHEDULED"),
             inverter_id=remote_schedule.get("inverter_id"),
             serial_number=remote_schedule.get("serial_number"),
-            limit_watts=None if maxp_kw is None else float(maxp_kw) * 1000.0,
-            limit_percent=remote_schedule.get("percent"),
+            limit_watts=limit_watts,
+            limit_percent=limit_percent,
             hours=remote_schedule.get("hours"),
             day=remote_schedule.get("day"),
             created_at=remote_schedule.get("created_at"),
@@ -81,8 +93,7 @@ class ScheduleService:
         if not headers:
             return None
 
-        base = API_BASE_URL.rstrip("/")
-        url = f"{base}/api/control-schedules/{schedule_id}"
+        url = self._remote_schedule_url(schedule_id)
         for attempt in range(1, self.fetch_retry_count + 1):
             logger.info("[ScheduleService] GET %s attempt=%s/%s", url, attempt, self.fetch_retry_count)
             try:
@@ -147,8 +158,7 @@ class ScheduleService:
         if not headers:
             return False
 
-        base = API_BASE_URL.rstrip("/")
-        url = f"{base}/api/control-schedules/{schedule_id}"
+        url = self._remote_schedule_url(schedule_id)
         payload = {"status": status}
         logger.info("[ScheduleService] PATCH %s payload=%s", url, payload)
         try:

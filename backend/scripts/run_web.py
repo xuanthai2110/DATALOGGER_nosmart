@@ -16,15 +16,17 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
+from backend.core import settings
+
 if __name__ == "__main__":
     print("=" * 50)
     print("  Datalogger Local Web UI")
-    print("  http://localhost:5000")
+    print(f"  http://{settings.WEB_HOST}:{settings.WEB_PORT}")
     print("=" * 50)
     uvicorn.run(
         "backend.app:app",
-        host="10.8.0.3",
-        port=5000,
+        host=settings.WEB_HOST,
+        port=settings.WEB_PORT,
         reload=False,
         log_level="info"
     )

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from backend.db_manager import MetadataDB
 from backend.api.auth_api import get_current_user_id
-from backend.core import config as app_config
+from backend.core import settings as app_config
 from backend.models.project import ProjectCreate
 from backend.models.comm import CommConfig
 from backend.models.inverter import InverterCreate

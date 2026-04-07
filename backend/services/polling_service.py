@@ -12,7 +12,7 @@ from backend.communication.modbus_tcp import ModbusTCP
 from backend.communication.modbus_rtu import ModbusRTU
 from backend.services.normalization_service import NormalizationService
 from backend.services.fault_service import FaultService
-from backend.core import config
+from backend.core import settings
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +32,16 @@ class PollingService:
     def _get_transport(self, brand: str):
         with self._transport_lock:
             if "Huawei" in brand:
-                key = f"TCP_{config.MODBUS_TCP_HOST}"
+                key = f"TCP_{settings.MODBUS_TCP_HOST}"
                 if key not in self.transports:
-                    t = ModbusTCP(host=config.MODBUS_TCP_HOST, port=config.MODBUS_TCP_PORT)
+                    t = ModbusTCP(host=settings.MODBUS_TCP_HOST, port=settings.MODBUS_TCP_PORT)
                     t.connect()
                     self.transports[key] = t
                 return self.transports[key]
             else:
                 key = "RTU"
                 if key not in self.transports:
-                    t = ModbusRTU(port=config.MODBUS_PORT, baudrate=config.MODBUS_BAUDRATE)
+                    t = ModbusRTU(port=settings.MODBUS_PORT, baudrate=settings.MODBUS_BAUDRATE)
                     t.connect()
                     self.transports[key] = t
                 return self.transports[key]
@@ -49,7 +49,7 @@ class PollingService:
     def get_polling_config(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Lấy cấu hình polling (Projects & Inverters) từ RAM Cache hoặc Database"""
         now = time.time()
-        if force_refresh or not self._config_cache or (now - self._last_refresh > config.CONFIG_REFRESH_INTERVAL):
+        if force_refresh or not self._config_cache or (now - self._last_refresh > settings.CONFIG_REFRESH_INTERVAL):
             logger.info("Refreshing Polling Configuration Cache from DB through Service...")
             projects = self.project_svc.get_projects()
             new_cache = []

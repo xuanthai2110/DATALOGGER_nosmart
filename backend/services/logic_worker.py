@@ -9,7 +9,7 @@ from backend.services.fault_logic_service import FaultLogicService
 from backend.services.fault_state_service import FaultStateService
 from backend.services.telemetry_service import TelemetryService
 from backend.services.uploader_service import UploaderService
-from backend.core import config
+from backend.core import settings
 
 logger = logging.getLogger(__name__)
 

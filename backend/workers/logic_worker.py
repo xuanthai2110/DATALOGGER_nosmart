@@ -12,7 +12,7 @@ from backend.services.uploader_service import UploaderService
 from backend.models.realtime import (
     InverterErrorCreate
 )
-from backend.core import config
+from backend.core import settings
 
 logger = logging.getLogger(__name__)
 

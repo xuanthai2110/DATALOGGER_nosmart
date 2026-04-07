@@ -1,0 +1,19 @@
+[Unit]
+Description=Datalogger Docker Compose Backend Service
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Thay đổi đường dẫn này theo đúng thư mục chứa source code trên Raspberry Pi (ví dụ /home/pi/datalogger_project)
+WorkingDirectory=/home/pi/datalogger_project_2102
+
+# Lệnh nâng dịch vụ
+ExecStart=/usr/bin/docker compose up -d
+
+# Lệnh hạ dịch vụ
+ExecStop=/usr/bin/docker compose down
+
+[Install]
+WantedBy=multi-user.target

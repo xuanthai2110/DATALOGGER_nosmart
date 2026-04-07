@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Callable, Iterable, Optional
 
 import paho.mqtt.client as mqtt
 
@@ -10,16 +11,55 @@ logger = logging.getLogger(__name__)
 
 
 class MqttSubscriber:
-    def __init__(self, broker: str, port: int, schedule_service: ScheduleService, project_id: int = None, username: str = None, password: str = None):
+    def __init__(
+        self,
+        broker: str,
+        port: int,
+        schedule_service: ScheduleService,
+        project_id: int = None,
+        username: str = None,
+        password: str = None,
+        project_server_ids_provider: Optional[Callable[[], Iterable[int]]] = None,
+    ):
         self.broker = broker
         self.port = port
         self.schedule_service = schedule_service
         self.project_id_filter = project_id
         self.username = username
         self.password = password
+        self.project_server_ids_provider = project_server_ids_provider
         self.client = mqtt.Client()
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+
+    def _get_subscription_topics(self):
+        if self.project_id_filter is not None:
+            return [f"controls/projects/{self.project_id_filter}/schedules/#"]
+
+        if not self.project_server_ids_provider:
+            return []
+
+        try:
+            server_ids = self.project_server_ids_provider() or []
+        except Exception as e:
+            logger.error(f"[MQTT] Failed to load project server_ids for subscription: {e}")
+            return []
+
+        topics = []
+        seen = set()
+        for server_id in server_ids:
+            if server_id in (None, ""):
+                continue
+            try:
+                normalized = int(server_id)
+            except (TypeError, ValueError):
+                logger.warning(f"[MQTT] Ignoring invalid project server_id for subscription: {server_id}")
+                continue
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            topics.append(f"controls/projects/{normalized}/schedules/#")
+        return topics
 
     def connect(self):
         try:
@@ -37,11 +77,14 @@ class MqttSubscriber:
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            topic = "controls/projects/+/schedules/#"
-            if self.project_id_filter:
-                topic = f"controls/projects/{self.project_id_filter}/schedules/#"
-            self.client.subscribe(topic)
-            logger.info(f"[MQTT] Subscribed to {topic}")
+            topics = self._get_subscription_topics()
+            if not topics:
+                logger.warning("[MQTT] No project server_id available, schedule subscriber did not subscribe to any topic.")
+                return
+
+            for topic in topics:
+                self.client.subscribe(topic)
+                logger.info(f"[MQTT] Subscribed to {topic}")
         else:
             logger.error(f"[MQTT] Connect return code {rc}")
 

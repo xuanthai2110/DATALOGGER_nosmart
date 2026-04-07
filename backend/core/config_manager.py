@@ -10,7 +10,7 @@ Web UI ghi đè → lưu vào database.
 import logging
 from dataclasses import asdict
 
-from backend.core import config as app_config
+from backend.core import settings as app_config
 from backend.db_manager import MetadataDB
 from backend.models.comm import CommConfig
 
