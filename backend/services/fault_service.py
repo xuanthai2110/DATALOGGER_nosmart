@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class FaultService:
     """Dịch vụ hợp nhất quản lý Trạng thái và Lỗi Inverter."""
     
-    def __init__(self, realtime_db: RealtimeDB, metadata_db: MetadataDB):
+    def __init__(self, realtime_db: RealtimeDB = None, metadata_db: MetadataDB = None):
         self.realtime_db = realtime_db
         self.metadata_db = metadata_db
         self.last_status_map: Dict[int, int] = {}
@@ -18,8 +18,11 @@ class FaultService:
 
     def seed_if_needed(self, inv_id: int):
         if inv_id in self.inverter_brands: return
-        inv_meta = self.metadata_db.get_inverter_by_id(inv_id)
-        self.inverter_brands[inv_id] = inv_meta.brand.upper() if inv_meta else "SUNGROW"
+        if self.metadata_db:
+            inv_meta = self.metadata_db.get_inverter_by_id(inv_id)
+            self.inverter_brands[inv_id] = inv_meta.brand.upper() if inv_meta else "SUNGROW"
+        else:
+            self.inverter_brands[inv_id] = "SUNGROW"
         self.active_faults_map[inv_id] = set() # Điền vào từ db nếu cần history kỹ hơn
 
     def get_inverter_status_payload(self, brand: str, raw_state: int, raw_fault: int, polling_time: str) -> list:

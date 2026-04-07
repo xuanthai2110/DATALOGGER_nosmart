@@ -106,21 +106,6 @@ class BuildTeleWorker(threading.Thread):
     def _enforce_limit(self):
         """Xoá bớt các bản ghi cũ nếu vượt quá 1000."""
         try:
-            # Ta cần một phương thức đếm và xoá trong RealtimeDB
-            # Hiện tại RealtimeDB chưa có hàm này, ta sẽ tạm thời viết logic ở đây
-            # hoặc bổ sung vào RealtimeDB sau.
-            with self.realtime_db._connect() as conn:
-                count = conn.execute("SELECT COUNT(*) FROM uploader_outbox").fetchone()[0]
-                if count > self.max_outbox_rows:
-                    to_delete = count - self.max_outbox_rows
-                    # Lấy ID của N bản ghi cũ nhất
-                    old_ids = conn.execute(
-                        f"SELECT id FROM uploader_outbox ORDER BY id ASC LIMIT {to_delete}"
-                    ).fetchall()
-                    ids = [r[0] for r in old_ids]
-                    if ids:
-                        placeholders = ",".join(["?"] * len(ids))
-                        conn.execute(f"DELETE FROM uploader_outbox WHERE id IN ({placeholders})", ids)
-                        logger.warning(f"BuildTeleWorker: Outbox limit reached. Deleted {len(ids)} oldest records.")
+            self.realtime_db.trim_outbox(self.max_outbox_rows)
         except Exception as e:
             logger.error(f"BuildTeleWorker: Error enforcing outbox limit: {e}")

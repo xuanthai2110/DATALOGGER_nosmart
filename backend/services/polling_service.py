@@ -1,4 +1,5 @@
 import time
+import json
 import logging
 import threading
 from datetime import datetime, timezone
@@ -21,7 +22,7 @@ class PollingService:
         self.project_svc = project_svc
         self.cache_db = cache_db
         self.normalization = NormalizationService()
-        self.fault_service = FaultService(None, None)
+        self.fault_service = FaultService()
         self.transports = {}
         self._transport_lock = threading.Lock()
         
@@ -123,7 +124,6 @@ class PollingService:
                 errors_payload = self.fault_service.get_inverter_status_payload(inv.brand, status_code, fault_code, polling_time)
                 state_snapshot = self.fault_service.get_state_snapshot(inv.brand, status_code)
                 
-                import json
                 fault_json = json.dumps(errors_payload, ensure_ascii=False) if errors_payload else "[]"
                 status_text = state_snapshot["name"]
                 

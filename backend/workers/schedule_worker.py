@@ -1,6 +1,5 @@
 import time
 import logging
-import logging
 import threading
 from datetime import datetime
 
@@ -23,6 +22,12 @@ class ScheduleWorker(threading.Thread):
     def stop(self):
         self._stop_event.set()
 
+    @staticmethod
+    def _parse_iso(dt_str: str) -> datetime:
+        if dt_str.endswith("Z"):
+            dt_str = dt_str[:-1] + "+00:00"
+        return datetime.fromisoformat(dt_str)
+
     def run(self):
         logger.info(f"Schedule Worker started (Interval: {self.interval}s)")
         while not self._stop_event.is_set():
@@ -33,13 +38,8 @@ class ScheduleWorker(threading.Thread):
 
                 for s in schedules:
                     try:
-                        def parse_iso(dt_str):
-                            if dt_str.endswith("Z"):
-                                dt_str = dt_str[:-1] + "+00:00"
-                            return datetime.fromisoformat(dt_str)
-
-                        start_time = parse_iso(s.start_at)
-                        end_time = parse_iso(s.end_at)
+                        start_time = self._parse_iso(s.start_at)
+                        end_time = self._parse_iso(s.end_at)
 
                         if start_time.tzinfo and not now.tzinfo:
                             now = now.astimezone(start_time.tzinfo)

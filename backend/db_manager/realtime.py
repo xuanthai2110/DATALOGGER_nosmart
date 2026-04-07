@@ -146,6 +146,21 @@ class RealtimeDB(BaseDB):
         with self._connect() as conn:
             conn.execute("DELETE FROM uploader_outbox WHERE id=?", (record_id,))
 
+    def trim_outbox(self, max_rows: int):
+        """Giới hạn số lượng bản ghi trong outbox để tránh đầy ổ đĩa."""
+        with self._connect() as conn:
+            count = conn.execute("SELECT COUNT(*) FROM uploader_outbox").fetchone()[0]
+            if count > max_rows:
+                to_delete = count - max_rows
+                # Lấy ID của các bản ghi cũ nhất
+                old_ids = conn.execute(
+                    "SELECT id FROM uploader_outbox ORDER BY id ASC LIMIT ?", (to_delete,)
+                ).fetchall()
+                ids = [r[0] for r in old_ids]
+                if ids:
+                    placeholders = ",".join("?" * len(ids))
+                    conn.execute(f"DELETE FROM uploader_outbox WHERE id IN ({placeholders})", ids)
+
     # --- History API ---
     def post_inverter_error(self, data: InverterErrorCreate):
         d = asdict(data)

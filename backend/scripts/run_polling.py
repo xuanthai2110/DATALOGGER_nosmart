@@ -12,8 +12,8 @@ if str(PROJECT_ROOT) not in sys.path:
     # Insert at 0 to prioritize local modules
     sys.path.insert(0, str(PROJECT_ROOT))
     
-# Debug print - check what's in sys.path
-print(f"DEBUG - sys.path[0]: {sys.path[0]}")
+    # sys.path is already updated
+    pass
 
 # 2. Imports using absolute package names
 from backend.db_manager import MetadataDB, CacheDB, RealtimeDB
