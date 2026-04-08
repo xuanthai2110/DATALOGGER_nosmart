@@ -3,7 +3,7 @@ version: '3.8'
 services:
   web:
     build: .
-    restart: unless-stopped
+    restart: alway
     container_name: datalogger_web
     command: ["python", "backend/app.py"]
     ports:
@@ -21,7 +21,7 @@ services:
 
   polling:
     build: .
-    restart: unless-stopped
+    restart: alway
     container_name: datalogger_polling
     command: ["python", "backend/scripts/run_polling.py"]
     env_file:
@@ -42,7 +42,7 @@ services:
 
   uploader:
     build: .
-    restart: unless-stopped
+    restart: always
     container_name: datalogger_uploader
     command: ["python", "backend/scripts/run_uploader.py"]
     env_file:
