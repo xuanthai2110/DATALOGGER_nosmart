@@ -16,7 +16,13 @@ else:
 # ===========================================================
 # SERVER BINDING
 # ===========================================================
+RUNNING_IN_DOCKER = Path("/.dockerenv").exists()
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
+WEB_BIND_HOST = os.getenv(
+    "WEB_BIND_HOST",
+    "0.0.0.0" if RUNNING_IN_DOCKER else WEB_HOST,
+)
+WEB_PUBLIC_HOST = os.getenv("WEB_PUBLIC_HOST", WEB_HOST)
 WEB_PORT = int(os.getenv("WEB_PORT", "5000"))
 
 # ===========================================================
