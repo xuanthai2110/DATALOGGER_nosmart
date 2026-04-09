@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Callable, Iterable, Optional
 
 import paho.mqtt.client as mqtt
@@ -99,10 +100,17 @@ class MqttSubscriber:
                 return
 
             if event in ("schedule_created", "schedule_updated"):
-                synced = self.schedule_service.sync_schedule_from_server(schedule_id)
+                # Ưu tiên sync từ payload có sẵn để tránh lỗi 404 và giảm tải cho server
+                time.sleep(2)
+                if schedule_data and schedule_data.get("id"):
+                    synced = self.schedule_service.sync_from_payload(schedule_data)
+                else:
+                    synced = self.schedule_service.sync_schedule_from_server(schedule_id)
+                    
                 if not synced:
                     logger.error(f"[MQTT] Failed to sync {event} for schedule {schedule_id}")
             elif event == "schedule_deleted":
+                time.sleep(2)
                 self.schedule_service.delete(schedule_id)
 
             logger.info(f"[MQTT] Processed {event} for schedule {schedule_id}")
