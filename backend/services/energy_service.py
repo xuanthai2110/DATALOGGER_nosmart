@@ -47,8 +47,20 @@ class EnergyService:
         """
         self.seed_if_needed(inverter_id)
         state = self.energy_state[inverter_id]
-        
-        delta = max(0.0, round(current_e_total - state["last_snap_total"], 2))
+
+        if current_e_total is None:
+            state["current_delta"] = 0.0
+            state["E_monthly"] = round(state["base_monthly"], 2)
+            return state
+
+        try:
+            current_e_total = float(current_e_total)
+        except (TypeError, ValueError):
+            state["current_delta"] = 0.0
+            state["E_monthly"] = round(state["base_monthly"], 2)
+            return state
+
+        delta = max(0.0, round(current_e_total - (state["last_snap_total"] or 0.0), 2))
         
         # Chống nhảy số ảo (> 100kWh trong 10s là bất thường)
         if delta > 100.0:
@@ -67,7 +79,8 @@ class EnergyService:
             
         state = self.energy_state[inverter_id]
         state["base_monthly"] = round(state["base_monthly"] + state["current_delta"], 2)
-        state["last_snap_total"] = current_total
+        if current_total is not None:
+            state["last_snap_total"] = current_total
         state["current_delta"] = 0.0
         
         logger.debug(f"Energy committed for inv {inverter_id}: New Base={state['base_monthly']}")

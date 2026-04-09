@@ -32,11 +32,12 @@ class TelemetryService:
             if not ac: continue
             
             # Totals
-            total_p_ac += ac.get("P_ac", 0.0)
-            total_e_daily += ac.get("E_daily", 0.0)
-            total_e_monthly += ac.get("E_monthly", 0.0)
-            total_e_total += ac.get("E_total", 0.0)
-            if ac.get("Temp_C"): temp_list.append(ac["Temp_C"])
+            total_p_ac += self._num(ac.get("P_ac"))
+            total_e_daily += self._num(ac.get("E_daily"))
+            total_e_monthly += self._num(ac.get("E_monthly"))
+            total_e_total += self._num(ac.get("E_total"))
+            if ac.get("Temp_C") is not None:
+                temp_list.append(self._num(ac.get("Temp_C")))
             
             # MPPT & Strings (from Cache)
             mppts_cache = cache_db.get_mppt_cache_by_inverter(inv_id)
@@ -46,13 +47,13 @@ class TelemetryService:
             mppt_list = []
             for m in mppts_cache:
                 m_idx = m["mppt_index"]
-                inv_dc_sum += m.get("P_mppt", 0.0)
+                inv_dc_sum += self._num(m.get("P_mppt"))
                 
                 m_strings = [
                     {
                         "string_index": s["string_id"],
-                        "I_mppt": s["I_string"],
-                        "Max_I": s["max_I"],
+                        "I_mppt": self._num(s.get("I_string")),
+                        "Max_I": self._num(s.get("max_I")),
                         "created_at": payload_created_at
                     }
                     for s in strings_cache if s["mppt_id"] == m_idx
@@ -61,12 +62,12 @@ class TelemetryService:
                 mppt_list.append({
                     "mppt_index": m_idx,
                     "string_on_mppt": m.get("string_on_mppt", 2),
-                    "V_mppt": m["V_mppt"],
-                    "I_mppt": m["I_mppt"],
-                    "P_mppt": m["P_mppt"],
-                    "Max_I": m["Max_I"],
-                    "Max_V": m["Max_V"],
-                    "Max_P": m["Max_P"],
+                    "V_mppt": self._num(m.get("V_mppt")),
+                    "I_mppt": self._num(m.get("I_mppt")),
+                    "P_mppt": self._num(m.get("P_mppt")),
+                    "Max_I": self._num(m.get("Max_I")),
+                    "Max_V": self._num(m.get("Max_V")),
+                    "Max_P": self._num(m.get("Max_P")),
                     "created_at": payload_created_at,
                     "strings": m_strings
                 })
@@ -97,21 +98,21 @@ class TelemetryService:
             inv_data = {
                 "serial_number": inv.serial_number,
                 "ac": {
-                    "IR": ac.get("IR", 0.0),
-                    "Temp_C": ac.get("Temp_C", 0.0),
-                    "P_ac": ac.get("P_ac", 0.0),
-                    "Q_ac": ac.get("Q_ac", 0.0),
-                    "V_a": ac.get("V_a", 0.0),
-                    "V_b": ac.get("V_b", 0.0),
-                    "V_c": ac.get("V_c", 0.0),
-                    "I_a": ac.get("I_a", 0.0),
-                    "I_b": ac.get("I_b", 0.0),
-                    "I_c": ac.get("I_c", 0.0),
-                    "PF": ac.get("PF", 0.0),
-                    "H": ac.get("H", 0.0),
-                    "E_daily": ac.get("E_daily", 0.0),
-                    "E_monthly": ac.get("E_monthly", 0.0),
-                    "E_total": ac.get("E_total", 0.0),
+                    "IR": self._num(ac.get("IR")),
+                    "Temp_C": self._num(ac.get("Temp_C")),
+                    "P_ac": self._num(ac.get("P_ac")),
+                    "Q_ac": self._num(ac.get("Q_ac")),
+                    "V_a": self._num(ac.get("V_a")),
+                    "V_b": self._num(ac.get("V_b")),
+                    "V_c": self._num(ac.get("V_c")),
+                    "I_a": self._num(ac.get("I_a")),
+                    "I_b": self._num(ac.get("I_b")),
+                    "I_c": self._num(ac.get("I_c")),
+                    "PF": self._num(ac.get("PF")),
+                    "H": self._num(ac.get("H")),
+                    "E_daily": self._num(ac.get("E_daily")),
+                    "E_monthly": self._num(ac.get("E_monthly")),
+                    "E_total": self._num(ac.get("E_total")),
                     "created_at": payload_created_at
                 },
                 "mppts": mppt_list,
@@ -200,3 +201,12 @@ class TelemetryService:
             "severity": "STABLE",
             "created_at": payload_created_at or self._format_ts(ts)
         }
+
+    @staticmethod
+    def _num(value: Any, default: float = 0.0) -> float:
+        if value is None:
+            return default
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
