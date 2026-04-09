@@ -103,6 +103,40 @@ class SungrowSG110CXDriver(BaseDriver):
     def _read_block(self, start: int, length: int):
         return self._read_input(start, length)
 
+    def _group_contiguous(self, regs):
+        if not regs:
+            return []
+
+        ordered_regs = sorted(regs, key=lambda reg: reg["address"])
+        groups = [[ordered_regs[0]]]
+
+        for reg in ordered_regs[1:]:
+            previous = groups[-1][-1]
+            previous_end = previous["address"] + previous["length"]
+            if reg["address"] == previous_end:
+                groups[-1].append(reg)
+            else:
+                groups.append([reg])
+
+        return groups
+
+    def _read_sparse_input_group(self, regs):
+        result = {}
+
+        for group in self._group_contiguous(regs):
+            start = group[0]["address"]
+            end = max(reg["address"] + reg["length"] - 1 for reg in group)
+            raw = self._read_input(start, end - start + 1)
+
+            ordered = []
+            for reg in group:
+                idx = reg["address"] - start
+                ordered.extend(raw[idx: idx + reg["length"]])
+
+            result.update(self.parse(ordered, group))
+
+        return result
+
     # =========================================================
     # ================= PARSER ================================
     # =========================================================
@@ -171,16 +205,7 @@ class SungrowSG110CXDriver(BaseDriver):
         from datetime import datetime
         try:
             regs  = self.register_map()["info"]
-            start = min(r["address"] for r in regs)
-            end   = max(r["address"] + r["length"] - 1 for r in regs)
-            raw   = self._read_input(start, end - start + 1)
-
-            ordered = []
-            for r in regs:
-                idx = r["address"] - start
-                ordered.extend(raw[idx: idx + r["length"]])
-
-            parsed = self.parse(ordered, regs)
+            parsed = self._read_sparse_input_group(regs)
             rated_kw = parsed.get("rated_power", 110.0) or 110.0
 
             return {
@@ -222,39 +247,15 @@ class SungrowSG110CXDriver(BaseDriver):
 
     def read_ac(self) -> Dict[str, Any]:
         regs  = self.register_map()["ac"]
-        start = min(r["address"] for r in regs)
-        end   = max(r["address"] + r["length"] - 1 for r in regs)
-        raw   = self._read_input(start, end - start + 1)
-        ordered = []
-        for r in regs:
-            idx = r["address"] - start
-            ordered.extend(raw[idx: idx + r["length"]])
-        return self.parse(ordered, regs)
+        return self._read_sparse_input_group(regs)
 
     def read_dc(self) -> Dict[str, Any]:
         regs  = self.register_map()["dc"]
-        start = min(r["address"] for r in regs)
-        end   = max(r["address"] + r["length"] - 1 for r in regs)
-        raw   = self._read_input(start, end - start + 1)
-        ordered = []
-        for r in regs:
-            idx = r["address"] - start
-            ordered.extend(raw[idx: idx + r["length"]])
-        return self.parse(ordered, regs)
+        return self._read_sparse_input_group(regs)
 
     def read_string(self) -> Dict[str, Any]:
-        result = {}
         regs   = self.register_map()["string"]
-        start  = regs[0]["address"]
-        end    = regs[-1]["address"]
-        raw    = self._read_input(start, end - start + 1)
-        for r in regs:
-            idx = r["address"] - start
-            val = self._convert([raw[idx]], r["type"])
-            if val is not None and r["scale"] is not None:
-                val *= r["scale"]
-            result[r["name"]] = val
-        return result
+        return self._read_sparse_input_group(regs)
 
     def read_all(self) -> Dict[str, Any]:
         import json
