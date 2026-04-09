@@ -204,16 +204,19 @@ class ControlService:
 
             if schedule.scope == "PROJECT":
                 return self._reset_project_scope(project_item)
+            elif schedule.scope == "INVERTER":
+                target_inverters = self._find_target_inverters(project_item, schedule)
+                if not target_inverters:
+                    logger.error(
+                        "[ControlService] No target inverters found for reset. serial_number=%s",
+                        schedule.serial_number,
+                    )
+                    return False
 
-            target_inverters = self._find_target_inverters(project_item, schedule)
-            if not target_inverters:
-                logger.error(
-                    "[ControlService] No target inverters found for reset. serial_number=%s",
-                    schedule.serial_number,
-                )
+                return self._reset_inverters(target_inverters)
+            else:
+                logger.warning(f"[ControlService] Unsupported scope for reset: {schedule.scope}")
                 return False
-
-            return self._reset_inverters(target_inverters)
 
         except Exception as e:
             logger.error(f"[ControlService] Error reset limit: {e}")

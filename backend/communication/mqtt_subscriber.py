@@ -5,6 +5,7 @@ from typing import Callable, Iterable, Optional
 import paho.mqtt.client as mqtt
 import time
 from backend.services.schedule_service import ScheduleService
+from backend.services.control_service import ControlService
 
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ class MqttSubscriber:
         broker: str,
         port: int,
         schedule_service: ScheduleService,
+        control_service: ControlService = None,
         project_id: int = None,
         username: str = None,
         password: str = None,
@@ -24,6 +26,7 @@ class MqttSubscriber:
         self.broker = broker
         self.port = port
         self.schedule_service = schedule_service
+        self.control_service = control_service
         self.project_id_filter = project_id
         self.username = username
         self.password = password
@@ -99,11 +102,30 @@ class MqttSubscriber:
                 return
 
             if event in ("schedule_created", "schedule_updated"):
+                # Kiểm tra trạng thái local trước khi sync
+                old_status = None
+                existing = self.schedule_service.get(schedule_id)
+                if existing:
+                    old_status = existing.status
+
+                # Đợi 2 giây để server kịp cập nhật dữ liệu trước khi GET (Tránh lỗi 404)
                 time.sleep(2)
                 synced = self.schedule_service.sync_schedule_from_server(schedule_id)
+                
+                # Nếu từ RUNNING chuyển sang CANCELED -> Reset ngay lập tức
+                if synced and synced.status == "CANCELED" and old_status == "RUNNING":
+                    if self.control_service:
+                        self.control_service.reset(synced)
+
                 if not synced:
                     logger.error(f"[MQTT] Failed to sync {event} for schedule {schedule_id}")
             elif event == "schedule_deleted":
+                # Nếu lịch đang chạy mà bị xóa -> Reset ngay lập tức
+                s = self.schedule_service.get(schedule_id)
+                if s and s.status == "RUNNING":
+                    if self.control_service:
+                        self.control_service.reset(s)
+
                 time.sleep(2)
                 self.schedule_service.delete(schedule_id)
 

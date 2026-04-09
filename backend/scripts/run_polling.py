@@ -65,6 +65,7 @@ def main():
             broker=settings.MQTT_BROKER, 
             port=settings.MQTT_PORT,
             schedule_service=schedule_svc,
+            control_service=control_svc, # Thêm control_service
             username=settings.MQTT_USERNAME,
             password=settings.MQTT_PASSWORD,
             project_server_ids_provider=lambda: [
