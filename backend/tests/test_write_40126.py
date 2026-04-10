@@ -99,6 +99,7 @@ def main():
 
         print(f"\nWAIT {args.readback_delay}s BEFORE READBACK")
         time.sleep(args.readback_delay)
+        time.sleep(0.1)  # Extra short delay to ensure registers are updated
 
         print("\nAFTER WRITE")
         read_limit_block(client, args.slave)
