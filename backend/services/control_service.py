@@ -1,4 +1,6 @@
 import logging
+import threading
+import time
 
 from backend.drivers.smartloggerHuawei import SmartLoggerHuawei
 from backend.models.schedule import ControlScheduleResponse
@@ -10,6 +12,7 @@ logger = logging.getLogger(__name__)
 class ControlService:
     def __init__(self, polling_service):
         self.polling_service = polling_service
+        self.post_control_readback_delay_sec = 10.0
 
     def _find_project_item(self, schedule_project_id: int):
         for force_refresh in (False, True):
@@ -113,6 +116,58 @@ class ControlService:
             logger.error(f"[ControlService] SmartLogger reset fail for PROJECT scope: {e}")
             return False
 
+    def _read_inverter_power(self, driver):
+        if hasattr(driver, "read_power"):
+            return driver.read_power()
+
+        if hasattr(driver, "read_all"):
+            snapshot = driver.read_all() or {}
+            if "p_inv_w" in snapshot:
+                return snapshot["p_inv_w"]
+
+        raise AttributeError(f"Driver {driver.__class__.__name__} has no supported power read method")
+
+    def _schedule_post_control_power_log(self, inv, schedule_id: int):
+        def worker():
+            try:
+                time.sleep(self.post_control_readback_delay_sec)
+
+                transport = self.polling_service._get_transport(inv.brand)
+                driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
+                if not driver:
+                    logger.error(
+                        "[ControlService] Cannot read back power for Inv ID %s after schedule %s because driver is unavailable.",
+                        inv.id,
+                        schedule_id,
+                    )
+                    return
+
+                with transport.arbiter.operation("control"):
+                    power_w = self._read_inverter_power(driver)
+
+                logger.info(
+                    "[ControlService] Power readback after %.1fs for Inv ID %s (schedule %s, slave_id=%s, serial=%s): %s W",
+                    self.post_control_readback_delay_sec,
+                    inv.id,
+                    schedule_id,
+                    inv.slave_id,
+                    getattr(inv, "serial_number", None),
+                    power_w,
+                )
+            except Exception as e:
+                logger.error(
+                    "[ControlService] Failed to read back power after schedule %s for Inv ID %s: %s",
+                    schedule_id,
+                    inv.id,
+                    e,
+                )
+
+        threading.Thread(
+            target=worker,
+            name=f"post_control_power_inv_{inv.id}_schedule_{schedule_id}",
+            daemon=True,
+        ).start()
+
     def _apply_inverters(self, target_inverters, schedule: ControlScheduleResponse) -> bool:
         success = True
         for inv in target_inverters:
@@ -168,6 +223,7 @@ class ControlService:
                             inv.id,
                             method_name,
                         )
+                        self._schedule_post_control_power_log(inv, schedule.id)
 
                     elif schedule.mode == "LIMIT_PERCENT" and schedule.limit_percent is not None:
                         method_name = None
@@ -208,6 +264,7 @@ class ControlService:
                             inv.id,
                             method_name,
                         )
+                        self._schedule_post_control_power_log(inv, schedule.id)
                     else:
                         logger.error(
                             "[ControlService] Unsupported inverter schedule payload: mode=%s limit_watts=%s limit_percent=%s",
