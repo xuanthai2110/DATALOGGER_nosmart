@@ -38,7 +38,7 @@ class FakePolling:
     def _get_transport(self, brand):
         return self._transport
 
-    def _get_driver(self, brand, transport, slave_id):
+    def _get_driver(self, brand, transport, slave_id, model=None):
         return self._driver_by_slave.get(slave_id)
 
 

@@ -74,7 +74,7 @@ class ControlService:
         out: Dict[int, int] = {}
         for inv in inverters:
             transport = self.polling_service._get_transport(inv.brand)
-            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
+            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
             if not driver or not hasattr(driver, "read_power"):
                 logger.warning(
                     "[ControlService] Inv ID %s: driver missing read_power(); using 0 W for allocation",
@@ -155,7 +155,7 @@ class ControlService:
         do_post_log: bool = False,
     ) -> Tuple[bool, Optional[str]]:
         transport = self.polling_service._get_transport(inv.brand)
-        driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
+        driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
 
         if not driver:
             logger.error(f"[ControlService] No driver resolved for inverter {inv.id} ({inv.brand}).")
@@ -449,7 +449,7 @@ class ControlService:
                 time.sleep(self.post_control_readback_delay_sec)
 
                 transport = self.polling_service._get_transport(inv.brand)
-                driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
+                driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
                 if not driver:
                     logger.error(
                         "[ControlService] Cannot read back power for Inv ID %s after schedule %s because driver is unavailable.",
@@ -523,7 +523,7 @@ class ControlService:
         success = True
         for inv in target_inverters:
             transport = self.polling_service._get_transport(inv.brand)
-            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id)
+            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
             if not driver:
                 logger.error(f"[ControlService] No driver resolved for inverter {inv.id} ({inv.brand}) during reset.")
                 success = False
