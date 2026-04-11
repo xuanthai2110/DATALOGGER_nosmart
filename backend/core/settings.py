@@ -73,6 +73,10 @@ SLAVE_ID_START  = int(os.getenv("SLAVE_ID_START", "1"))
 SLAVE_ID_END    = int(os.getenv("SLAVE_ID_END", "30"))
 RETRIES         = int(os.getenv("RETRIES", "1"))
 
+# PROJECT scope MAXP: per-inverter loop (no SmartLogger)
+PROJECT_MAXP_CONTROL_INTERVAL_SEC = int(os.getenv("PROJECT_MAXP_CONTROL_INTERVAL_SEC", "10"))
+PROJECT_MAXP_POWER_WEIGHT_EPS_W = float(os.getenv("PROJECT_MAXP_POWER_WEIGHT_EPS_W", "50.0"))
+
 # ===========================================================
 # MQTT (Control Scheduling & Telemetry)
 # ===========================================================

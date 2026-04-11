@@ -263,6 +263,14 @@ class SungrowSG110CXDriver(BaseDriver):
         regs = self.register_map().get("stat", [])
         return self._read_group(regs) if regs else {}
 
+    def read_power(self) -> int:
+        """AC inverter power in watts (input `p_inv_w`, address 5030; same as register_map ac)."""
+        regs = self._read_input(5030, 2)
+        value = self._convert(regs, "uint32")
+        if value is None:
+            raise Exception("read_power: invalid register data")
+        return int(value)
+
     # =========================================================
     # ================= FAULTS & STATES =======================
     # =========================================================
