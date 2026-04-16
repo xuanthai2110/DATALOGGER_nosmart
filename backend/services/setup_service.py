@@ -66,20 +66,26 @@ class SetupService:
     def pre_sync_check(self, project_id: int) -> bool:
         """Kiểm tra dự án trên server bằng elec_meter_no (format mới)."""
         local_project = self.project_svc.get_project(project_id)
+        logger.info(f"[Sync] Starting pre_sync_check for project {project_id} (Meter: {local_project.elec_meter_no if local_project else 'None'})")
+        
         if not local_project or not local_project.elec_meter_no:
+            logger.info(f"[Sync] Pre-sync: Missing project or elec_meter_no.")
             return False
             
         if local_project.server_id:
+            logger.info(f"[Sync] Pre-sync: Project already has server_id {local_project.server_id}. Skipping search.")
             return False
 
         token = self.auth.get_access_token()
-        if not token: return False
+        if not token: 
+            logger.info(f"[Sync] Pre-sync: No access token available.")
+            return False
 
         try:
             base_api = API_BASE_URL.rstrip('/')
-            # 1. So khớp Project bằng cách tìm kiếm theo số công tơ (elec_meter_no)
-            # Thử tìm kiếm rộng hơn (không bắt buộc telemetry=false/true) để tăng khả năng khớp
-            url = f"{base_api}/api/projects/?page=1&limit=20&search={local_project.elec_meter_no}&search_fields=elec_meter_no"
+            # Thử với telemetry=true theo yêu cầu mới nhất của bạn để tìm dự án đã chạy
+            url = f"{base_api}/api/projects/?telemetry=true&page=1&limit=20&search={local_project.elec_meter_no}&search_fields=elec_meter_no"
+            logger.info(f"[Sync] Pre-sync URL: {url}")
             headers = {"Authorization": f"Bearer {token}"}
             resp = requests.get(url, headers=headers, timeout=10)
             
