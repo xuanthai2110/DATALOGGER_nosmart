@@ -238,17 +238,18 @@ class SetupService:
                     resp = requests.post(url, json=payload, headers=headers, timeout=20)
                     
             if resp.status_code == 409:
-                logger.info("[Sync] Project: 409 Conflict. Searching for existing project on server...")
-                chk_url = f"{base_api}/api/projects/?telemetry=false"
+                logger.info(f"[Sync] Project 409 Conflict. Searching with elec_meter_no: {project.elec_meter_no}")
+                chk_url = f"{base_api}/api/projects/?telemetry=false&search={project.elec_meter_no}&search_fields=elec_meter_no"
                 real_resp = requests.get(chk_url, headers=headers, timeout=10)
                 if real_resp.status_code == 200:
-                    for item in real_resp.json().get("data", []):
-                        rp = item.get("project", {})
-                        if rp.get("elec_meter_no") == project.elec_meter_no:
-                            logger.info(f"[Sync] Found existing project {rp.get('id')} matching {project.elec_meter_no}. Auto-approving.")
-                            self.project_svc.update_project_sync(project_id, server_id=rp.get("id"), status='approved')
-                            return rp.get("id")
-                logger.warning("[Sync] Project 409 Conflict but matching project not found in list.")
+                    data = real_resp.json().get("data", [])
+                    if data:
+                        # Lấy cái đầu tiên tìm thấy
+                        rp = data[0].get("project", data[0])
+                        logger.info(f"[Sync] Found existing project {rp.get('id')}. Auto-approving.")
+                        self.project_svc.update_project_sync(project_id, server_id=rp.get("id"), status='approved')
+                        return rp.get("id")
+                logger.warning("[Sync] Project 409 Conflict but matching project not found via search API.")
                 return None
 
             if resp.status_code in [200, 201, 202]:
@@ -398,17 +399,17 @@ class SetupService:
                     resp = requests.post(url, json=payload, headers=headers, timeout=20)
                     
             if resp.status_code == 409:
-                logger.info("[Sync] Inverter: 409 Conflict. Searching for existing inverter on server...")
-                chk_url = f"{base_api}/api/inverters/?telemetry=false"
+                logger.info(f"[Sync] Inverter 409 Conflict. Searching with SN: {inverter.serial_number}")
+                chk_url = f"{base_api}/api/inverters/?telemetry=false&search={inverter.serial_number}&search_fields=serial_number"
                 real_resp = requests.get(chk_url, headers=headers, timeout=10)
                 if real_resp.status_code == 200:
-                    for item in real_resp.json().get("data", []):
-                        ri = item.get("inverter", item) # Support both nested and flat 
-                        if ri.get("serial_number") == inverter.serial_number:
-                            logger.info(f"[Sync] Found existing inverter {ri.get('id')} matching {inverter.serial_number}. Auto-approving.")
-                            self.project_svc.update_inverter_sync(inverter_id, server_id=ri.get("id"), status='approved')
-                            return ri.get("id")
-                logger.warning("[Sync] Inverter 409 Conflict but matching inverter not found in list.")
+                    data = real_resp.json().get("data", [])
+                    if data:
+                        ri = data[0].get("inverter", data[0])
+                        logger.info(f"[Sync] Found existing inverter {ri.get('id')}. Auto-approving.")
+                        self.project_svc.update_inverter_sync(inverter_id, server_id=ri.get("id"), status='approved')
+                        return ri.get("id")
+                logger.warning("[Sync] Inverter 409 Conflict but matching inverter not found via search API.")
                 return None
 
             if resp.status_code in [200, 201, 202]:

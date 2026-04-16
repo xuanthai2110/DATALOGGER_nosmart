@@ -41,7 +41,7 @@ async def sync_project(
     return {
         "ok": True, 
         "server_request_id": request_id, 
-        "message": "Project sync request sent. Waiting for Admin approval."
+        "message": "Yêu cầu đồng bộ đã gửi. Vui lòng liên hệ Admin (0836684169) để được duyệt nhanh."
     }
 
 @router.post("/inverter/{inverter_id}")
