@@ -22,7 +22,7 @@ def get_project_service() -> ProjectService:
 def list_inverters(svc: ProjectService = Depends(get_project_service)):
     """Trả về tất cả thông tin của tất cả inverter."""
     try:
-        inverters = svc.get_inverter()
+        inverters = svc.get_all_inverters()
         return [asdict(i) for i in inverters]
     except Exception as e:
         logger.error(f"list_inverters error: {e}")
@@ -33,7 +33,7 @@ def list_inverters(svc: ProjectService = Depends(get_project_service)):
 def get_inverter_id(inverter_id: int, svc: ProjectService = Depends(get_project_service)):
     """Trả về thông tin của inverter có id tương ứng."""
     try:
-        inv = svc.get_inverter_id(inverter_id)
+        inv = svc.get_inverter_by_id(inverter_id)
         if not inv:
             return JSONResponse(status_code=404, content={"detail": [{"loc": ["path", "inverter_id"], "msg": "Inverter not found", "type": "not_found"}]})
         return asdict(inv)
@@ -66,7 +66,7 @@ def create_inverter(
         filtered_body = {k: v for k, v in body.items() if k in valid_fields and k != "id"}
         
         inv_id = svc.upsert_inverter(InverterCreate(**filtered_body))
-        inv = svc.get_inverter_id(inv_id)
+        inv = svc.get_inverter_by_id(inv_id)
         return asdict(inv)
     except Exception as e:
         logger.error(f"create_inverter error: {e}")
@@ -88,7 +88,7 @@ def update_inverter(
         filtered_body = {k: v for k, v in body.items() if k in valid_fields and k != "id"}
         
         svc.patch_inverter(inverter_id, InverterUpdate(**filtered_body))
-        inv = svc.get_inverter_id(inverter_id)
+        inv = svc.get_inverter_by_id(inverter_id)
         if not inv:
             return JSONResponse(status_code=404, content={"ok": False, "error": "Inverter not found"})
         return asdict(inv)

@@ -15,6 +15,18 @@ class SetupService:
         self.auth = auth_service
         self.project_svc = project_service
 
+    @staticmethod
+    def _is_equal(a, b):
+        """So sánh thông minh giữa dữ liệu local và server."""
+        if a == b: return True
+        try:
+            if float(a) == float(b): return True
+        except (TypeError, ValueError):
+            pass
+        a_str = "" if a is None else str(a).strip()
+        b_str = "" if b is None else str(b).strip()
+        return a_str == b_str
+
     def scan_inverters(self, transport, project_id: int, driver_class) -> list[int]:
         """
         QUY TRÌNH QUÉT INVERTER:
@@ -153,7 +165,7 @@ class SetupService:
                     diff_payload = {}
                     for k, v in payload.items():
                         sv = server_data.get(k)
-                        if str(sv) != str(v) and str(sv) != str(v) + ".0":
+                        if not self._is_equal(sv, v):
                             diff_payload[k] = v
                     if not diff_payload:
                         logger.info(f"[Sync] Project {project_id} has no changes. Skipping POST update.")
@@ -173,7 +185,8 @@ class SetupService:
                     res_data = resp.json()
                     request_id = res_data.get("id")
                     if request_id:
-                        self.project_svc.update_project_sync(project_id, server_request_id=request_id, status='pending')
+                        # Giữ trạng thái 'approved' - Chỉ cập nhật server_request_id để track
+                        self.project_svc.update_project_sync(project_id, server_request_id=request_id, status='approved')
                         return request_id
                 else:
                     logger.warning(f"[Sync] Project update request failed: {resp.status_code} - {resp.text}")
@@ -270,7 +283,7 @@ class SetupService:
 
     def initiate_inverter_sync(self, inverter_id: int) -> Optional[int]:
         """Gửi yêu cầu đồng bộ Inverter (POST /api/inverters/requests/)"""
-        inverter = self.project_svc.get_inverter(inverter_id)
+        inverter = self.project_svc.get_inverter_by_id(inverter_id)
         if not inverter: return None
         
         project_id = inverter.project_id
@@ -318,7 +331,7 @@ class SetupService:
                     diff_payload = {}
                     for k, v in payload.items():
                         sv = server_data.get(k)
-                        if str(sv) != str(v) and str(sv) != str(v) + ".0":
+                        if not self._is_equal(sv, v):
                             diff_payload[k] = v
                     if not diff_payload:
                         logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping POST update.")
@@ -338,7 +351,8 @@ class SetupService:
                     res_data = resp.json()
                     request_id = res_data.get("id")
                     if request_id:
-                        self.project_svc.update_inverter_sync(inverter_id, server_request_id=request_id, status='pending')
+                        # Giữ trạng thái 'approved'
+                        self.project_svc.update_inverter_sync(inverter_id, server_request_id=request_id, status='approved')
                         return request_id
                 else:
                     logger.warning(f"[Sync] Inverter update request failed: {resp.status_code} - {resp.text}")

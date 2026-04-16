@@ -53,7 +53,7 @@ class ProjectService:
     # INVERTER
     # ==============================
 
-    def get_inverter(self) -> List[InverterResponse]:
+    def get_all_inverters(self) -> List[InverterResponse]:
         return self.metadata_db.get_all_inverters()
 
     def create_inverter(self, data: InverterCreate) -> int:
@@ -65,7 +65,7 @@ class ProjectService:
     def patch_inverter(self, inverter_id: int, updates: InverterUpdate):
         return self.metadata_db.patch_inverter(inverter_id, updates)
 
-    def get_inverter_id(self, inverter_id: int) -> Optional[InverterResponse]:
+    def get_inverter_by_id(self, inverter_id: int) -> Optional[InverterResponse]:
         return self.metadata_db.get_inverter_by_id(inverter_id)
 
     def delete_inverter(self, inverter_id: int):
