@@ -219,9 +219,10 @@ class SetupService:
                             logger.info(f"[Sync] Project request {project.server_request_id} already approved on server. Verifying changes...")
                             return self.initiate_project_sync(project_id)
                         elif status == "rejected":
-                            self.project_svc.update_project_sync(project_id, status='rejected')
-                            logger.info(f"[Sync] Project request {project.server_request_id} was rejected. Sync failed.")
-                            return None
+                            # Nếu đã bị từ chối, cho phép gửi yêu cầu mới hoàn toàn
+                            logger.info(f"[Sync] Project request {project.server_request_id} was rejected. Allowing re-submission.")
+                            self.project_svc.update_project_sync(project_id, server_request_id=0)
+                            # Không return ở đây để code chạy xuống bước 2 (POST mới)
                         else:
                             logger.info(f"[Sync] Project request {project.server_request_id} is '{status}'. Cannot patch.")
                         
@@ -378,9 +379,10 @@ class SetupService:
                             logger.info(f"[Sync] Inverter request {inverter.server_request_id} already approved on server. Verifying changes...")
                             return self.initiate_inverter_sync(inverter_id)
                         elif status == "rejected":
-                            self.project_svc.update_inverter_sync(inverter_id, status='rejected')
-                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} was rejected. Sync failed.")
-                            return None
+                            # Nếu đã bị từ chối, cho phép gửi yêu cầu mới hoàn toàn
+                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} was rejected. Allowing re-submission.")
+                            self.project_svc.update_inverter_sync(inverter_id, server_request_id=0)
+                            # Không return ở đây để code chạy xuống bước 2 (POST mới)
                         else:
                             logger.info(f"[Sync] Inverter request {inverter.server_request_id} is '{status}'. Cannot patch.")
             # 2. Tạo mới bằng POST nếu chưa có
