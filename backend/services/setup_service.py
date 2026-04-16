@@ -77,8 +77,8 @@ class SetupService:
 
         try:
             base_api = API_BASE_URL.rstrip('/')
-            # 1. So khớp Project
-            url = f"{base_api}/api/projects/?telemetry=false"
+            # 1. So khớp Project bằng cách tìm kiếm theo số công tơ (elec_meter_no)
+            url = f"{base_api}/api/projects/?telemetry=false&page=1&limit=20&search={local_project.elec_meter_no}&search_fields=elec_meter_no"
             headers = {"Authorization": f"Bearer {token}"}
             resp = requests.get(url, headers=headers, timeout=10)
             
@@ -95,11 +95,10 @@ class SetupService:
 
             data_items = resp.json().get("data", [])
             matched_proj_data = None
-            for item in data_items:
-                proj_data = item.get("project", {})
-                if proj_data.get("elec_meter_no") == local_project.elec_meter_no:
-                    matched_proj_data = proj_data
-                    break
+            if data_items:
+                # Lấy kết quả đầu tiên trùng khớp
+                item = data_items[0]
+                matched_proj_data = item.get("project", item)
             
             if matched_proj_data:
                 server_proj_id = matched_proj_data.get("id")
