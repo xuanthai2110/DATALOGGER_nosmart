@@ -133,7 +133,7 @@ class SetupService:
 
         try:
             base_api = API_BASE_URL.rstrip('/')
-            url = f"{base_api}/api/projects/requests"
+            url = f"{base_api}/api/projects/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
             # 0. Nếu dự án ĐÃ ĐƯỢC DUYỆT, ta dùng POST update với full payload
