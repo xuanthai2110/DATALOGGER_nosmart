@@ -185,34 +185,51 @@
                     </div>
                     <div class="glass settings-section fade-in" style="animation-delay:0.2s">
                         <h2>Quản lý Inverter <span style="font-size:12px; opacity:0.6;">(Metadata Local)</span></h2>
-                        <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
-                            <table><thead><tr><th>SN</th><th>Slave</th><th>Hành động</th></tr></thead><tbody id="body-settings-inverters"></tbody></table>
+                        
+                        <div class="input-group">
+                            <label>Chọn dự án để xem Inverters</label>
+                            <select id="inv-mgmt-project-filter" onchange="renderInvertersByProject()">
+                                <option value="">-- Chọn dự án --</option>
+                            </select>
                         </div>
-                        <div id="form-inverter">
+
+                        <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
+                            <table>
+                                <thead><tr><th>SN</th><th>Slave</th><th>Hành động</th></tr></thead>
+                                <tbody id="body-settings-inverters">
+                                    <tr><td colspan="3" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="form-inverter" class="hidden glass" style="padding: 20px; border: 1px solid var(--primary); margin-top: 10px;">
+                            <h3 style="margin-bottom:15px; font-size:16px; color:var(--primary)">Chỉnh sửa Inverter</h3>
                             <input type="hidden" id="inv-id">
-                            <div class="input-group">
-                                <label>Dự án</label>
-                                <select id="inv-proj-select"><option value="">-- Chọn dự án --</option></select>
-                            </div>
-                            <div class="input-group">
-                                <label>Cấu hình truyền thông</label>
-                                <select id="inv-comm-select"><option value="">-- Chọn truyền thông --</option></select>
-                            </div>
+                            
                             <div class="form-row">
-                                <div class="input-group"><label>Số Serial (SN) *</label><input type="text" id="inv-sn" placeholder="SN..."></div>
-                                <div class="input-group"><label>Slave ID *</label><input type="number" id="inv-slave" value="1"></div>
+                                <div class="input-group"><label>Dự án</label><select id="inv-proj-select"></select></div>
+                                <div class="input-group"><label>Truyền thông</label><select id="inv-comm-select"></select></div>
                             </div>
+
                             <div class="form-row">
-                                <div class="input-group"><label>Hãng (Brand)</label><input type="text" id="inv-brand" placeholder="Huawei, Sungrow..."></div>
-                                <div class="input-group"><label>Model</label><input type="text" id="inv-model" placeholder="SUN2000..."></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="input-group"><label>Công suất (kW) *</label><input type="number" step="0.1" id="inv-cap" value="0"></div>
-                                <div class="input-group"><label>Số pha</label><input type="number" id="inv-phase" value="3"></div>
+                                <div class="input-group"><label>Số Serial (SN) *</label><input type="text" id="inv-sn"></div>
+                                <div class="input-group"><label>Slave ID *</label><input type="number" id="inv-slave"></div>
                             </div>
                             
-                            <button class="btn btn-success" onclick="saveInverter()">LƯU INVERTER</button>
-                            <button class="btn" style="margin-top:8px;" onclick="resetInverterForm()">HỦY</button>
+                            <div class="form-row">
+                                <div class="input-group"><label>Hãng (Brand)</label><input type="text" id="inv-brand"></div>
+                                <div class="input-group"><label>Model</label><input type="text" id="inv-model"></div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="input-group"><label>Công suất (kW) *</label><input type="number" step="0.1" id="inv-cap"></div>
+                                <div class="input-group"><label>Số pha</label><input type="number" id="inv-phase"></div>
+                            </div>
+                            
+                            <div style="display:flex; gap:10px;">
+                                <button class="btn btn-success" onclick="saveInverter()">CẬP NHẬT TRÊN PI</button>
+                                <button class="btn" style="background:rgba(255,255,255,0.05)" onclick="resetInverterForm()">ĐÓNG</button>
+                            </div>
                         </div>
                     </div>
                 </div>

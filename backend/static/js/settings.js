@@ -19,26 +19,45 @@ async function loadSettings() {
     document.getElementById('body-settings-projects').innerHTML = settingsProjects.map(p => `<tr><td>${p.name}</td><td class="action-btns"><button class="action-btn edit" onclick='editProject(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
     document.getElementById('body-settings-comm').innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
     
-    // Render Inverters Table
-    document.getElementById('body-settings-inverters').innerHTML = settingsInverters.map(inv => `
-        <tr>
-            <td>${inv.serial_number}</td>
-            <td>${inv.slave_id}</td>
-            <td class="action-btns">
-                <button class="action-btn edit" onclick='editInverter(${JSON.stringify(inv)})'><i class="fas fa-edit"></i></button>
-                <button class="action-btn delete" onclick="deleteInverter(${inv.id})"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+    // Fill Project Filter Dropdown
+    const mgmtFilter = document.getElementById('inv-mgmt-project-filter');
+    mgmtFilter.innerHTML = '<option value="">-- Chọn dự án --</option>' + settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
-    // Update Project/Comm selects in Inverter Form
+    // Fill selects in Inverter Form
     const invProjSelect = document.getElementById('inv-proj-select');
     const invCommSelect = document.getElementById('inv-comm-select');
-    
-    invProjSelect.innerHTML = '<option value="">-- Chọn dự án --</option>' + settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-    invCommSelect.innerHTML = '<option value="">-- Chọn truyền thông --</option>' + settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
+    invProjSelect.innerHTML = settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    invCommSelect.innerHTML = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
 
+    renderInvertersByProject();
     renderScanResults();
+}
+
+function renderInvertersByProject() {
+    const projId = document.getElementById('inv-mgmt-project-filter').value;
+    const tbody = document.getElementById('body-settings-inverters');
+    
+    if (!projId) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...</td></tr>';
+        return;
+    }
+
+    const filtered = settingsInverters.filter(inv => String(inv.project_id) === String(projId));
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; opacity:0.5;">Dự án này chưa có Inverter nào.</td></tr>';
+    } else {
+        tbody.innerHTML = filtered.map(inv => `
+            <tr>
+                <td>${inv.serial_number}</td>
+                <td>${inv.slave_id}</td>
+                <td class="action-btns">
+                    <button class="action-btn edit" onclick='editInverter(${JSON.stringify(inv)})' title="Sửa"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn delete" onclick="deleteInverter(${inv.id})" title="Xóa"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
 }
 
 async function saveInverter() {
@@ -76,19 +95,20 @@ function editInverter(inv) {
     document.getElementById('inv-model').value = inv.model || "";
     document.getElementById('inv-cap').value = inv.capacity_kw || 0;
     document.getElementById('inv-phase').value = inv.phase_count || 3;
+    
+    document.getElementById('form-inverter').classList.remove('hidden');
     document.getElementById('inv-sn').focus();
 }
 
 function resetInverterForm() {
     document.getElementById('inv-id').value = "";
-    document.getElementById('inv-proj-select').value = "";
-    document.getElementById('inv-comm-select').value = "";
     document.getElementById('inv-sn').value = "";
     document.getElementById('inv-slave').value = 1;
     document.getElementById('inv-brand').value = "";
     document.getElementById('inv-model').value = "";
     document.getElementById('inv-cap').value = 0;
     document.getElementById('inv-phase').value = 3;
+    document.getElementById('form-inverter').classList.add('hidden');
 }
 
 async function deleteInverter(id) {
