@@ -75,8 +75,8 @@ class ProjectService:
     def get_inverters_by_project(self, project_id: int) -> List[InverterResponse]:
         return self.metadata_db.get_inverters_by_project(project_id)
 
-    def update_inverter_sync(self, inverter_id: int, server_id: Optional[int] = None, status: str = 'pending'):
-        return self.metadata_db.update_inverter_sync(inverter_id, server_id, status)
+    def update_inverter_sync(self, inverter_id: int, server_id: Optional[int] = None, server_request_id: Optional[int] = None, status: str = 'pending'):
+        return self.metadata_db.update_inverter_sync(inverter_id, server_id, server_request_id, status)
 
     # ==============================
     # CACHE (RAM) - Dành cho Polling & Realtime UI

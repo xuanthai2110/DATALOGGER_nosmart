@@ -130,6 +130,39 @@ class SetupService:
         try:
             url = f"{API_BASE_URL}/api/projects/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            
+            # 1. Thử PATCH nếu đã có server_request_id
+            if project.server_request_id:
+                req_url = f"{url}{project.server_request_id}/"
+                check_resp = requests.get(req_url, headers=headers, timeout=10)
+                
+                if check_resp.status_code == 401:
+                    token = self.auth.handle_unauthorized()
+                    if token:
+                        headers["Authorization"] = f"Bearer {token}"
+                        check_resp = requests.get(req_url, headers=headers, timeout=10)
+                
+                if check_resp.status_code == 200:
+                    server_data = check_resp.json()
+                    patch_payload = {}
+                    for k, v in payload.items():
+                        if server_data.get(k) != v:
+                            patch_payload[k] = v
+                    
+                    if not patch_payload:
+                        logger.info(f"[Sync] Project {project_id} has no changes to patch.")
+                        return project.server_request_id
+                    
+                    logger.info(f"[Sync] Patching project request {project.server_request_id} with: {patch_payload}")
+                    patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
+                    
+                    if patch_resp.status_code in [200, 201, 202]:
+                        return project.server_request_id
+                    else:
+                        logger.warning(f"[Sync] Project patch failed: {patch_resp.status_code} - {patch_resp.text}")
+                        return None
+                        
+            # 2. Tạo mới bằng POST nếu chưa có
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
             
             if resp.status_code == 401:
@@ -183,6 +216,39 @@ class SetupService:
         try:
             url = f"{API_BASE_URL}/api/inverters/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            
+            # 1. Thử PATCH nếu đã có server_request_id
+            if inverter.server_request_id:
+                req_url = f"{url}{inverter.server_request_id}/"
+                check_resp = requests.get(req_url, headers=headers, timeout=10)
+                
+                if check_resp.status_code == 401:
+                    token = self.auth.handle_unauthorized()
+                    if token:
+                        headers["Authorization"] = f"Bearer {token}"
+                        check_resp = requests.get(req_url, headers=headers, timeout=10)
+                        
+                if check_resp.status_code == 200:
+                    server_data = check_resp.json()
+                    patch_payload = {}
+                    for k, v in payload.items():
+                        if server_data.get(k) != v:
+                            patch_payload[k] = v
+                            
+                    if not patch_payload:
+                        logger.info(f"[Sync] Inverter {inverter_id} has no changes to patch.")
+                        return inverter.server_request_id
+                        
+                    logger.info(f"[Sync] Patching inverter request {inverter.server_request_id} with: {patch_payload}")
+                    patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
+                    
+                    if patch_resp.status_code in [200, 201, 202]:
+                        return inverter.server_request_id
+                    else:
+                        logger.warning(f"[Sync] Inverter patch failed: {patch_resp.status_code} - {patch_resp.text}")
+                        return None
+                        
+            # 2. Tạo mới bằng POST nếu chưa có
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
             
             if resp.status_code == 401:

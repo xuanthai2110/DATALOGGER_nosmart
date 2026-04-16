@@ -266,14 +266,15 @@ class MetadataDB(BaseDB):
         with self._connect() as conn:
             conn.execute(f"UPDATE inverters SET {', '.join(fields)} WHERE id=?", tuple(values))
 
-    def update_inverter_sync(self, inverter_id: int, server_id: Optional[int] = None, status: str = 'pending'):
+    def update_inverter_sync(self, inverter_id: int, server_id: Optional[int] = None, server_request_id: Optional[int] = None, status: str = 'pending'):
         with self._connect() as conn:
             conn.execute("""
                 UPDATE inverters 
                 SET server_id = COALESCE(?, server_id), 
+                    server_request_id = COALESCE(?, server_request_id),
                     sync_status = ? 
                 WHERE id = ?
-            """, (server_id, status, inverter_id))
+            """, (server_id, server_request_id, status, inverter_id))
 
     # --- Comm/Auth API (Rút gọn) ---
     def get_comm_config(self) -> List[CommConfig]:
