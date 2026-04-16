@@ -20,22 +20,37 @@ async function loadSettings() {
     settingsComms = cData || [];
     settingsInverters = iData || [];
 
-    // Render bảng Dự án và Truyền thông
-    document.getElementById('body-settings-projects').innerHTML = settingsProjects.map(p => `<tr><td>${p.name}</td><td class="action-btns"><button class="action-btn edit" onclick='editProject(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
-    document.getElementById('body-settings-comm').innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+    // Render bảng Dự án và Truyền thông (Phần cũ)
+    const projectBody = document.getElementById('body-settings-projects');
+    if (projectBody) {
+        projectBody.innerHTML = settingsProjects.map(p => `<tr><td>${p.name}</td><td class="action-btns"><button class="action-btn edit" onclick='editProject(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+    }
     
-    // Fill Project Filter Dropdown (Dropdown chọn dự án để hiện Inverter)
+    const commBody = document.getElementById('body-settings-comm');
+    if (commBody) {
+        commBody.innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+    }
+    
+    // ĐIỀN DROPDOWN DỰ ÁN (Phần quan trọng này bị lỗi ở bước trước)
     const mgmtFilter = document.getElementById('inv-mgmt-project-filter');
     if (mgmtFilter) {
-        mgmtFilter.innerHTML = '<option value="">-- Chọn dự án --</option>' + 
-            settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        let options = '<option value="">-- Chọn dự án --</option>';
+        settingsProjects.forEach(p => {
+            options += `<option value="${p.id}">${p.name}</option>`;
+        });
+        mgmtFilter.innerHTML = options;
+        console.log("Populated mgmtFilter with", settingsProjects.length, "projects");
     }
 
-    // Fill selects in Inverter Form (Dropdown trong Form sửa)
+    // Fill selects in Inverter Form (Cập nhật dropdown trong form sửa)
     const invProjSelect = document.getElementById('inv-proj-select');
     const invCommSelect = document.getElementById('inv-comm-select');
-    if (invProjSelect) invProjSelect.innerHTML = settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-    if (invCommSelect) invCommSelect.innerHTML = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
+    if (invProjSelect) {
+        invProjSelect.innerHTML = settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    }
+    if (invCommSelect) {
+        invCommSelect.innerHTML = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
+    }
 
     renderInvertersByProject();
     renderScanResults();
@@ -43,11 +58,10 @@ async function loadSettings() {
 
 function renderInvertersByProject() {
     const filterEl = document.getElementById('inv-mgmt-project-filter');
-    if (!filterEl) return;
+    const tbody = document.getElementById('body-settings-inverters');
+    if (!filterEl || !tbody) return;
     
     const projId = filterEl.value;
-    const tbody = document.getElementById('body-settings-inverters');
-    
     console.log("Filtering inverters for project ID:", projId);
     
     if (!projId) {
@@ -66,7 +80,7 @@ function renderInvertersByProject() {
                 <td>${inv.serial_number}</td>
                 <td>${inv.slave_id}</td>
                 <td class="action-btns">
-                    <button class="action-btn edit" onclick='editInverter(${JSON.stringify(inv)})' title="Sửa"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn edit" onclick=\'editInverter(${JSON.stringify(inv)})\' title="Sửa"><i class="fas fa-edit"></i></button>
                     <button class="action-btn delete" onclick="deleteInverter(${inv.id})" title="Xóa"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
@@ -91,11 +105,14 @@ async function saveInverter() {
         return alert("Vui lòng nhập đầy đủ thông tin bắt buộc!");
     }
 
-    const r = id ? await apiCall(`/inverters/${id}`, 'PATCH', body) : await apiCall('/inverters', 'POST', body);
+    const m = id ? 'PATCH' : 'POST';
+    const url = id ? `/inverters/${id}` : '/inverters';
+    
+    const r = await apiCall(url, m, body);
     if (r) {
-        alert("Lưu inverter thành công!");
+        alert("Lưu thông tin Inverter vào máy Pi thành công!");
         resetInverterForm();
-        loadSettings();
+        loadSettings(); // Tải lại dữ liệu để cập nhật danh sách
     }
 }
 
