@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
+
 <body>
 
     <!-- Login View -->
@@ -16,7 +18,8 @@
         <div class="login-card glass fade-in">
             <h2 class="text-primary"><i class="fas fa-solar-panel"></i> Solar Datalogger</h2>
             <div class="input-group"><label>Tài khoản</label><input type="text" id="username" value="admin"></div>
-            <div class="input-group"><label>Mật khẩu</label><input type="password" id="password" value="adminpassword123"></div>
+            <div class="input-group"><label>Mật khẩu</label><input type="password" id="password"
+                    value="adminpassword123"></div>
             <button class="btn btn-primary" onclick="handleLogin()">ĐĂNG NHẬP</button>
         </div>
     </div>
@@ -26,11 +29,13 @@
         <nav id="sidebar" class="glass">
             <div class="logo"><i class="fas fa-bolt"></i> SOLAR CONSOLE</div>
             <ul class="nav-list">
-                <li class="nav-item active" onclick="showView('overview')"><i class="fas fa-chart-line"></i> Dashboard</li>
+                <li class="nav-item active" onclick="showView('overview')"><i class="fas fa-chart-line"></i> Dashboard
+                </li>
                 <li class="nav-item" onclick="showView('sync')"><i class="fas fa-sync"></i> Đồng bộ</li>
                 <li class="nav-item" onclick="showView('settings')"><i class="fas fa-cog"></i> Settings</li>
             </ul>
-            <div class="nav-item" onclick="handleLogout()" style="margin-top:auto;"><i class="fas fa-power-off"></i> Logout</div>
+            <div class="nav-item" onclick="handleLogout()" style="margin-top:auto;"><i class="fas fa-power-off"></i>
+                Logout</div>
         </nav>
 
         <main id="main-view">
@@ -44,24 +49,36 @@
                     <div class="stat-card glass fade-in">
                         <i class="fas fa-plug"></i>
                         <div class="label">Công suất tổng</div>
-                        <div class="value text-primary"><span id="total-p-ac">0.0</span> <span class="unit">kW</span></div>
+                        <div class="value text-primary"><span id="total-p-ac">0.0</span> <span class="unit">kW</span>
+                        </div>
                     </div>
                     <div class="stat-card glass fade-in" style="animation-delay:0.1s">
                         <i class="fas fa-sun"></i>
                         <div class="label">Sản lượng ngày</div>
-                        <div class="value text-success"><span id="total-e-daily">0.0</span> <span class="unit">kWh</span></div>
+                        <div class="value text-success"><span id="total-e-daily">0.0</span> <span
+                                class="unit">kWh</span></div>
                     </div>
                     <div class="stat-card glass fade-in" style="animation-delay:0.2s">
                         <i class="fas fa-money-bill-wave"></i>
                         <div class="label">Doanh thu dự tính</div>
-                        <div class="value text-warning"><span id="total-revenue">0</span> <span class="unit">VNĐ</span></div>
+                        <div class="value text-warning"><span id="total-revenue">0</span> <span class="unit">VNĐ</span>
+                        </div>
                     </div>
                 </div>
                 <h2>Danh sách Dự án</h2>
                 <div class="glass table-container fade-in" style="margin-top:24px;">
                     <table>
                         <thead>
-                            <tr><th>STT</th><th>Tên dự án</th><th>Thiết bị</th><th>Capacity (DC/AC)</th><th>Số công tơ</th><th>Công suất (kW)</th><th>Doanh thu</th><th>Trạng thái</th></tr>
+                            <tr>
+                                <th>STT</th>
+                                <th>Tên dự án</th>
+                                <th>Thiết bị</th>
+                                <th>Capacity (DC/AC)</th>
+                                <th>Số công tơ</th>
+                                <th>Công suất (kW)</th>
+                                <th>Doanh thu</th>
+                                <th>Trạng thái</th>
+                            </tr>
                         </thead>
                         <tbody id="projects-body"></tbody>
                     </table>
@@ -70,8 +87,11 @@
 
             <!-- View: Project Detail -->
             <div id="view-project-detail" class="view-section hidden">
-                <div class="breadcrumb"><span onclick="showView('overview')">Home</span> / <span class="active" id="bp-project-name">Project</span></div>
-                <div class="header"><h1 id="detail-project-name">Project Details</h1></div>
+                <div class="breadcrumb"><span onclick="showView('overview')">Home</span> / <span class="active"
+                        id="bp-project-name">Project</span></div>
+                <div class="header">
+                    <h1 id="detail-project-name">Project Details</h1>
+                </div>
                 <div class="stat-grid" id="project-stats"></div>
                 <h2>Danh sách Inverter</h2>
                 <div class="detail-grid" id="inverter-grid"></div>
@@ -79,57 +99,113 @@
 
             <!-- View: Inverter Detail -->
             <div id="view-inverter-detail" class="view-section hidden">
-                <div class="breadcrumb"><span onclick="showView('overview')">Home</span> / <span id="bp-p-back">P</span> / <span class="active" id="bp-inv-sn">Inv</span></div>
-                <div class="header"><h1 id="detail-inv-sn">Biến tần SN</h1><button class="btn btn-primary" style="width:auto; padding:8px 20px;" id="back-to-project-btn">Quay lại</button></div>
+                <div class="breadcrumb"><span onclick="showView('overview')">Home</span> / <span id="bp-p-back">P</span>
+                    / <span class="active" id="bp-inv-sn">Inv</span></div>
+                <div class="header">
+                    <h1 id="detail-inv-sn">Biến tần SN</h1><button class="btn btn-primary"
+                        style="width:auto; padding:8px 20px;" id="back-to-project-btn">Quay lại</button>
+                </div>
                 <div class="detail-grid">
                     <div class="detail-card glass fade-in">
                         <h3><i class="fas fa-bolt"></i> Dữ liệu AC</h3>
-                        <div class="data-item"><span class="label">Công suất AC (P_ac)</span><span class="value text-primary" id="inv-det-p-ac">-- kW</span></div>
-                        <div class="data-item"><span class="label">Công suất PK (Q_ac)</span><span class="value" id="inv-det-q-ac">-- kVar</span></div>
-                        <div class="data-item"><span class="label">Hệ số CS (PF)</span><span class="value" id="inv-det-pf">--</span></div>
-                        <div class="data-item"><span class="label">Tần số (H)</span><span class="value" id="inv-det-h">-- Hz</span></div>
-                        <div class="data-item" style="margin-top: 10px"><span class="label">SL ngày (E_daily)</span><span class="value text-success" id="inv-det-e-daily">-- kWh</span></div>
-                        <div class="data-item"><span class="label">SL tháng (E_monthly)</span><span class="value text-success" id="inv-det-e-monthly">-- kWh</span></div>
-                        <div class="data-item"><span class="label">SL Tổng (E_total)</span><span class="value text-success" id="inv-det-e-total">-- kWh</span></div>
-                        <div class="data-item" style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;"><span class="label">Thời điểm cập nhật</span><span class="value" style="font-size: 13px; opacity: 0.7;" id="inv-det-created-at">--</span></div>
+                        <div class="data-item"><span class="label">Công suất AC (P_ac)</span><span
+                                class="value text-primary" id="inv-det-p-ac">-- kW</span></div>
+                        <div class="data-item"><span class="label">Công suất PK (Q_ac)</span><span class="value"
+                                id="inv-det-q-ac">-- kVar</span></div>
+                        <div class="data-item"><span class="label">Hệ số CS (PF)</span><span class="value"
+                                id="inv-det-pf">--</span></div>
+                        <div class="data-item"><span class="label">Tần số (H)</span><span class="value"
+                                id="inv-det-h">-- Hz</span></div>
+                        <div class="data-item" style="margin-top: 10px"><span class="label">SL ngày
+                                (E_daily)</span><span class="value text-success" id="inv-det-e-daily">-- kWh</span>
+                        </div>
+                        <div class="data-item"><span class="label">SL tháng (E_monthly)</span><span
+                                class="value text-success" id="inv-det-e-monthly">-- kWh</span></div>
+                        <div class="data-item"><span class="label">SL Tổng (E_total)</span><span
+                                class="value text-success" id="inv-det-e-total">-- kWh</span></div>
+                        <div class="data-item"
+                            style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                            <span class="label">Thời điểm cập nhật</span><span class="value"
+                                style="font-size: 13px; opacity: 0.7;" id="inv-det-created-at">--</span></div>
                         <div class="phase-grid">
-                            <div class="phase-card"><div class="name">A</div><div class="val" id="inv-det-ua">--V</div><div class="val" id="inv-det-ia" style="font-size:12px; opacity:0.6">--A</div></div>
-                            <div class="phase-card"><div class="name">B</div><div class="val" id="inv-det-ub">--V</div><div class="val" id="inv-det-ib" style="font-size:12px; opacity:0.6">--A</div></div>
-                            <div class="phase-card"><div class="name">C</div><div class="val" id="inv-det-uc">--V</div><div class="val" id="inv-det-ic" style="font-size:12px; opacity:0.6">--A</div></div>
+                            <div class="phase-card">
+                                <div class="name">A</div>
+                                <div class="val" id="inv-det-ua">--V</div>
+                                <div class="val" id="inv-det-ia" style="font-size:12px; opacity:0.6">--A</div>
+                            </div>
+                            <div class="phase-card">
+                                <div class="name">B</div>
+                                <div class="val" id="inv-det-ub">--V</div>
+                                <div class="val" id="inv-det-ib" style="font-size:12px; opacity:0.6">--A</div>
+                            </div>
+                            <div class="phase-card">
+                                <div class="name">C</div>
+                                <div class="val" id="inv-det-uc">--V</div>
+                                <div class="val" id="inv-det-ic" style="font-size:12px; opacity:0.6">--A</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="detail-card glass fade-in" style="animation-delay:0.1s"><h3><i class="fas fa-microchip"></i> MPPT</h3><div class="list-container" id="inv-det-mppt"></div></div>
-                    <div class="detail-card glass fade-in" style="animation-delay:0.2s"><h3><i class="fas fa-list"></i> Strings</h3><div class="list-container" id="inv-det-string"></div></div>
-                    <div class="detail-card glass fade-in" style="animation-delay:0.3s"><h3><i class="fas fa-exclamation-triangle"></i> Cảnh báo</h3><div class="list-container" id="inv-det-errors"></div></div>
+                    <div class="detail-card glass fade-in" style="animation-delay:0.1s">
+                        <h3><i class="fas fa-microchip"></i> MPPT</h3>
+                        <div class="list-container" id="inv-det-mppt"></div>
+                    </div>
+                    <div class="detail-card glass fade-in" style="animation-delay:0.2s">
+                        <h3><i class="fas fa-list"></i> Strings</h3>
+                        <div class="list-container" id="inv-det-string"></div>
+                    </div>
+                    <div class="detail-card glass fade-in" style="animation-delay:0.3s">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Cảnh báo</h3>
+                        <div class="list-container" id="inv-det-errors"></div>
+                    </div>
                 </div>
             </div>
 
             <div id="view-settings" class="view-section hidden">
-                <div class="header"><h1>Quản lý thiết bị <span style="font-size:14px; opacity:0.6; font-weight:400;">(Lưu tại máy Pi)</span></h1></div>
+                <div class="header">
+                    <h1>Quản lý thiết bị <span style="font-size:14px; opacity:0.6; font-weight:400;">(Lưu tại máy
+                            Pi)</span></h1>
+                </div>
                 <div class="settings-grid">
                     <div class="glass settings-section fade-in">
                         <h2>Quản lý dự án</h2>
                         <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
-                            <table><thead><tr><th>Tên</th><th>Hành động</th></tr></thead><tbody id="body-settings-projects"></tbody></table>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Tên</th>
+                                        <th>Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="body-settings-projects"></tbody>
+                            </table>
                         </div>
                         <div id="form-project">
                             <input type="hidden" id="proj-id">
-                            <div class="input-group"><label>Tên dự án *</label><input type="text" id="proj-name" placeholder="Tên dự án..."></div>
-                            <div class="input-group"><label>Địa điểm *</label><input type="text" id="proj-loc" placeholder="Địa chỉ dự án..."></div>
+                            <div class="input-group"><label>Tên dự án *</label><input type="text" id="proj-name"
+                                    placeholder="Tên dự án..."></div>
+                            <div class="input-group"><label>Địa điểm *</label><input type="text" id="proj-loc"
+                                    placeholder="Địa chỉ dự án..."></div>
                             <div class="form-row">
-                                <div class="input-group"><label>Vĩ độ (Lat)</label><input type="number" step="any" id="proj-lat" value="0"></div>
-                                <div class="input-group"><label>Kinh độ (Lon)</label><input type="number" step="any" id="proj-lon" value="0"></div>
+                                <div class="input-group"><label>Vĩ độ (Lat)</label><input type="number" step="any"
+                                        id="proj-lat" value="0"></div>
+                                <div class="input-group"><label>Kinh độ (Lon)</label><input type="number" step="any"
+                                        id="proj-lon" value="0"></div>
                             </div>
                             <div class="form-row">
-                                <div class="input-group"><label>SBC Meter No *</label><input type="text" id="proj-meter" placeholder="Số công tơ..."></div>
-                                <div class="input-group"><label>Giá điện *</label><input type="number" id="proj-price" value="1783"></div>
+                                <div class="input-group"><label>SBC Meter No *</label><input type="text" id="proj-meter"
+                                        placeholder="Số công tơ..."></div>
+                                <div class="input-group"><label>Giá điện *</label><input type="number" id="proj-price"
+                                        value="1783"></div>
                             </div>
                             <div class="form-row">
-                                <div class="input-group"><label>Capacity DC (kWp) *</label><input type="number" step="0.1" id="proj-dc" value="0"></div>
-                                <div class="input-group"><label>Capacity AC (kW) *</label><input type="number" step="0.1" id="proj-ac" value="0"></div>
+                                <div class="input-group"><label>Capacity DC (kWp) *</label><input type="number"
+                                        step="0.1" id="proj-dc" value="0"></div>
+                                <div class="input-group"><label>Capacity AC (kW) *</label><input type="number"
+                                        step="0.1" id="proj-ac" value="0"></div>
                             </div>
-                            <div class="input-group"><label>Số lượng Inverter</label><input type="number" id="proj-inv-count" value="0"></div>
-                            
+                            <div class="input-group"><label>Số lượng Inverter</label><input type="number"
+                                    id="proj-inv-count" value="0"></div>
+
                             <button class="btn btn-success" onclick="saveProject()">LƯU DỰ ÁN</button>
                             <button class="btn" style="margin-top:8px;" onclick="resetProjectForm()">HỦY</button>
                         </div>
@@ -137,55 +213,90 @@
                     <div class="glass settings-section fade-in" style="animation-delay:0.1s">
                         <h2>Cấu hình truyền thông</h2>
                         <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
-                            <table><thead><tr><th>Driver</th><th>Type</th><th>Hành động</th></tr></thead><tbody id="body-settings-comm"></tbody></table>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Driver</th>
+                                        <th>Type</th>
+                                        <th>Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="body-settings-comm"></tbody>
+                            </table>
                         </div>
                         <div id="form-comm">
                             <input type="hidden" id="comm-id">
                             <div class="form-row">
-                                <div class="input-group"><label>Driver</label><select id="comm-driver"><option value="Huawei">Huawei</option><option value="Sungrow">Sungrow</option></select></div>
-                                <div class="input-group"><label>Kiểu</label><select id="comm-type-select" onchange="toggleCommFields()"><option value="TCP">TCP</option><option value="RTU">RTU</option></select></div>
+                                <div class="input-group"><label>Driver</label><select id="comm-driver">
+                                        <option value="Huawei">Huawei</option>
+                                        <option value="Sungrow">Sungrow</option>
+                                    </select></div>
+                                <div class="input-group"><label>Kiểu</label><select id="comm-type-select"
+                                        onchange="toggleCommFields()">
+                                        <option value="TCP">TCP</option>
+                                        <option value="RTU">RTU</option>
+                                    </select></div>
                             </div>
                             <div id="fields-tcp">
                                 <div class="form-row">
-                                    <div class="input-group"><label>Host</label><input type="text" id="comm-host" value="192.168.1.10"></div>
-                                    <div class="input-group"><label>Port</label><input type="number" id="comm-port" value="502"></div>
+                                    <div class="input-group"><label>Host</label><input type="text" id="comm-host"
+                                            value="192.168.1.10"></div>
+                                    <div class="input-group"><label>Port</label><input type="number" id="comm-port"
+                                            value="502"></div>
                                 </div>
                             </div>
                             <div id="fields-rtu" class="hidden">
                                 <div class="form-row">
-                                    <div class="input-group"><label>COM Port</label><input type="text" id="comm-com" value="/dev/ttyUSB0"></div>
-                                    <div class="input-group"><label>Baudrate</label><input type="number" id="comm-baud" value="9600"></div>
+                                    <div class="input-group"><label>COM Port</label><input type="text" id="comm-com"
+                                            value="/dev/ttyUSB0"></div>
+                                    <div class="input-group"><label>Baudrate</label><input type="number" id="comm-baud"
+                                            value="9600"></div>
                                 </div>
                                 <div class="form-row">
-                                    <div class="input-group"><label>Databits</label><input type="number" id="comm-data" value="8"></div>
-                                    <div class="input-group"><label>Parity</label><select id="comm-parity"><option value="N">None</option><option value="E">Even</option><option value="O">Odd</option></select></div>
+                                    <div class="input-group"><label>Databits</label><input type="number" id="comm-data"
+                                            value="8"></div>
+                                    <div class="input-group"><label>Parity</label><select id="comm-parity">
+                                            <option value="N">None</option>
+                                            <option value="E">Even</option>
+                                            <option value="O">Odd</option>
+                                        </select></div>
                                 </div>
-                                <div class="input-group"><label>Stopbits</label><input type="number" id="comm-stop" value="1"></div>
+                                <div class="input-group"><label>Stopbits</label><input type="number" id="comm-stop"
+                                        value="1"></div>
                             </div>
                             <div class="form-row">
-                                <div class="input-group"><label>Slave ID Start</label><input type="number" id="comm-start" value="1"></div>
-                                <div class="input-group"><label>Slave ID End</label><input type="number" id="comm-end" value="10"></div>
+                                <div class="input-group"><label>Slave ID Start</label><input type="number"
+                                        id="comm-start" value="1"></div>
+                                <div class="input-group"><label>Slave ID End</label><input type="number" id="comm-end"
+                                        value="10"></div>
                             </div>
                             <div id="scan-results" class="hidden glass" style="margin-bottom:16px; padding:16px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <div
+                                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                                     <span id="scan-status-text" style="font-size:12px; opacity:0.8">Đang quét...</span>
-                                    <button class="action-btn delete" id="btn-stop-scan" onclick="stopScan()" title="Dừng quét"><i class="fas fa-stop"></i></button>
+                                    <button class="action-btn delete" id="btn-stop-scan" onclick="stopScan()"
+                                        title="Dừng quét"><i class="fas fa-stop"></i></button>
                                 </div>
-                                <div style="height:4px; background:rgba(255,255,255,0.1); border-radius:10px; margin-bottom:15px; overflow:hidden;">
-                                    <div id="scan-progress-bar" style="width:0%; height:100%; background:var(--primary); transition:0.3s;"></div>
+                                <div
+                                    style="height:4px; background:rgba(255,255,255,0.1); border-radius:10px; margin-bottom:15px; overflow:hidden;">
+                                    <div id="scan-progress-bar"
+                                        style="width:0%; height:100%; background:var(--primary); transition:0.3s;">
+                                    </div>
                                 </div>
                                 <div id="scan-list" style="max-height:200px; overflow-y:auto; font-size:13px;"></div>
                             </div>
                             <div class="form-row" style="margin-bottom:12px;">
-                                <button class="btn btn-primary" onclick="startScan()" id="btn-scan"><i class="fas fa-search"></i> QUÉT THIẾT BỊ</button>
-                                <button class="btn btn-success" onclick="saveComm()" id="btn-save-comm">LƯU TRUYỀN THÔNG</button>
+                                <button class="btn btn-primary" onclick="startScan()" id="btn-scan"><i
+                                        class="fas fa-search"></i> QUÉT THIẾT BỊ</button>
+                                <button class="btn btn-success" onclick="saveComm()" id="btn-save-comm">LƯU TRUYỀN
+                                    THÔNG</button>
                             </div>
                             <button class="btn" onclick="resetCommForm()">HỦY</button>
                         </div>
                     </div>
                     <div class="glass settings-section fade-in" style="animation-delay:0.2s">
-                        <h2>Quản lý Inverter <span style="font-size:12px; opacity:0.6;">(Metadata Local)</span></h2>
-                        
+                        <h2>Quản lý Inverter <span style="font-size:12px; opacity:0.6;"></span></h2>
+
                         <div class="input-group">
                             <label>Chọn dự án để xem Inverters</label>
                             <select id="inv-mgmt-project-filter" onchange="renderInvertersByProject()">
@@ -195,40 +306,57 @@
 
                         <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
                             <table>
-                                <thead><tr><th>SN</th><th>Slave</th><th>Hành động</th></tr></thead>
+                                <thead>
+                                    <tr>
+                                        <th>SN</th>
+                                        <th>Slave</th>
+                                        <th>Hành động</th>
+                                    </tr>
+                                </thead>
                                 <tbody id="body-settings-inverters">
-                                    <tr><td colspan="3" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...</td></tr>
+                                    <tr>
+                                        <td colspan="3" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
 
-                        <div id="form-inverter" class="hidden glass" style="padding: 20px; border: 1px solid var(--primary); margin-top: 10px;">
+                        <div id="form-inverter" class="hidden glass"
+                            style="padding: 20px; border: 1px solid var(--primary); margin-top: 10px;">
                             <h3 style="margin-bottom:15px; font-size:16px; color:var(--primary)">Chỉnh sửa Inverter</h3>
                             <input type="hidden" id="inv-id">
-                            
+
                             <div class="form-row">
-                                <div class="input-group"><label>Dự án</label><select id="inv-proj-select"></select></div>
-                                <div class="input-group"><label>Truyền thông</label><select id="inv-comm-select"></select></div>
+                                <div class="input-group"><label>Dự án</label><select id="inv-proj-select"></select>
+                                </div>
+                                <div class="input-group"><label>Truyền thông</label><select
+                                        id="inv-comm-select"></select></div>
                             </div>
 
                             <div class="form-row">
-                                <div class="input-group"><label>Số Serial (SN) *</label><input type="text" id="inv-sn"></div>
-                                <div class="input-group"><label>Slave ID *</label><input type="number" id="inv-slave"></div>
+                                <div class="input-group"><label>Số Serial (SN) *</label><input type="text" id="inv-sn">
+                                </div>
+                                <div class="input-group"><label>Slave ID *</label><input type="number" id="inv-slave">
+                                </div>
                             </div>
-                            
+
                             <div class="form-row">
-                                <div class="input-group"><label>Hãng (Brand)</label><input type="text" id="inv-brand"></div>
+                                <div class="input-group"><label>Hãng (Brand)</label><input type="text" id="inv-brand">
+                                </div>
                                 <div class="input-group"><label>Model</label><input type="text" id="inv-model"></div>
                             </div>
 
                             <div class="form-row">
-                                <div class="input-group"><label>Công suất (kW) *</label><input type="number" step="0.1" id="inv-cap"></div>
+                                <div class="input-group"><label>Công suất (kW) *</label><input type="number" step="0.1"
+                                        id="inv-cap"></div>
                                 <div class="input-group"><label>Số pha</label><input type="number" id="inv-phase"></div>
                             </div>
-                            
+
                             <div style="display:flex; gap:10px;">
                                 <button class="btn btn-success" onclick="saveInverter()">CẬP NHẬT TRÊN PI</button>
-                                <button class="btn" style="background:rgba(255,255,255,0.05)" onclick="resetInverterForm()">ĐÓNG</button>
+                                <button class="btn" style="background:rgba(255,255,255,0.05)"
+                                    onclick="resetInverterForm()">ĐÓNG</button>
                             </div>
                         </div>
                     </div>
@@ -236,7 +364,10 @@
             </div>
 
             <div id="view-sync" class="view-section hidden">
-                <div class="header"><h1>Đồng bộ dữ liệu <span style="font-size:14px; opacity:0.6; font-weight:400;">(Tương tác với Server)</span></h1></div>
+                <div class="header">
+                    <h1>Đồng bộ dữ liệu <span style="font-size:14px; opacity:0.6; font-weight:400;">(Tương tác với
+                            Server)</span></h1>
+                </div>
                 <div class="glass settings-section fade-in">
                     <div class="input-group">
                         <label>Chọn dự án để đồng bộ</label>
@@ -244,28 +375,39 @@
                             <option value="">-- Chọn dự án --</option>
                         </select>
                     </div>
-                    
+
                     <div id="sync-details" class="hidden" style="margin-top:24px;">
                         <h3>Thông tin đồng bộ</h3>
                         <div class="glass table-container" style="margin-bottom:20px;">
                             <table>
                                 <thead>
-                                    <tr><th>SN Inverter</th><th>Model</th><th>Trạng thái Local</th><th>Trạng thái Server</th><th>Hành động</th></tr>
+                                    <tr>
+                                        <th>SN Inverter</th>
+                                        <th>Model</th>
+                                        <th>Trạng thái Local</th>
+                                        <th>Trạng thái Server</th>
+                                        <th>Hành động</th>
+                                    </tr>
                                 </thead>
                                 <tbody id="sync-inverters-body"></tbody>
                             </table>
                         </div>
                         <div id="sync-actions" style="display:flex; gap: 10px; margin-top: 15px;">
-                            <button class="btn btn-success" id="btn-sync-create" onclick="handleSync()"><i class="fas fa-cloud-upload-alt"></i> CLOUD CREATE</button>
-                            <button class="btn btn-warning" id="btn-sync-update" onclick="handleSync()"><i class="fas fa-edit"></i> CLOUD UPDATE</button>
-                            <button class="btn btn-danger" id="btn-sync-delete" onclick="handleDeleteSync('project')"><i class="fas fa-cloud-download-alt"></i> CLOUD DELETE</button>
+                            <button class="btn btn-success" id="btn-sync-create" onclick="handleSync()"><i
+                                    class="fas fa-cloud-upload-alt"></i> CLOUD CREATE</button>
+                            <button class="btn btn-warning" id="btn-sync-update" onclick="handleSync()"><i
+                                    class="fas fa-edit"></i> CLOUD UPDATE</button>
+                            <button class="btn btn-danger" id="btn-sync-delete" onclick="handleDeleteSync('project')"><i
+                                    class="fas fa-cloud-download-alt"></i> CLOUD DELETE</button>
                         </div>
                         <p id="sync-status-msg" style="margin-top:10px; font-weight:500;"></p>
                     </div>
                 </div>
             </div>
         </main>
-        <div id="ui-debug" style="position:fixed; bottom:10px; right:10px; font-size:10px; color:rgba(255,255,255,0.3); z-index:999; pointer-events:none;"></div>
+        <div id="ui-debug"
+            style="position:fixed; bottom:10px; right:10px; font-size:10px; color:rgba(255,255,255,0.3); z-index:999; pointer-events:none;">
+        </div>
     </div>
 
     <script src="/static/js/api.js"></script>
@@ -277,4 +419,5 @@
         if (token) initApp();
     </script>
 </body>
+
 </html>

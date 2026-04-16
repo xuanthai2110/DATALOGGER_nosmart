@@ -6,36 +6,49 @@ let scanPollInterval = null;
 let scanSelections = {};
 
 async function loadSettings() {
+    console.log("Loading settings data...");
     const [pData, cData, iData] = await Promise.all([
         apiCall('/projects'),
         apiCall('/comm'),
         apiCall('/inverters')
     ]);
 
+    console.log("Projects data:", pData);
+    console.log("Inverters data:", iData);
+
     settingsProjects = (pData && pData.projects) || [];
     settingsComms = cData || [];
     settingsInverters = iData || [];
 
+    // Render bảng Dự án và Truyền thông
     document.getElementById('body-settings-projects').innerHTML = settingsProjects.map(p => `<tr><td>${p.name}</td><td class="action-btns"><button class="action-btn edit" onclick='editProject(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
     document.getElementById('body-settings-comm').innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
     
-    // Fill Project Filter Dropdown
+    // Fill Project Filter Dropdown (Dropdown chọn dự án để hiện Inverter)
     const mgmtFilter = document.getElementById('inv-mgmt-project-filter');
-    mgmtFilter.innerHTML = '<option value="">-- Chọn dự án --</option>' + settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    if (mgmtFilter) {
+        mgmtFilter.innerHTML = '<option value="">-- Chọn dự án --</option>' + 
+            settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    }
 
-    // Fill selects in Inverter Form
+    // Fill selects in Inverter Form (Dropdown trong Form sửa)
     const invProjSelect = document.getElementById('inv-proj-select');
     const invCommSelect = document.getElementById('inv-comm-select');
-    invProjSelect.innerHTML = settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-    invCommSelect.innerHTML = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
+    if (invProjSelect) invProjSelect.innerHTML = settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    if (invCommSelect) invCommSelect.innerHTML = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
 
     renderInvertersByProject();
     renderScanResults();
 }
 
 function renderInvertersByProject() {
-    const projId = document.getElementById('inv-mgmt-project-filter').value;
+    const filterEl = document.getElementById('inv-mgmt-project-filter');
+    if (!filterEl) return;
+    
+    const projId = filterEl.value;
     const tbody = document.getElementById('body-settings-inverters');
+    
+    console.log("Filtering inverters for project ID:", projId);
     
     if (!projId) {
         tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...</td></tr>';
@@ -43,6 +56,7 @@ function renderInvertersByProject() {
     }
 
     const filtered = settingsInverters.filter(inv => String(inv.project_id) === String(projId));
+    console.log("Filtered inverters:", filtered);
     
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; opacity:0.5;">Dự án này chưa có Inverter nào.</td></tr>';
