@@ -301,9 +301,18 @@ class SetupService:
         }
         payload = {k: v for k, v in asdict(inverter).items() if k in inv_fields}
         
-        # Thêm các ID liên kết
-        payload["project_id"] = sync_info.get("server_id") or 0
-        payload["project_request_id"] = sync_info.get("server_request_id") or 0
+        # Thêm các ID liên kết (Chỉ chọn 1 trong 2 theo yêu cầu server)
+        server_id = sync_info.get("server_id")
+        server_req_id = sync_info.get("server_request_id")
+        
+        if server_id:
+            payload["project_id"] = server_id
+        elif server_req_id:
+            payload["project_request_id"] = server_req_id
+        else:
+            logger.warning(f"[Sync] Project {project_id} has neither server_id nor server_request_id. Inverter sync will likely fail.")
+            # Vẫn để mặc định 0 để trigger lỗi 422 rõ ràng hơn hoặc handle tùy server
+            payload["project_id"] = 0
         
         # Format date strings if they are objects
         if payload.get("usage_start_at") is None:
