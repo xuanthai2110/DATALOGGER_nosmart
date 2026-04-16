@@ -27,9 +27,10 @@ class AuthService:
         self.refresh_token: str | None = None
         self._load_tokens()
 
-    def get_access_token(self) -> str | None:
-        """Return a valid access token if available."""
-        if not self.access_token:
+    def get_access_token(self, force_refresh: bool = False) -> str | None:
+        """Return a valid access token if available. Use force_refresh to trigger a new login."""
+        if force_refresh or not self.access_token:
+            logger.info(f"[Auth] Getting access token (force_refresh={force_refresh})...")
             self._login()
         return self.access_token
 

@@ -64,7 +64,17 @@ class SetupService:
             url = f"{API_BASE_URL}/api/projects/?telemetry=false"
             headers = {"Authorization": f"Bearer {token}"}
             resp = requests.get(url, headers=headers, timeout=10)
-            if resp.status_code != 200: return False
+            
+            if resp.status_code == 401:
+                logger.info("[Sync] Pre-sync: 401 detected, attempting to recover...")
+                token = self.auth.handle_unauthorized()
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                    resp = requests.get(url, headers=headers, timeout=10)
+
+            if resp.status_code != 200:
+                logger.warning(f"[Sync] Pre-sync: Server returned {resp.status_code}")
+                return False
 
             data_items = resp.json().get("data", [])
             matched_proj_data = None
@@ -128,6 +138,14 @@ class SetupService:
             url = f"{API_BASE_URL}/api/project/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
+            
+            if resp.status_code == 401:
+                logger.info("[Sync] Initiate sync: 401 detected, attempting to recover...")
+                token = self.auth.handle_unauthorized()
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                    resp = requests.post(url, json=payload, headers=headers, timeout=20)
+
             if resp.status_code in [200, 201, 202]:
                 res_data = resp.json()
                 request_id = res_data.get("id")

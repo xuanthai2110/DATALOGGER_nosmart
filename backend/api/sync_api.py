@@ -26,9 +26,13 @@ async def sync_project(
         return {"ok": True, "message": "Project matched and approved automatically from server."}
     
     # 2. Nếu chưa có, gửi yêu cầu đồng bộ mới (Dự án + Biến tần)
+    # Kiểm tra Token trước khi gửi
+    if not svc.auth.get_access_token():
+        raise HTTPException(status_code=401, detail="Cloud authentication failed. Please check your credentials in .env")
+
     request_id = svc.initiate_sync_request(project_id)
     if not request_id:
-        raise HTTPException(status_code=500, detail="Failed to initiate sync request to server.")
+        raise HTTPException(status_code=502, detail="Cloud server rejected the request or is unreachable.")
     
     # 3. Chạy polling trong background để theo dõi kết quả phê duyệt
     background_tasks.add_task(svc.background_poll_status, request_id, project_id)
