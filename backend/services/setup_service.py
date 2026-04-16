@@ -181,7 +181,7 @@ class SetupService:
 
             # 1. Thử PATCH nếu đang ở trạng thái pending
             if project.server_request_id:
-                req_url = f"{url}/{project.server_request_id}"
+                req_url = f"{base_api}/api/projects/requests/{project.server_request_id}"
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
                 
                 if check_resp.status_code == 401:
@@ -270,7 +270,7 @@ class SetupService:
 
         try:
             base_api = API_BASE_URL.rstrip('/')
-            url = f"{base_api}/api/inverters/requests"
+            url = f"{base_api}/api/inverters/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
             # 0. Nếu inverter ĐÃ ĐƯỢC DUYỆT, ta dùng POST update với full payload
@@ -318,7 +318,7 @@ class SetupService:
 
             # 1. Thử PATCH nếu đang ở trạng thái pending
             if inverter.server_request_id:
-                req_url = f"{url}/{inverter.server_request_id}"
+                req_url = f"{base_api}/api/inverters/requests/{inverter.server_request_id}"
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
                 
                 if check_resp.status_code == 401:
