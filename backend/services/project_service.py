@@ -45,6 +45,7 @@ class ProjectService:
         for inv in inverters:
             self.realtime_db.delete_inverter_data(inv.id)
         
+        self.realtime_db.delete_project_data(project_id)
         self.metadata_db.delete_project(project_id)
         return True
 

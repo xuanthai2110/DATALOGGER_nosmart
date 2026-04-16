@@ -104,9 +104,8 @@
                 </div>
             </div>
 
-            <!-- View: Settings -->
             <div id="view-settings" class="view-section hidden">
-                <div class="header"><h1>Cấu hình hệ thống</h1></div>
+                <div class="header"><h1>Quản lý thiết bị <span style="font-size:14px; opacity:0.6; font-weight:400;">(Lưu tại máy Pi)</span></h1></div>
                 <div class="settings-grid">
                     <div class="glass settings-section fade-in">
                         <h2>Quản lý dự án</h2>
@@ -187,9 +186,8 @@
                 </div>
             </div>
 
-            <!-- View: Sync -->
             <div id="view-sync" class="view-section hidden">
-                <div class="header"><h1>Đồng bộ lên Server</h1></div>
+                <div class="header"><h1>Đồng bộ dữ liệu <span style="font-size:14px; opacity:0.6; font-weight:400;">(Tương tác với Server)</span></h1></div>
                 <div class="glass settings-section fade-in">
                     <div class="input-group">
                         <label>Chọn dự án để đồng bộ</label>
@@ -209,9 +207,9 @@
                             </table>
                         </div>
                         <div id="sync-actions" style="display:flex; gap: 10px; margin-top: 15px;">
-                            <button class="btn btn-success" id="btn-sync-create" onclick="handleSync()"><i class="fas fa-plus"></i> CREATE</button>
-                            <button class="btn btn-warning" id="btn-sync-update" onclick="handleSync()"><i class="fas fa-edit"></i> UPDATE</button>
-                            <button class="btn btn-danger" id="btn-sync-delete" onclick="handleDeleteSync('project')"><i class="fas fa-trash"></i> DELETE</button>
+                            <button class="btn btn-success" id="btn-sync-create" onclick="handleSync()"><i class="fas fa-cloud-upload-alt"></i> CLOUD CREATE</button>
+                            <button class="btn btn-warning" id="btn-sync-update" onclick="handleSync()"><i class="fas fa-edit"></i> CLOUD UPDATE</button>
+                            <button class="btn btn-danger" id="btn-sync-delete" onclick="handleDeleteSync('project')"><i class="fas fa-cloud-download-alt"></i> CLOUD DELETE</button>
                         </div>
                         <p id="sync-status-msg" style="margin-top:10px; font-weight:500;"></p>
                     </div>

@@ -343,3 +343,19 @@ class RealtimeDB(BaseDB):
     def delete_schedule(self, schedule_id: int):
         with self._connect() as conn:
             conn.execute("DELETE FROM control_schedules WHERE id=?", (schedule_id,))
+
+    def delete_inverter_data(self, inverter_id: int):
+        """Xóa toàn bộ dữ liệu lịch sử liên quan đến 1 inverter."""
+        with self._connect() as conn:
+            conn.execute("DELETE FROM inverter_ac_realtime WHERE inverter_id=?", (inverter_id,))
+            conn.execute("DELETE FROM inverter_errors WHERE inverter_id=?", (inverter_id,))
+            conn.execute("DELETE FROM mppt_realtime WHERE inverter_id=?", (inverter_id,))
+            conn.execute("DELETE FROM string_realtime WHERE inverter_id=?", (inverter_id,))
+            conn.execute("DELETE FROM control_schedules WHERE inverter_id=?", (inverter_id,))
+
+    def delete_project_data(self, project_id: int):
+        """Xóa dữ liệu cấp độ project (outbox, realtime summary, schedules)."""
+        with self._connect() as conn:
+            conn.execute("DELETE FROM project_realtime WHERE project_id=?", (project_id,))
+            conn.execute("DELETE FROM uploader_outbox WHERE project_id=?", (project_id,))
+            conn.execute("DELETE FROM control_schedules WHERE project_id=?", (project_id,))
