@@ -38,8 +38,8 @@ def _get_driver_class(driver_name: str):
         from backend.drivers.huawei_sun2000110KTL import HuaweiSUN2000
         return HuaweiSUN2000
     elif driver_name == "Sungrow":
-        from backend.drivers.sungrow_sg110cx import SungrowSG110CXDriver
-        return SungrowSG110CXDriver
+        from backend.drivers.sungrow_sg110cx import SungrowSG110CX
+        return SungrowSG110CX
     raise ValueError(f"Unknown driver: {driver_name}")
 
 def _get_transport(comm: dict):

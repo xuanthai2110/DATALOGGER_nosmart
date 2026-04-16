@@ -1,8 +1,9 @@
-# drivers/huawei_sun2000110KTL.py
+# drivers/huawei_sun2000_110ktl.py
 
 from typing import Dict, Any
 from backend.drivers.base import BaseDriver
-class HuaweiSUN2000(BaseDriver):
+
+class Huaweisun2000110ktl(BaseDriver):
 
     def __init__(self, transport, slave_id=1):
         self.transport = transport
@@ -516,4 +517,3 @@ class HuaweiSUN2000(BaseDriver):
             value -= 0x100000000
 
         return value
-

@@ -5,11 +5,9 @@ import threading
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
+import importlib
 from backend.db_manager import CacheDB
 from backend.services.project_service import ProjectService
-from backend.drivers.huawei_sun2000110KTL import HuaweiSUN2000
-from backend.drivers.sungrow_sg110cx import SungrowSG110CXDriver
-from backend.drivers.sungrow_sg50cx import SungrowSG50CXDriver
 from backend.communication.modbus_tcp import ModbusTCP
 from backend.communication.modbus_rtu import ModbusRTU
 from backend.services.normalization_service import NormalizationService
@@ -70,16 +68,25 @@ class PollingService:
         return self._config_cache
 
     def _get_driver(self, brand: str, transport, slave_id: int, model: str = None):
-        if "Huawei" in brand:
-            return HuaweiSUN2000(transport, slave_id=slave_id)
-        elif "Sungrow" in brand:
-            # Phân biệt dựa trên model
-            if model and "SG50CX" in model:
-                return SungrowSG50CXDriver(transport, slave_id=slave_id)
-            else:
-                # Default về SG110CX cho các model Sungrow khác
-                return SungrowSG110CXDriver(transport, slave_id=slave_id)
-        return None
+        if not brand or not model:
+            return None
+        
+        # Sanitize for filename: brand_model.py (Sungrow_SG110CX -> sungrow_sg110cx.py)
+        clean_brand = brand.lower().replace(" ", "_").replace("-", "_")
+        clean_model = model.lower().replace(" ", "_").replace("-", "_")
+        module_name = f"backend.drivers.{clean_brand}_{clean_model}"
+        
+        # Sanitize for classname: Brandmodel (Sungrow_SG110CX -> Sungrowsg110cx)
+        clean_model_class = model.lower().replace(" ", "").replace("-", "").replace("_", "")
+        class_name = f"{brand.capitalize()}{clean_model_class}"
+        
+        try:
+            module = importlib.import_module(module_name)
+            driver_class = getattr(module, class_name)
+            return driver_class(transport, slave_id=slave_id)
+        except (ImportError, AttributeError) as e:
+            logger.error(f"Failed to load driver {class_name} from {module_name}: {e}")
+            return None
 
     def poll_all_inverters(self, project_id: int, inverters: List[Any] = None):
         """Đọc dữ liệu thô từ Inverter, chuẩn hóa và đẩy vào CacheDB."""

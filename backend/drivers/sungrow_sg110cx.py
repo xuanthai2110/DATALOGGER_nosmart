@@ -3,7 +3,7 @@ from typing import Dict, Any
 from backend.drivers.base import BaseDriver
 
 
-class SungrowSG110CXDriver(BaseDriver):
+class Sungrowsg110cx(BaseDriver):
     def __init__(self, transport, slave_id: int):
         self.transport = transport
         self.slave_id = slave_id

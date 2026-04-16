@@ -11,7 +11,7 @@ if BASE_DIR not in sys.path:
 
 from backend.communication.modbus_rtu import ModbusRTU
 from backend.core import settings
-from backend.drivers.sungrow_sg110cx import SungrowSG110CXDriver
+from backend.drivers.sungrow_sg110cx import SungrowSG110CX
 
 
 def _build_transport():
@@ -40,7 +40,7 @@ def _parse_slave_ids(slave_ids_arg: str | None, slave_start: int, slave_end: int
 
 
 def _read_one_inverter(transport, slave_id: int, full: bool) -> dict | None:
-    driver = SungrowSG110CXDriver(transport, slave_id=slave_id)
+    driver = SungrowSG110CX(transport, slave_id=slave_id)
     data = driver.read_all() if full else driver.read_info()
 
     if not data:
