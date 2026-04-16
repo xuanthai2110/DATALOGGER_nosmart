@@ -35,6 +35,15 @@ async def sync_project(
     if not request_id:
         raise HTTPException(status_code=502, detail="Cloud server rejected the project request or is unreachable.")
     
+    # Kiểm tra lại trạng thái sau khi sync (có thể đã được auto-approved do trùng khớp SN/Meter)
+    fresh_project = svc.project_svc.get_project(project_id)
+    if fresh_project and fresh_project.sync_status == 'approved':
+        return {
+            "ok": True,
+            "server_id": fresh_project.server_id,
+            "message": "Dự án đã được tự động khớp và phê duyệt trên Server (Auto-matched)."
+        }
+
     # 3. Chạy polling trong background để theo dõi kết quả phê duyệt
     background_tasks.add_task(svc.background_poll_status, request_id, project_id)
     

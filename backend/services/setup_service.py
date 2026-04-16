@@ -78,7 +78,8 @@ class SetupService:
         try:
             base_api = API_BASE_URL.rstrip('/')
             # 1. So khớp Project bằng cách tìm kiếm theo số công tơ (elec_meter_no)
-            url = f"{base_api}/api/projects/?telemetry=false&page=1&limit=20&search={local_project.elec_meter_no}&search_fields=elec_meter_no"
+            # Thử tìm kiếm rộng hơn (không bắt buộc telemetry=false/true) để tăng khả năng khớp
+            url = f"{base_api}/api/projects/?page=1&limit=20&search={local_project.elec_meter_no}&search_fields=elec_meter_no"
             headers = {"Authorization": f"Bearer {token}"}
             resp = requests.get(url, headers=headers, timeout=10)
             
@@ -93,17 +94,24 @@ class SetupService:
                 logger.warning(f"[Sync] Pre-sync: Server returned {resp.status_code}")
                 return False
 
-            data_items = resp.json().get("data", [])
+            raw_response = resp.json()
+            logger.info(f"[Sync] Pre-sync search response for {local_project.elec_meter_no}: {raw_response}")
+            
+            data_items = raw_response.get("data", [])
             matched_proj_data = None
-            if data_items:
-                # Lấy kết quả đầu tiên trùng khớp
-                item = data_items[0]
-                matched_proj_data = item.get("project", item)
+            
+            for item in data_items:
+                # Thử lấy từ key 'project' nếu có (với các endpoint trả về bundle) hoặc lấy trực tiếp item
+                p_info = item.get("project", item)
+                if str(p_info.get("elec_meter_no")) == str(local_project.elec_meter_no):
+                    matched_proj_data = p_info
+                    break
             
             if matched_proj_data:
                 server_proj_id = matched_proj_data.get("id")
-                self.project_svc.update_project_sync(project_id, server_id=server_proj_id, status='approved')
-                logger.info(f"[Sync] Auto-matched project {project_id} -> Server ID {server_proj_id}")
+                if server_proj_id:
+                    self.project_svc.update_project_sync(project_id, server_id=server_proj_id, status='approved')
+                    logger.info(f"[Sync] Auto-matched project {project_id} -> Server ID {server_proj_id}")
                 
                 # 2. Thử so khớp Inverters của project này
                 # Giả định server có endpoint lấy inverters hoặc lọc theo project_id server
