@@ -56,6 +56,9 @@ class SetupService:
         local_project = self.project_svc.get_project(project_id)
         if not local_project or not local_project.elec_meter_no:
             return False
+            
+        if local_project.server_id:
+            return False
 
         token = self.auth.get_access_token()
         if not token: return False
