@@ -64,8 +64,9 @@ class SetupService:
         if not token: return False
 
         try:
+            base_api = API_BASE_URL.rstrip('/')
             # 1. So khớp Project
-            url = f"{API_BASE_URL}/api/projects/?telemetry=false"
+            url = f"{base_api}/api/projects/?telemetry=false"
             headers = {"Authorization": f"Bearer {token}"}
             resp = requests.get(url, headers=headers, timeout=10)
             
@@ -95,7 +96,7 @@ class SetupService:
                 
                 # 2. Thử so khớp Inverters của project này
                 # Giả định server có endpoint lấy inverters hoặc lọc theo project_id server
-                inv_url = f"{API_BASE_URL}/api/inverters/?telemetry=false" # Lấy hết hoặc thêm filter nếu server hỗ trợ
+                inv_url = f"{base_api}/api/inverters/?telemetry=false" # Lấy hết hoặc thêm filter nếu server hỗ trợ
                 inv_resp = requests.get(inv_url, headers=headers, timeout=10)
                 if inv_resp.status_code == 200:
                     server_invs = inv_resp.json().get("data", [])
@@ -131,12 +132,13 @@ class SetupService:
         payload = {k: v for k, v in asdict(project).items() if k in project_fields}
 
         try:
-            url = f"{API_BASE_URL}/api/projects/requests/"
+            base_api = API_BASE_URL.rstrip('/')
+            url = f"{base_api}/api/projects/requests"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
             # 0. Nếu dự án ĐÃ ĐƯỢC DUYỆT, ta dùng POST update với full payload
             if project.server_id and project.sync_status == 'approved':
-                update_url = f"{API_BASE_URL}/api/projects/requests/update/{project.server_id}/"
+                update_url = f"{base_api}/api/projects/requests/update/{project.server_id}"
                 logger.info(f"[Sync] Project is approved. Sending full update request to {update_url}")
                 resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
                 
@@ -158,7 +160,7 @@ class SetupService:
 
             # 1. Thử PATCH nếu đang ở trạng thái pending
             if project.server_request_id:
-                req_url = f"{url}{project.server_request_id}/"
+                req_url = f"{url}/{project.server_request_id}"
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
                 
                 if check_resp.status_code == 401:
@@ -246,12 +248,13 @@ class SetupService:
             payload["usage_start_at"] = datetime.now(timezone.utc).isoformat()
 
         try:
-            url = f"{API_BASE_URL}/api/inverters/requests/"
+            base_api = API_BASE_URL.rstrip('/')
+            url = f"{base_api}/api/inverters/requests"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
             # 0. Nếu inverter ĐÃ ĐƯỢC DUYỆT, ta dùng POST update với full payload
             if inverter.server_id and inverter.sync_status == 'approved':
-                update_url = f"{API_BASE_URL}/api/inverters/requests/update/{inverter.server_id}/"
+                update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
                 logger.info(f"[Sync] Inverter is approved. Sending full update request to {update_url}")
                 resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
                 
@@ -273,7 +276,7 @@ class SetupService:
 
             # 1. Thử PATCH nếu đang ở trạng thái pending
             if inverter.server_request_id:
-                req_url = f"{url}{inverter.server_request_id}/"
+                req_url = f"{url}/{inverter.server_request_id}"
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
                 
                 if check_resp.status_code == 401:
@@ -341,7 +344,8 @@ class SetupService:
                 continue
 
             try:
-                url = f"{API_BASE_URL}/api/projects/requests/{request_id}"
+                base_api = API_BASE_URL.rstrip('/')
+                url = f"{base_api}/api/projects/requests/{request_id}"
                 headers = {"Authorization": f"Bearer {token}"}
                 resp = requests.get(url, headers=headers, timeout=10)
                 
@@ -382,7 +386,8 @@ class SetupService:
         if not token: return False
 
         try:
-            url = f"{API_BASE_URL}/api/projects/requests/delete/{project.server_id}/"
+            base_api = API_BASE_URL.rstrip('/')
+            url = f"{base_api}/api/projects/requests/delete/{project.server_id}"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
             resp = requests.post(url, headers=headers, timeout=20)
@@ -412,7 +417,8 @@ class SetupService:
         if not token: return False
 
         try:
-            url = f"{API_BASE_URL}/api/inverters/requests/delete/{inverter.server_id}/"
+            base_api = API_BASE_URL.rstrip('/')
+            url = f"{base_api}/api/inverters/requests/delete/{inverter.server_id}"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
             resp = requests.post(url, headers=headers, timeout=20)
@@ -443,7 +449,8 @@ class SetupService:
         if not token: return False
 
         try:
-            url = f"{API_BASE_URL}/api/projects/requests/{request_id}/"
+            base_api = API_BASE_URL.rstrip('/')
+            url = f"{base_api}/api/projects/requests/{request_id}"
             headers = {"Authorization": f"Bearer {token}"}
             resp = requests.delete(url, headers=headers, timeout=10)
             if resp.status_code in [200, 204]:
