@@ -30,6 +30,8 @@ async def sync_project(
         raise HTTPException(status_code=401, detail="Cloud authentication failed. Please check your credentials in .env")
 
     request_id = svc.initiate_project_sync(project_id)
+    if request_id == -1:
+        return {"ok": True, "message": "Project is already up-to-date with the server. No changes detected."}
     if not request_id:
         raise HTTPException(status_code=502, detail="Cloud server rejected the project request or is unreachable.")
     
@@ -51,6 +53,8 @@ async def sync_inverter(
         raise HTTPException(status_code=401, detail="Cloud authentication failed.")
 
     request_id = svc.initiate_inverter_sync(inverter_id)
+    if request_id == -1:
+        return {"ok": True, "message": "Inverter is already up-to-date with the server. No changes detected."}
     if not request_id:
         raise HTTPException(status_code=502, detail="Cloud server rejected the inverter request. Ensure project is synced first.")
     
