@@ -213,8 +213,17 @@ class SetupService:
                             logger.warning(f"[Sync] Project patch failed: {patch_resp.status_code} - {patch_resp.text}")
                             return None
                     else:
-                        logger.info(f"[Sync] Project request {project.server_request_id} is '{status}'. Need a new request or check local sync_status.")
-                        # Không PATCH vì trạng thái request không phải pending. Sẽ fallback sang (2) tạo mới request.
+                        if status == "approved":
+                            server_id = server_data.get("server_id")
+                            self.project_svc.update_project_sync(project_id, server_id=server_id, status='approved')
+                            logger.info(f"[Sync] Project request {project.server_request_id} already approved on server. Verifying changes...")
+                            return self.initiate_project_sync(project_id)
+                        elif status == "rejected":
+                            self.project_svc.update_project_sync(project_id, status='rejected')
+                            logger.info(f"[Sync] Project request {project.server_request_id} was rejected. Sync failed.")
+                            return None
+                        else:
+                            logger.info(f"[Sync] Project request {project.server_request_id} is '{status}'. Cannot patch.")
                         
             # 2. Tạo mới bằng POST nếu chưa có
 
@@ -350,8 +359,17 @@ class SetupService:
                             logger.warning(f"[Sync] Inverter patch failed: {patch_resp.status_code} - {patch_resp.text}")
                             return None
                     else:
-                        logger.info(f"[Sync] Inverter request {inverter.server_request_id} is '{status}'. Cannot patch.")
-                        
+                        if status == "approved":
+                            server_id = server_data.get("server_id")
+                            self.project_svc.update_inverter_sync(inverter_id, server_id=server_id, status='approved')
+                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} already approved on server. Verifying changes...")
+                            return self.initiate_inverter_sync(inverter_id)
+                        elif status == "rejected":
+                            self.project_svc.update_inverter_sync(inverter_id, status='rejected')
+                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} was rejected. Sync failed.")
+                            return None
+                        else:
+                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} is '{status}'. Cannot patch.")
             # 2. Tạo mới bằng POST nếu chưa có
 
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
