@@ -1,22 +1,101 @@
 let settingsProjects = [];
 let settingsComms = [];
+let settingsInverters = [];
 let foundInverters = [];
 let scanPollInterval = null;
 let scanSelections = {};
 
 async function loadSettings() {
-    const [pData, cData] = await Promise.all([
+    const [pData, cData, iData] = await Promise.all([
         apiCall('/projects'),
-        apiCall('/comm')
+        apiCall('/comm'),
+        apiCall('/inverters')
     ]);
 
     settingsProjects = (pData && pData.projects) || [];
     settingsComms = cData || [];
+    settingsInverters = iData || [];
 
     document.getElementById('body-settings-projects').innerHTML = settingsProjects.map(p => `<tr><td>${p.name}</td><td class="action-btns"><button class="action-btn edit" onclick='editProject(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
     document.getElementById('body-settings-comm').innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+    
+    // Render Inverters Table
+    document.getElementById('body-settings-inverters').innerHTML = settingsInverters.map(inv => `
+        <tr>
+            <td>${inv.serial_number}</td>
+            <td>${inv.slave_id}</td>
+            <td class="action-btns">
+                <button class="action-btn edit" onclick='editInverter(${JSON.stringify(inv)})'><i class="fas fa-edit"></i></button>
+                <button class="action-btn delete" onclick="deleteInverter(${inv.id})"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+
+    // Update Project/Comm selects in Inverter Form
+    const invProjSelect = document.getElementById('inv-proj-select');
+    const invCommSelect = document.getElementById('inv-comm-select');
+    
+    invProjSelect.innerHTML = '<option value="">-- Chọn dự án --</option>' + settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    invCommSelect.innerHTML = '<option value="">-- Chọn truyền thông --</option>' + settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
 
     renderScanResults();
+}
+
+async function saveInverter() {
+    const id = document.getElementById('inv-id').value;
+    const body = {
+        project_id: parseInt(document.getElementById('inv-proj-select').value),
+        comm_id: parseInt(document.getElementById('inv-comm-select').value),
+        serial_number: document.getElementById('inv-sn').value,
+        slave_id: parseInt(document.getElementById('inv-slave').value),
+        brand: document.getElementById('inv-brand').value,
+        model: document.getElementById('inv-model').value,
+        capacity_kw: parseFloat(document.getElementById('inv-cap').value),
+        phase_count: parseInt(document.getElementById('inv-phase').value)
+    };
+
+    if (!body.project_id || !body.comm_id || !body.serial_number || isNaN(body.slave_id)) {
+        return alert("Vui lòng nhập đầy đủ thông tin bắt buộc!");
+    }
+
+    const r = id ? await apiCall(`/inverters/${id}`, 'PATCH', body) : await apiCall('/inverters', 'POST', body);
+    if (r) {
+        alert("Lưu inverter thành công!");
+        resetInverterForm();
+        loadSettings();
+    }
+}
+
+function editInverter(inv) {
+    document.getElementById('inv-id').value = inv.id;
+    document.getElementById('inv-proj-select').value = inv.project_id || "";
+    document.getElementById('inv-comm-select').value = inv.comm_id || "";
+    document.getElementById('inv-sn').value = inv.serial_number;
+    document.getElementById('inv-slave').value = inv.slave_id;
+    document.getElementById('inv-brand').value = inv.brand || "";
+    document.getElementById('inv-model').value = inv.model || "";
+    document.getElementById('inv-cap').value = inv.capacity_kw || 0;
+    document.getElementById('inv-phase').value = inv.phase_count || 3;
+    document.getElementById('inv-sn').focus();
+}
+
+function resetInverterForm() {
+    document.getElementById('inv-id').value = "";
+    document.getElementById('inv-proj-select').value = "";
+    document.getElementById('inv-comm-select').value = "";
+    document.getElementById('inv-sn').value = "";
+    document.getElementById('inv-slave').value = 1;
+    document.getElementById('inv-brand').value = "";
+    document.getElementById('inv-model').value = "";
+    document.getElementById('inv-cap').value = 0;
+    document.getElementById('inv-phase').value = 3;
+}
+
+async function deleteInverter(id) {
+    if (confirm("Xoá inverter này?")) {
+        await apiCall(`/inverters/${id}`, 'DELETE');
+        loadSettings();
+    }
 }
 
 async function saveProject() {
