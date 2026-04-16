@@ -235,6 +235,19 @@ class SetupService:
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                     resp = requests.post(url, json=payload, headers=headers, timeout=20)
+                    
+            if resp.status_code == 409:
+                logger.info("[Sync] Project: 409 Conflict. Checking if project exists in REAL projects...")
+                chk_url = f"{base_api}/api/projects/?telemetry=false"
+                real_resp = requests.get(chk_url, headers=headers, timeout=10)
+                if real_resp.status_code == 200:
+                    for rp in real_resp.json().get("data", []):
+                        if rp.get("elec_meter_no") == project.elec_meter_no:
+                            logger.info(f"[Sync] Found real project {rp.get('id')} matching {project.elec_meter_no}. Updating local and retrying.")
+                            self.project_svc.update_project_sync(project_id, server_id=rp.get("id"), status='approved')
+                            return self.initiate_project_sync(project_id)
+                logger.warning("[Sync] Project 409 Conflict but no matching real project found.")
+                return None
 
             if resp.status_code in [200, 201, 202]:
                 res_data = resp.json()
@@ -380,6 +393,19 @@ class SetupService:
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                     resp = requests.post(url, json=payload, headers=headers, timeout=20)
+                    
+            if resp.status_code == 409:
+                logger.info("[Sync] Inverter: 409 Conflict. Checking if exists in REAL inverters...")
+                chk_url = f"{base_api}/api/inverters/?telemetry=false"
+                real_resp = requests.get(chk_url, headers=headers, timeout=10)
+                if real_resp.status_code == 200:
+                    for ri in real_resp.json().get("data", []):
+                        if ri.get("serial_number") == inverter.serial_number:
+                            logger.info(f"[Sync] Found real inverter {ri.get('id')} matching {inverter.serial_number}. Updating and retrying.")
+                            self.project_svc.update_inverter_sync(inverter_id, server_id=ri.get("id"), status='approved')
+                            return self.initiate_inverter_sync(inverter_id)
+                logger.warning("[Sync] Inverter 409 Conflict but no matching real inverter found.")
+                return None
 
             if resp.status_code in [200, 201, 202]:
                 res_data = resp.json()
