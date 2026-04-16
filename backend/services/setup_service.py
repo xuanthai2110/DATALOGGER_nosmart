@@ -209,6 +209,9 @@ class SetupService:
                         
                         if patch_resp.status_code in [200, 201, 202]:
                             return project.server_request_id
+                        elif patch_resp.status_code == 403:
+                            logger.info(f"[Sync] Project request {project.server_request_id} is locked by Admin. Cannot patch. Returning current ID.")
+                            return project.server_request_id
                         else:
                             logger.warning(f"[Sync] Project patch failed: {patch_resp.status_code} - {patch_resp.text}")
                             return None
@@ -370,6 +373,9 @@ class SetupService:
                         patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
                         
                         if patch_resp.status_code in [200, 201, 202]:
+                            return inverter.server_request_id
+                        elif patch_resp.status_code == 403:
+                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} is locked by Admin. Cannot patch. Returning current ID.")
                             return inverter.server_request_id
                         else:
                             logger.warning(f"[Sync] Inverter patch failed: {patch_resp.status_code} - {patch_resp.text}")

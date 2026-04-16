@@ -39,21 +39,36 @@ async function loadSyncProjectDetails() {
     const projectInverters = inverters.filter(inv => String(inv.project_id) === String(projId));
 
     const tbody = document.getElementById('sync-inverters-body');
-    tbody.innerHTML = projectInverters.map(inv => `
+    tbody.innerHTML = projectInverters.map(inv => {
+        const isApproved = inv.sync_status === 'approved';
+        return `
         <tr>
             <td>${inv.serial_number}</td>
             <td>${inv.model}</td>
-            <td><span class="badge ${inv.sync_status === 'approved' ? 'success' : 'warning'}">${inv.sync_status || 'pending'}</span></td>
+            <td><span class="badge ${isApproved ? 'success' : 'warning'}">${inv.sync_status || 'pending'}</span></td>
             <td>${inv.server_id ? 'ID: ' + inv.server_id : (inv.server_request_id ? 'Req: ' + inv.server_request_id : '-')}</td>
             <td>
                 <div style="display:flex; gap: 5px;">
-                    <button class="action-btn" style="color:var(--success)" onclick="handleInverterSync(${inv.id})" title="Create"><i class="fas fa-plus"></i></button>
-                    <button class="action-btn" style="color:var(--warning)" onclick="handleInverterSync(${inv.id})" title="Update"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn" style="color:var(--success); ${isApproved ? 'display:none' : ''}" onclick="handleInverterSync(${inv.id})" title="Create"><i class="fas fa-plus"></i></button>
+                    <button class="action-btn" style="color:var(--warning); ${isApproved ? '' : 'display:none'}" onclick="handleInverterSync(${inv.id})" title="Update"><i class="fas fa-edit"></i></button>
                     <button class="action-btn delete" onclick="handleDeleteSync('inverter', ${inv.id})" title="Delete"><i class="fas fa-trash"></i></button>
                 </div>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
+
+    // Cấu hình nút bấm cho Project
+    const isProjectApproved = project.sync_status === 'approved';
+    const btnCreate = document.getElementById('btn-sync-create');
+    const btnUpdate = document.getElementById('btn-sync-update');
+
+    if (isProjectApproved) {
+        btnCreate.style.display = 'none';
+        btnUpdate.style.display = 'inline-block';
+    } else {
+        btnCreate.style.display = 'inline-block';
+        btnUpdate.style.display = 'none';
+    }
 
     // Update button visibility based on the project state if needed
     // (Here we render all 3 buttons for explicitly handling create, update, delete requests)
