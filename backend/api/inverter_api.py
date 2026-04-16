@@ -100,6 +100,10 @@ def update_inverter(
 def delete_inverter(inverter_id: int, svc: ProjectService = Depends(get_project_service)):
     """Xoá inverter có id tương ứng qua Service."""
     try:
+        from backend.api.sync_api import get_setup_service
+        setup_svc = get_setup_service()
+        setup_svc.request_delete_inverter_sync(inverter_id)
+        
         svc.delete_inverter(inverter_id)
         return {"message": "Inverter deleted successfully"}
     except Exception as e:

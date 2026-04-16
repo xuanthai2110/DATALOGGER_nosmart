@@ -82,6 +82,10 @@ def update_project(project_id: int, svc: ProjectService = Depends(get_project_se
 def delete_project(project_id: int, svc: ProjectService = Depends(get_project_service)):
     """Xoá project và toàn bộ inverters thuộc về nó qua Service."""
     try:
+        from backend.api.sync_api import get_setup_service
+        setup_svc = get_setup_service()
+        setup_svc.request_delete_project_sync(project_id)
+        
         svc.delete_project(project_id)
         return {"ok": True}
     except Exception as e:

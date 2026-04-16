@@ -131,7 +131,29 @@ class SetupService:
             url = f"{API_BASE_URL}/api/projects/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
-            # 1. Thử PATCH nếu đã có server_request_id
+            # 0. Nếu dự án ĐÃ ĐƯỢC DUYỆT, ta dùng POST update với full payload
+            if project.server_id and project.sync_status == 'approved':
+                update_url = f"{API_BASE_URL}/api/projects/requests/update/{project.server_id}/"
+                logger.info(f"[Sync] Project is approved. Sending full update request to {update_url}")
+                resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                
+                if resp.status_code == 401:
+                    token = self.auth.handle_unauthorized()
+                    if token:
+                        headers["Authorization"] = f"Bearer {token}"
+                        resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                
+                if resp.status_code in [200, 201, 202]:
+                    res_data = resp.json()
+                    request_id = res_data.get("id")
+                    if request_id:
+                        self.project_svc.update_project_sync(project_id, server_request_id=request_id, status='pending')
+                        return request_id
+                else:
+                    logger.warning(f"[Sync] Project update request failed: {resp.status_code} - {resp.text}")
+                return None
+
+            # 1. Thử PATCH nếu đang ở trạng thái pending
             if project.server_request_id:
                 req_url = f"{url}{project.server_request_id}/"
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
@@ -144,25 +166,32 @@ class SetupService:
                 
                 if check_resp.status_code == 200:
                     server_data = check_resp.json()
-                    patch_payload = {}
-                    for k, v in payload.items():
-                        if server_data.get(k) != v:
-                            patch_payload[k] = v
+                    status = server_data.get("status", "").lower()
                     
-                    if not patch_payload:
-                        logger.info(f"[Sync] Project {project_id} has no changes to patch.")
-                        return project.server_request_id
-                    
-                    logger.info(f"[Sync] Patching project request {project.server_request_id} with: {patch_payload}")
-                    patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
-                    
-                    if patch_resp.status_code in [200, 201, 202]:
-                        return project.server_request_id
+                    if status == "pending":
+                        patch_payload = {}
+                        for k, v in payload.items():
+                            if server_data.get(k) != v:
+                                patch_payload[k] = v
+                        
+                        if not patch_payload:
+                            logger.info(f"[Sync] Project {project_id} has no changes to patch.")
+                            return project.server_request_id
+                        
+                        logger.info(f"[Sync] Patching project request {project.server_request_id} with: {patch_payload}")
+                        patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
+                        
+                        if patch_resp.status_code in [200, 201, 202]:
+                            return project.server_request_id
+                        else:
+                            logger.warning(f"[Sync] Project patch failed: {patch_resp.status_code} - {patch_resp.text}")
+                            return None
                     else:
-                        logger.warning(f"[Sync] Project patch failed: {patch_resp.status_code} - {patch_resp.text}")
-                        return None
+                        logger.info(f"[Sync] Project request {project.server_request_id} is '{status}'. Need a new request or check local sync_status.")
+                        # Không PATCH vì trạng thái request không phải pending. Sẽ fallback sang (2) tạo mới request.
                         
             # 2. Tạo mới bằng POST nếu chưa có
+
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
             
             if resp.status_code == 401:
@@ -217,7 +246,29 @@ class SetupService:
             url = f"{API_BASE_URL}/api/inverters/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
-            # 1. Thử PATCH nếu đã có server_request_id
+            # 0. Nếu inverter ĐÃ ĐƯỢC DUYỆT, ta dùng POST update với full payload
+            if inverter.server_id and inverter.sync_status == 'approved':
+                update_url = f"{API_BASE_URL}/api/inverters/requests/update/{inverter.server_id}/"
+                logger.info(f"[Sync] Inverter is approved. Sending full update request to {update_url}")
+                resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                
+                if resp.status_code == 401:
+                    token = self.auth.handle_unauthorized()
+                    if token:
+                        headers["Authorization"] = f"Bearer {token}"
+                        resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                
+                if resp.status_code in [200, 201, 202]:
+                    res_data = resp.json()
+                    request_id = res_data.get("id")
+                    if request_id:
+                        self.project_svc.update_inverter_sync(inverter_id, server_request_id=request_id, status='pending')
+                        return request_id
+                else:
+                    logger.warning(f"[Sync] Inverter update request failed: {resp.status_code} - {resp.text}")
+                return None
+
+            # 1. Thử PATCH nếu đang ở trạng thái pending
             if inverter.server_request_id:
                 req_url = f"{url}{inverter.server_request_id}/"
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
@@ -230,25 +281,31 @@ class SetupService:
                         
                 if check_resp.status_code == 200:
                     server_data = check_resp.json()
-                    patch_payload = {}
-                    for k, v in payload.items():
-                        if server_data.get(k) != v:
-                            patch_payload[k] = v
-                            
-                    if not patch_payload:
-                        logger.info(f"[Sync] Inverter {inverter_id} has no changes to patch.")
-                        return inverter.server_request_id
-                        
-                    logger.info(f"[Sync] Patching inverter request {inverter.server_request_id} with: {patch_payload}")
-                    patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
+                    status = server_data.get("status", "").lower()
                     
-                    if patch_resp.status_code in [200, 201, 202]:
-                        return inverter.server_request_id
+                    if status == "pending":
+                        patch_payload = {}
+                        for k, v in payload.items():
+                            if server_data.get(k) != v:
+                                patch_payload[k] = v
+                                
+                        if not patch_payload:
+                            logger.info(f"[Sync] Inverter {inverter_id} has no changes to patch.")
+                            return inverter.server_request_id
+                            
+                        logger.info(f"[Sync] Patching inverter request {inverter.server_request_id} with: {patch_payload}")
+                        patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
+                        
+                        if patch_resp.status_code in [200, 201, 202]:
+                            return inverter.server_request_id
+                        else:
+                            logger.warning(f"[Sync] Inverter patch failed: {patch_resp.status_code} - {patch_resp.text}")
+                            return None
                     else:
-                        logger.warning(f"[Sync] Inverter patch failed: {patch_resp.status_code} - {patch_resp.text}")
-                        return None
+                        logger.info(f"[Sync] Inverter request {inverter.server_request_id} is '{status}'. Cannot patch.")
                         
             # 2. Tạo mới bằng POST nếu chưa có
+
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
             
             if resp.status_code == 401:
@@ -311,6 +368,66 @@ class SetupService:
                 logger.error(f"[Sync] Polling error: {e}")
             
             time.sleep(60)
+
+    def request_delete_project_sync(self, project_id: int) -> bool:
+        """Gửi yêu cầu xoá Project lên server (POST /api/projects/requests/delete/{server_id})"""
+        project = self.project_svc.get_project(project_id)
+        if not project or not project.server_id:
+            return True
+
+        token = self.auth.get_access_token()
+        if not token: return False
+
+        try:
+            url = f"{API_BASE_URL}/api/projects/requests/delete/{project.server_id}/"
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            
+            resp = requests.post(url, headers=headers, timeout=20)
+            if resp.status_code == 401:
+                token = self.auth.handle_unauthorized()
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                    resp = requests.post(url, headers=headers, timeout=20)
+            
+            if resp.status_code in [200, 201, 202, 204]:
+                logger.info(f"[Sync] Sent delete request for project {project_id} (Server ID {project.server_id})")
+                return True
+            else:
+                logger.warning(f"[Sync] Project delete request failed: {resp.status_code} - {resp.text}")
+                return False
+        except Exception as e:
+            logger.error(f"[Sync] Project delete sync error: {e}")
+            return False
+
+    def request_delete_inverter_sync(self, inverter_id: int) -> bool:
+        """Gửi yêu cầu xoá Inverter lên server (POST /api/inverters/requests/delete/{server_id})"""
+        inverter = self.project_svc.get_inverter_id(inverter_id)
+        if not inverter or not inverter.server_id:
+            return True
+
+        token = self.auth.get_access_token()
+        if not token: return False
+
+        try:
+            url = f"{API_BASE_URL}/api/inverters/requests/delete/{inverter.server_id}/"
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            
+            resp = requests.post(url, headers=headers, timeout=20)
+            if resp.status_code == 401:
+                token = self.auth.handle_unauthorized()
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                    resp = requests.post(url, headers=headers, timeout=20)
+            
+            if resp.status_code in [200, 201, 202, 204]:
+                logger.info(f"[Sync] Sent delete request for inverter {inverter_id} (Server ID {inverter.server_id})")
+                return True
+            else:
+                logger.warning(f"[Sync] Inverter delete request failed: {resp.status_code} - {resp.text}")
+                return False
+        except Exception as e:
+            logger.error(f"[Sync] Inverter delete sync error: {e}")
+            return False
 
     def cancel_sync(self, project_id: int) -> bool:
         """Hủy yêu cầu đồng bộ."""
