@@ -65,11 +65,11 @@ async function handleSync() {
     if (!projId) return;
 
     const msg = document.getElementById('sync-status-msg');
-    const btn = document.getElementById('btn-sync-action');
+    const btn = document.getElementById('btn-sync-create') || document.getElementById('btn-sync-update');
 
     msg.innerText = "Đang xử lý đồng bộ...";
     msg.className = "text-primary";
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
 
     try {
         const res = await apiCall(`/sync/project/${projId}`, 'POST');
@@ -87,7 +87,7 @@ async function handleSync() {
         msg.innerText = "Lỗi kết nối: " + e.message;
         msg.className = "text-danger";
     } finally {
-        btn.disabled = false;
+        if (btn) btn.disabled = false;
     }
 }
 

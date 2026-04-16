@@ -3,7 +3,7 @@ services:
     build: .
     restart: always
     container_name: datalogger_web
-    command: ["python", "backend/app.py"]
+    command: [ "python", "backend/app.py" ]
     ports:
       - "5000:5000"
     env_file:
@@ -24,7 +24,7 @@ services:
     build: .
     restart: always
     container_name: datalogger_polling
-    command: ["python", "backend/scripts/run_polling.py"]
+    command: [ "python", "backend/scripts/run_polling.py" ]
     env_file:
       - .env
     devices:
@@ -45,7 +45,7 @@ services:
     build: .
     restart: always
     container_name: datalogger_uploader
-    command: ["python", "backend/scripts/run_uploader.py"]
+    command: [ "python", "backend/scripts/run_uploader.py" ]
     env_file:
       - .env
     volumes:
