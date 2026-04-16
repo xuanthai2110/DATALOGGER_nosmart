@@ -147,21 +147,21 @@ class SetupService:
                         headers["Authorization"] = f"Bearer {token}"
                         get_resp = requests.get(check_url, headers=headers, timeout=10)
                 
+                diff_payload = payload
                 if get_resp.status_code == 200:
                     server_data = get_resp.json()
-                    has_changes = False
+                    diff_payload = {}
                     for k, v in payload.items():
                         sv = server_data.get(k)
                         if str(sv) != str(v) and str(sv) != str(v) + ".0":
-                            has_changes = True
-                            break
-                    if not has_changes:
+                            diff_payload[k] = v
+                    if not diff_payload:
                         logger.info(f"[Sync] Project {project_id} has no changes. Skipping POST update.")
                         return -1
                         
                 update_url = f"{base_api}/api/projects/requests/update/{project.server_id}"
-                logger.info(f"[Sync] Project is approved. Sending full update request to {update_url}")
-                resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                logger.info(f"[Sync] Project is approved. Sending update request to {update_url} with: {diff_payload}")
+                resp = requests.post(update_url, json=diff_payload, headers=headers, timeout=20)
                 
                 if resp.status_code == 401:
                     token = self.auth.handle_unauthorized()
@@ -284,21 +284,21 @@ class SetupService:
                         headers["Authorization"] = f"Bearer {token}"
                         get_resp = requests.get(check_url, headers=headers, timeout=10)
                         
+                diff_payload = payload
                 if get_resp.status_code == 200:
                     server_data = get_resp.json()
-                    has_changes = False
+                    diff_payload = {}
                     for k, v in payload.items():
                         sv = server_data.get(k)
                         if str(sv) != str(v) and str(sv) != str(v) + ".0":
-                            has_changes = True
-                            break
-                    if not has_changes:
+                            diff_payload[k] = v
+                    if not diff_payload:
                         logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping POST update.")
                         return -1
                         
                 update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
-                logger.info(f"[Sync] Inverter is approved. Sending full update request to {update_url}")
-                resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                logger.info(f"[Sync] Inverter is approved. Sending update request to {update_url} with: {diff_payload}")
+                resp = requests.post(update_url, json=diff_payload, headers=headers, timeout=20)
                 
                 if resp.status_code == 401:
                     token = self.auth.handle_unauthorized()
