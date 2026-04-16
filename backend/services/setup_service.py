@@ -529,7 +529,7 @@ class SetupService:
 
     def request_delete_inverter_sync(self, inverter_id: int) -> bool:
         """Gửi yêu cầu xoá Inverter lên server (POST /api/inverters/requests/delete/{server_id})"""
-        inverter = self.project_svc.get_inverter_id(inverter_id)
+        inverter = self.project_svc.get_inverter_by_id(inverter_id)
         if not inverter or not inverter.server_id:
             return True
 

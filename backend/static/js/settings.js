@@ -149,6 +149,13 @@ async function deleteInverter(id) {
     }
 }
 
+async function deleteInverterFromForm() {
+    const id = document.getElementById('inv-id').value;
+    if (!id) return;
+    await deleteInverter(id);
+    resetInverterForm();
+}
+
 async function saveProject() {
     const id = document.getElementById('proj-id').value;
     const body = {

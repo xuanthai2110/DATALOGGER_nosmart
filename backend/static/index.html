@@ -353,10 +353,14 @@
                                 <div class="input-group"><label>Số pha</label><input type="number" id="inv-phase"></div>
                             </div>
 
-                            <div style="display:flex; gap:10px;">
-                                <button class="btn btn-success" onclick="saveInverter()">CẬP NHẬT TRÊN PI</button>
-                                <button class="btn" style="background:rgba(255,255,255,0.05)"
-                                    onclick="resetInverterForm()">ĐÓNG</button>
+                            <div style="display:flex; flex-direction: column; gap:10px;">
+                                <div style="display:flex; gap:10px;">
+                                    <button class="btn btn-success" onclick="saveInverter()">CẬP NHẬT TRÊN PI</button>
+                                    <button class="btn" style="background:rgba(255,255,255,0.05)"
+                                        onclick="resetInverterForm()">ĐÓNG</button>
+                                </div>
+                                <button class="btn btn-danger" style="background:rgba(239, 68, 68, 0.15); color:var(--danger); border: 1px solid var(--danger);" 
+                                    onclick="deleteInverterFromForm()">XÓA THIẾT BỊ KHỎI PI</button>
                             </div>
                         </div>
                     </div>
