@@ -1,7 +1,8 @@
 import requests
 import logging
 import time
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime, timezone
 from dataclasses import asdict
 from backend.core.settings import API_BASE_URL
 from backend.models.project import ProjectCreate, ProjectUpdate
@@ -111,36 +112,28 @@ class SetupService:
         
         return False
 
-    def initiate_sync_request(self, project_id: int) -> Optional[int]:
-        """Gửi yêu cầu đồng bộ (POST /api/project/requests/)"""
+    def initiate_project_sync(self, project_id: int) -> Optional[int]:
+        """Gửi yêu cầu đồng bộ Project (POST /api/projects/requests/)"""
         project = self.project_svc.get_project(project_id)
-        inverters = self.project_svc.get_inverters_by_project(project_id)
         if not project: return None
 
         token = self.auth.get_access_token()
         if not token: return None
 
-        # Chỉ lấy các trường server cần
-        exclude_fields = {'id', 'server_id', 'server_request_id', 'sync_status', 'created_at', 'updated_at'}
-        proj_dict = {k: v for k, v in asdict(project).items() if k not in exclude_fields and v is not None}
-        
-        inv_list = []
-        for inv in inverters:
-            inv_dict = {k: v for k, v in asdict(inv).items() if k not in exclude_fields and v is not None}
-            inv_list.append(inv_dict)
-
-        payload = {
-            "project": proj_dict,
-            "inverters": inv_list
+        # Danh sách các trường Project theo yêu cầu server
+        project_fields = {
+            'elec_meter_no', 'elec_price_per_kwh', 'name', 'location', 
+            'lat', 'lon', 'capacity_kwp', 'ac_capacity_kw', 'inverter_count'
         }
+        payload = {k: v for k, v in asdict(project).items() if k in project_fields}
 
         try:
-            url = f"{API_BASE_URL}/api/project/requests/"
+            url = f"{API_BASE_URL}/api/projects/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
             
             if resp.status_code == 401:
-                logger.info("[Sync] Initiate sync: 401 detected, attempting to recover...")
+                logger.info("[Sync] Project: 401 detected, attempting to recover...")
                 token = self.auth.handle_unauthorized()
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
@@ -152,8 +145,63 @@ class SetupService:
                 if request_id:
                     self.project_svc.update_project_sync(project_id, server_request_id=request_id, status='pending')
                     return request_id
+            else:
+                logger.warning(f"[Sync] Project sync failed with status {resp.status_code}: {resp.text}")
         except Exception as e:
-            logger.error(f"[Sync] Initiate sync error: {e}")
+            logger.error(f"[Sync] Project sync error: {e}")
+        
+        return None
+
+    def initiate_inverter_sync(self, inverter_id: int) -> Optional[int]:
+        """Gửi yêu cầu đồng bộ Inverter (POST /api/inverters/requests/)"""
+        inverter = self.project_svc.get_inverter(inverter_id)
+        if not inverter: return None
+        
+        project_id = inverter.project_id
+        sync_info = self.project_svc.metadata_db.get_project_sync_info(project_id)
+        if not sync_info: return None
+
+        token = self.auth.get_access_token()
+        if not token: return None
+
+        # Danh sách các trường Inverter theo yêu cầu server
+        inv_fields = {
+            'inverter_index', 'serial_number', 'brand', 'model', 'firmware_version',
+            'phase_count', 'mppt_count', 'string_count', 'rate_dc_kwp', 'rate_ac_kw',
+            'is_active', 'replaced_by_id', 'usage_start_at', 'usage_end_at'
+        }
+        payload = {k: v for k, v in asdict(inverter).items() if k in inv_fields}
+        
+        # Thêm các ID liên kết
+        payload["project_id"] = sync_info.get("server_id") or 0
+        payload["project_request_id"] = sync_info.get("server_request_id") or 0
+        
+        # Format date strings if they are objects
+        if payload.get("usage_start_at") is None:
+            payload["usage_start_at"] = datetime.now(timezone.utc).isoformat()
+
+        try:
+            url = f"{API_BASE_URL}/api/inverters/requests/"
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            resp = requests.post(url, json=payload, headers=headers, timeout=20)
+            
+            if resp.status_code == 401:
+                logger.info("[Sync] Inverter: 401 detected, attempting to recover...")
+                token = self.auth.handle_unauthorized()
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                    resp = requests.post(url, json=payload, headers=headers, timeout=20)
+
+            if resp.status_code in [200, 201, 202]:
+                res_data = resp.json()
+                request_id = res_data.get("id")
+                if request_id:
+                    self.project_svc.update_inverter_sync(inverter_id, server_request_id=request_id, status='pending')
+                    return request_id
+            else:
+                logger.warning(f"[Sync] Inverter sync failed with status {resp.status_code}: {resp.text}")
+        except Exception as e:
+            logger.error(f"[Sync] Inverter sync error: {e}")
         
         return None
 
@@ -167,7 +215,7 @@ class SetupService:
                 continue
 
             try:
-                url = f"{API_BASE_URL}/api/project/requests/{request_id}"
+                url = f"{API_BASE_URL}/api/projects/requests/{request_id}"
                 headers = {"Authorization": f"Bearer {token}"}
                 resp = requests.get(url, headers=headers, timeout=10)
                 
@@ -209,7 +257,7 @@ class SetupService:
         if not token: return False
 
         try:
-            url = f"{API_BASE_URL}/api/project/requests/{request_id}/"
+            url = f"{API_BASE_URL}/api/projects/requests/{request_id}/"
             headers = {"Authorization": f"Bearer {token}"}
             resp = requests.delete(url, headers=headers, timeout=10)
             if resp.status_code in [200, 204]:

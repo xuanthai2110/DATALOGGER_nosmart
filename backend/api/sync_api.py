@@ -25,14 +25,13 @@ async def sync_project(
     if svc.pre_sync_check(project_id):
         return {"ok": True, "message": "Project matched and approved automatically from server."}
     
-    # 2. Nếu chưa có, gửi yêu cầu đồng bộ mới (Dự án + Biến tần)
-    # Kiểm tra Token trước khi gửi
+    # 2. Gửi yêu cầu đồng bộ Project mới
     if not svc.auth.get_access_token():
         raise HTTPException(status_code=401, detail="Cloud authentication failed. Please check your credentials in .env")
 
-    request_id = svc.initiate_sync_request(project_id)
+    request_id = svc.initiate_project_sync(project_id)
     if not request_id:
-        raise HTTPException(status_code=502, detail="Cloud server rejected the request or is unreachable.")
+        raise HTTPException(status_code=502, detail="Cloud server rejected the project request or is unreachable.")
     
     # 3. Chạy polling trong background để theo dõi kết quả phê duyệt
     background_tasks.add_task(svc.background_poll_status, request_id, project_id)
@@ -40,7 +39,25 @@ async def sync_project(
     return {
         "ok": True, 
         "server_request_id": request_id, 
-        "message": "Sync request sent. Waiting for Admin approval. Polling started in background."
+        "message": "Project sync request sent. Waiting for Admin approval."
+    }
+
+@router.post("/inverter/{inverter_id}")
+async def sync_inverter(
+    inverter_id: int, 
+    svc: SetupService = Depends(get_setup_service)
+):
+    if not svc.auth.get_access_token():
+        raise HTTPException(status_code=401, detail="Cloud authentication failed.")
+
+    request_id = svc.initiate_inverter_sync(inverter_id)
+    if not request_id:
+        raise HTTPException(status_code=502, detail="Cloud server rejected the inverter request. Ensure project is synced first.")
+    
+    return {
+        "ok": True, 
+        "server_request_id": request_id, 
+        "message": "Inverter sync request sent."
     }
 
 @router.delete("/project/{project_id}/stop")

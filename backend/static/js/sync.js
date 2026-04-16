@@ -45,6 +45,13 @@ async function loadSyncProjectDetails() {
             <td>${inv.model}</td>
             <td><span class="badge ${inv.sync_status === 'approved' ? 'success' : 'warning'}">${inv.sync_status || 'pending'}</span></td>
             <td>${inv.server_id ? 'ID: ' + inv.server_id : (inv.server_request_id ? 'Req: ' + inv.server_request_id : '-')}</td>
+            <td>
+                <button class="action-btn" onclick="handleInverterSync(${inv.id})" 
+                        title="Đồng bộ Inverter này"
+                        ${inv.sync_status === 'approved' ? 'disabled' : ''}>
+                    <i class="fas fa-sync"></i>
+                </button>
+            </td>
         </tr>
     `).join('');
 
@@ -87,5 +94,26 @@ async function handleSync() {
         msg.className = "text-danger";
     } finally {
         btn.disabled = false;
+    }
+}
+
+async function handleInverterSync(invId) {
+    const msg = document.getElementById('sync-status-msg');
+    msg.innerText = `Đang đồng bộ biến tần ${invId}...`;
+    msg.className = "text-primary";
+
+    try {
+        const res = await apiCall(`/sync/inverter/${invId}`, 'POST');
+        if (res && res.ok) {
+            msg.innerText = res.message || "Đồng bộ biến tần thành công!";
+            msg.className = "text-success";
+            loadSyncProjectDetails(); // Refresh table
+        } else {
+            msg.innerText = "Lỗi đồng bộ biến tần: " + (res ? res.detail : "Lỗi không xác định");
+            msg.className = "text-danger";
+        }
+    } catch (e) {
+        msg.innerText = "Lỗi kết nối: " + e.message;
+        msg.className = "text-danger";
     }
 }
