@@ -208,10 +208,12 @@
                                 <tbody id="sync-inverters-body"></tbody>
                             </table>
                         </div>
-                        <div id="sync-actions">
-                            <button class="btn btn-primary" id="btn-sync-action" onclick="handleSync()"><i class="fas fa-cloud-upload-alt"></i> ĐỒNG BỘ LÊN SERVER</button>
-                            <p id="sync-status-msg" style="margin-top:10px; font-weight:500;"></p>
+                        <div id="sync-actions" style="display:flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn btn-success" id="btn-sync-create" onclick="handleSync()"><i class="fas fa-plus"></i> CREATE</button>
+                            <button class="btn btn-warning" id="btn-sync-update" onclick="handleSync()"><i class="fas fa-edit"></i> UPDATE</button>
+                            <button class="btn btn-danger" id="btn-sync-delete" onclick="handleDeleteSync('project')"><i class="fas fa-trash"></i> DELETE</button>
                         </div>
+                        <p id="sync-status-msg" style="margin-top:10px; font-weight:500;"></p>
                     </div>
                 </div>
             </div>

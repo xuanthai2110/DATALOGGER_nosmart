@@ -46,23 +46,17 @@ async function loadSyncProjectDetails() {
             <td><span class="badge ${inv.sync_status === 'approved' ? 'success' : 'warning'}">${inv.sync_status || 'pending'}</span></td>
             <td>${inv.server_id ? 'ID: ' + inv.server_id : (inv.server_request_id ? 'Req: ' + inv.server_request_id : '-')}</td>
             <td>
-                <button class="action-btn" onclick="handleInverterSync(${inv.id})" 
-                        title="Đồng bộ Inverter này"
-                        ${inv.sync_status === 'approved' ? 'disabled' : ''}>
-                    <i class="fas fa-sync"></i>
-                </button>
+                <div style="display:flex; gap: 5px;">
+                    <button class="action-btn" style="color:var(--success)" onclick="handleInverterSync(${inv.id})" title="Create"><i class="fas fa-plus"></i></button>
+                    <button class="action-btn" style="color:var(--warning)" onclick="handleInverterSync(${inv.id})" title="Update"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn delete" onclick="handleDeleteSync('inverter', ${inv.id})" title="Delete"><i class="fas fa-trash"></i></button>
+                </div>
             </td>
         </tr>
     `).join('');
 
-    // Update button text or status based on role
-    const syncBtn = document.getElementById('btn-sync-action');
-    if (currentUser.role === 'admin') {
-        syncBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> ĐỒNG BỘ LÊN SERVER (ADMIN)';
-    } else {
-        syncBtn.innerHTML = '<i class="fas fa-paper-plane"></i> GỬI YÊU CẦU ĐỒNG BỘ (USER)';
-    }
-
+    // Update button visibility based on the project state if needed
+    // (Here we render all 3 buttons for explicitly handling create, update, delete requests)
     detailsDiv.classList.remove('hidden');
 }
 
@@ -110,6 +104,33 @@ async function handleInverterSync(invId) {
             loadSyncProjectDetails(); // Refresh table
         } else {
             msg.innerText = "Lỗi đồng bộ biến tần: " + (res ? res.detail : "Lỗi không xác định");
+            msg.className = "text-danger";
+        }
+    } catch (e) {
+        msg.innerText = "Lỗi kết nối: " + e.message;
+        msg.className = "text-danger";
+    }
+}
+
+async function handleDeleteSync(type, id = null) {
+    const msg = document.getElementById('sync-status-msg');
+    const endpoint = type === 'project' 
+        ? `/sync/project/${document.getElementById('sync-project-select').value}/delete`
+        : `/sync/inverter/${id}/delete`;
+
+    if (!confirm(`Bạn có chắc chắn muốn gửi yêu cầu XÓA ${type} này lên server không?`)) return;
+
+    msg.innerText = `Đang gửi yêu cầu xóa ${type}...`;
+    msg.className = "text-primary";
+
+    try {
+        const res = await apiCall(endpoint, 'POST');
+        if (res && res.ok) {
+            msg.innerText = res.message || `Đã gửi yêu cầu xóa ${type}!`;
+            msg.className = "text-success";
+            loadSyncProjectDetails();
+        } else {
+            msg.innerText = `Lỗi xóa ${type}: ` + (res ? res.detail : "Lỗi không xác định");
             msg.className = "text-danger";
         }
     } catch (e) {

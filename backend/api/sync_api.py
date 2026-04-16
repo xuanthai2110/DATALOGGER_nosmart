@@ -73,3 +73,31 @@ async def stop_sync(
     if not success:
         raise HTTPException(status_code=400, detail="Could not cancel sync (maybe no pending request exists).")
     return {"ok": True, "message": "Sync request cancelled and local status reset."}
+
+@router.post("/project/{project_id}/delete")
+async def sync_delete_project(
+    project_id: int, 
+    svc: SetupService = Depends(get_setup_service)
+):
+    if not svc.auth.get_access_token():
+        raise HTTPException(status_code=401, detail="Cloud authentication failed.")
+
+    success = svc.request_delete_project_sync(project_id)
+    if not success:
+        raise HTTPException(status_code=502, detail="Cloud server rejected the delete request.")
+    
+    return {"ok": True, "message": "Project delete request sent successfully."}
+
+@router.post("/inverter/{inverter_id}/delete")
+async def sync_delete_inverter(
+    inverter_id: int, 
+    svc: SetupService = Depends(get_setup_service)
+):
+    if not svc.auth.get_access_token():
+        raise HTTPException(status_code=401, detail="Cloud authentication failed.")
+
+    success = svc.request_delete_inverter_sync(inverter_id)
+    if not success:
+        raise HTTPException(status_code=502, detail="Cloud server rejected the delete request.")
+    
+    return {"ok": True, "message": "Inverter delete request sent successfully."}
