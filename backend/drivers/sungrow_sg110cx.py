@@ -71,9 +71,9 @@ class Sungrowsg110cx(BaseDriver):
                 {"name": "ir", "address": 5070, "length": 1, "type": "uint16", "scale": 1.0},
             ],
             "control": [
-                {"name": "enable_power_limit", "address": 6000, "length": 1, "type": "uint16", "scale": None},
-                {"name": "power_limit_kw", "address": 6001, "length": 1, "type": "uint16", "scale": 0.1},
-                {"name": "power_limit_percent", "address": 6002, "length": 1, "type": "uint16", "scale": 0.1},
+                {"name": "enable_power_limit", "address": 5006, "length": 1, "type": "uint16", "scale": None},
+                {"name": "power_limit_percent", "address": 5007, "length": 1, "type": "uint16", "scale": 0.1},
+                {"name": "power_limit_kw", "address": 5038, "length": 1, "type": "uint16", "scale": 0.1},
             ],
         }
 
@@ -347,15 +347,15 @@ class Sungrowsg110cx(BaseDriver):
 
     def enable_power_limit(self, enable: bool) -> bool:
         response = self.transport.write_register(
-            address=6000,
-            value=1 if enable else 0,
+            address=5006,
+            value=0xAA if enable else 0x55,
             slave=self.slave_id,
         )
         return self._ensure_write_ok(response, f"Enable power limit={enable}")
 
     def write_power_limit_kw(self, kw: float) -> bool:
         response = self.transport.write_register(
-            address=6001,
+            address=5038,
             value=int(kw * 10),
             slave=self.slave_id,
         )
@@ -363,7 +363,7 @@ class Sungrowsg110cx(BaseDriver):
 
     def write_power_limit_percent(self, percent: float) -> bool:
         response = self.transport.write_register(
-            address=6002,
+            address=5007,
             value=int(percent * 10),
             slave=self.slave_id,
         )
