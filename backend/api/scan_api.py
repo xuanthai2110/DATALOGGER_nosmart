@@ -20,6 +20,18 @@ def get_project_service():
 router = APIRouter(tags=["scan"])
 logger = logging.getLogger(__name__)
 
+@router.get("/models")
+def get_models():
+    try:
+        from backend.services.detect_service import SUNGROW_MODEL, HUAWEI_MODEL
+        return {
+            "Sungrow": [m["model"] for m in SUNGROW_MODEL],
+            "Huawei": [m["model"] for m in HUAWEI_MODEL]
+        }
+    except Exception as e:
+        logger.error(f"[scan/models] Error: {e}")
+        return {"Sungrow": [], "Huawei": []}
+
 # Global state for scanning
 class ScanState:
     def __init__(self):
@@ -69,9 +81,23 @@ def background_scan(comm: dict):
     global scan_state
     
     driver_name = comm.get("driver", "Huawei")
+    brand_selected = comm.get("brand")
+    model_selected = comm.get("model")
     slave_start = int(comm.get("slave_id_start", 1))
     slave_end = int(comm.get("slave_id_end", 30))
     
+    # Retrieve detect info if specified
+    detect_info = None
+    if brand_selected and model_selected:
+        try:
+            from backend.services.detect_service import SUNGROW_MODEL, HUAWEI_MODEL
+            if brand_selected.lower() == "sungrow":
+                detect_info = next((m for m in SUNGROW_MODEL if m["model"] == model_selected), None)
+            elif brand_selected.lower() == "huawei":
+                detect_info = next((m for m in HUAWEI_MODEL if m["model"] == model_selected), None)
+        except Exception as e:
+            logger.error(f"Error loading models from detect_service: {e}")
+
     with scan_state.lock:
         scan_state.is_running = True
         scan_state.stop_requested = False
@@ -100,6 +126,31 @@ def background_scan(comm: dict):
                     # Check serial_number AND is_active (Huawei driver returns is_active=False on error)
                     if info and info.get("serial_number") and info.get("is_active", True):
                         info["slave_id"] = slave_id
+                        
+                        # Apply model mappings directly if specified by client
+                        if brand_selected: info["brand"] = brand_selected
+                        if model_selected: info["model"] = model_selected
+                        
+                        if detect_info:
+                            try:
+                                # Example: "3;3;2" -> 3+3+2 = 8. "4" -> 4
+                                str_mppt = detect_info.get("string_mppt", "1")
+                                total_strings = sum(int(x) for x in str_mppt.split(";") if x.isdigit())
+                            except Exception:
+                                total_strings = 1
+                            
+                            info["mppt_count"] = detect_info.get("mppt")
+                            info["string_count"] = total_strings
+                            info["capacity_kw"] = detect_info.get("p_ac")
+                            info["rate_ac_kw"] = detect_info.get("p_ac")
+                            info["rate_dc_kwp"] = detect_info.get("p_dc")
+                            
+                            # Log type_code warning if it doesn't match hardware
+                            hw_type_code = info.get("type_code") # Might be int or str depending on driver
+                            if hw_type_code is not None:
+                                expected_type_code = detect_info.get("type_code")
+                                logger.info(f"[Scan] Hardware TypeCode: {hw_type_code}, Expected: {expected_type_code}")
+
                         with scan_state.lock:
                             scan_state.results.append(info)
                         logger.info(f"[Scan] Found inverter at slave {slave_id}: {info.get('serial_number')}")
@@ -175,7 +226,16 @@ def save_inverters(body: dict = Body(...)):
         inverters_in = body.get("inverters", [])
         saved = 0
         for inv in inverters_in:
-            if not inv.get("project_id"): continue
+            project_id = inv.get("project_id")
+            if not project_id: continue
+            
+            # Gán inverter_index tự động nếu chưa có
+            if not inv.get("inverter_index"):
+                existing = svc.metadata_db.get_inverters_by_project(project_id)
+                next_idx = max((x.inverter_index for x in existing if x.inverter_index is not None), default=0) + 1
+                inv["inverter_index"] = next_idx
+                logger.info(f"[Scan] Auto-assigned inverter_index={next_idx} for inverter SN={inv.get('serial_number')}")
+
             svc.metadata_db.upsert_inverter(InverterCreate(**inv))
             saved += 1
         return {"ok": True, "saved": saved}

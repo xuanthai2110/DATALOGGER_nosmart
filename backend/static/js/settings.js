@@ -4,13 +4,15 @@ let settingsInverters = [];
 let foundInverters = [];
 let scanPollInterval = null;
 let scanSelections = {};
+let availableModels = { "Sungrow": [], "Huawei": [] };
 
 async function loadSettings() {
     console.log("Loading settings data...");
-    const [pData, cData, iData] = await Promise.all([
+    const [pData, cData, iData, mData] = await Promise.all([
         apiCall('/projects'),
         apiCall('/comm'),
-        apiCall('/inverters')
+        apiCall('/inverters'),
+        apiCall('/scan/models')
     ]);
 
     console.log("Projects data:", pData);
@@ -19,6 +21,11 @@ async function loadSettings() {
     settingsProjects = (pData && pData.projects) || [];
     settingsComms = cData || [];
     settingsInverters = iData || [];
+    
+    if (mData) {
+        availableModels = mData;
+        updateModels();
+    }
 
     // Render bảng Dự án và Truyền thông (Phần cũ)
     const projectBody = document.getElementById('body-settings-projects');
@@ -243,6 +250,14 @@ async function saveComm() {
 function editComm(c) {
     document.getElementById('comm-id').value = c.id || "";
     document.getElementById('comm-driver').value = c.driver;
+    
+    const brandEl = document.getElementById('comm-brand');
+    const modelEl = document.getElementById('comm-model');
+    if (brandEl) {
+        brandEl.value = c.driver === "Sungrow" ? "Sungrow" : "Huawei";
+        updateModels();
+    }
+    
     document.getElementById('comm-type-select').value = c.comm_type;
     document.getElementById('comm-host').value = c.host;
     document.getElementById('comm-port').value = c.port;
@@ -257,9 +272,23 @@ function editComm(c) {
     renderScanResults();
 }
 
+function updateModels() {
+    const brand = document.getElementById('comm-brand')?.value;
+    const modelSelect = document.getElementById('comm-model');
+    const driverSelect = document.getElementById('comm-driver');
+    if (!modelSelect || !brand) return;
+    
+    if (driverSelect) driverSelect.value = brand;
+
+    const models = availableModels[brand] || [];
+    modelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
 async function startScan() {
     const btn = document.getElementById('btn-scan');
     const comm = {
+        brand: document.getElementById('comm-brand')?.value,
+        model: document.getElementById('comm-model')?.value,
         driver: document.getElementById('comm-driver').value,
         comm_type: document.getElementById('comm-type-select').value,
         host: document.getElementById('comm-host').value,
