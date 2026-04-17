@@ -278,6 +278,9 @@ def save_inverters(body: dict = Body(...)):
                 inv["inverter_index"] = next_idx
                 logger.info(f"[Scan] Auto-assigned inverter_index={next_idx} for inverter SN={inv.get('serial_number')}")
 
+            # Loại bỏ các trường thừa sinh ra trong lúc scan không có trong DB Schema
+            inv.pop("type_code", None)
+
             svc.metadata_db.upsert_inverter(InverterCreate(**inv))
             saved += 1
         return {"ok": True, "saved": saved}
