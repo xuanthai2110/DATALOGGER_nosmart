@@ -10,6 +10,8 @@ from backend.models.inverter import InverterCreate
 import logging
 import time
 import threading
+import os
+import importlib
 from backend.core import settings as app_config
 
 def get_project_service():
@@ -20,13 +22,36 @@ def get_project_service():
 router = APIRouter(tags=["scan"])
 logger = logging.getLogger(__name__)
 
+def _get_driver_filename(brand: str, model: str) -> str:
+    clean_model = model.lower().replace("-", "_").replace(".", "_")
+    return f"{brand.lower()}_{clean_model}.py"
+
+def normalize_type_code(tc):
+    if tc is None: return None
+    if isinstance(tc, int): return tc
+    if isinstance(tc, str):
+        tc = tc.strip()
+        if tc.lower().startswith("0x"):
+            try: return int(tc, 16)
+            except: pass
+        else:
+            try: return int(tc)
+            except: pass
+    return tc
+
 @router.get("/models")
 def get_models():
     try:
         from backend.services.detect_service import SUNGROW_MODEL, HUAWEI_MODEL
+        drivers_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "drivers")
+        existing_files = set(os.listdir(drivers_dir))
+
+        valid_sungrow = [m["model"] for m in SUNGROW_MODEL if _get_driver_filename("Sungrow", m["model"]) in existing_files]
+        valid_huawei = [m["model"] for m in HUAWEI_MODEL if _get_driver_filename("Huawei", m["model"]) in existing_files]
+
         return {
-            "Sungrow": [m["model"] for m in SUNGROW_MODEL],
-            "Huawei": [m["model"] for m in HUAWEI_MODEL]
+            "Sungrow": sorted(list(set(valid_sungrow))),
+            "Huawei": sorted(list(set(valid_huawei)))
         }
     except Exception as e:
         logger.error(f"[scan/models] Error: {e}")
@@ -45,7 +70,22 @@ class ScanState:
 
 scan_state = ScanState()
 
-def _get_driver_class(driver_name: str):
+def _get_driver_class(driver_name: str, brand: str = None, model: str = None):
+    if brand and model:
+        # Dynamic import: e.g. sungrow_sg110cx.py -> Sungrowsg110cx
+        clean_model_mod = model.lower().replace("-", "_").replace(".", "_")
+        module_name = f"backend.drivers.{brand.lower()}_{clean_model_mod}"
+        clean_model_class = model.replace("-", "").replace(".", "").lower()
+        class_name = f"{brand.capitalize()}{clean_model_class}"
+        try:
+            module = importlib.import_module(module_name)
+            return getattr(module, class_name)
+        except Exception as e:
+            logger.error(f"Cannot load dynamic driver {module_name}.{class_name}: {e}")
+            # Fallback will raise error below if we can't load it
+            raise ValueError(f"Driver logic class not found for {brand} {model}")
+
+    # Fallback to old behavior
     if driver_name == "Huawei":
         from backend.drivers.huawei_sun2000_110ktl import Huaweisun2000110ktl
         return Huaweisun2000110ktl
@@ -108,7 +148,7 @@ def background_scan(comm: dict):
 
     transport = None
     try:
-        DriverClass = _get_driver_class(driver_name)
+        DriverClass = _get_driver_class(driver_name, brand_selected, model_selected)
         transport = _get_transport(comm)
         
         for slave_id in range(slave_start, slave_end + 1):
@@ -125,15 +165,17 @@ def background_scan(comm: dict):
                     info = driver.read_info()
                     # Check serial_number AND is_active (Huawei driver returns is_active=False on error)
                     if info and info.get("serial_number") and info.get("is_active", True):
-                        info["slave_id"] = slave_id
                         
-                        # Apply model mappings directly if specified by client
-                        if brand_selected: info["brand"] = brand_selected
-                        if model_selected: info["model"] = model_selected
-                        
+                        # If detect info exists, match type_code before appending
                         if detect_info:
+                            hw_tc = normalize_type_code(info.get("type_code"))
+                            ex_tc = normalize_type_code(detect_info.get("type_code"))
+                            
+                            if hw_tc is not None and ex_tc is not None and hw_tc != ex_tc:
+                                logger.warning(f"[Scan] Slave {slave_id} rejected: Hardware TypeCode {info.get('type_code')} != Expected {detect_info.get('type_code')}")
+                                continue  # Reject and move to next iteration
+                            
                             try:
-                                # Example: "3;3;2" -> 3+3+2 = 8. "4" -> 4
                                 str_mppt = detect_info.get("string_mppt", "1")
                                 total_strings = sum(int(x) for x in str_mppt.split(";") if x.isdigit())
                             except Exception:
@@ -144,13 +186,13 @@ def background_scan(comm: dict):
                             info["capacity_kw"] = detect_info.get("p_ac")
                             info["rate_ac_kw"] = detect_info.get("p_ac")
                             info["rate_dc_kwp"] = detect_info.get("p_dc")
+                            # override brand and model if user manually selected them
+                            info["brand"] = brand_selected
+                            info["model"] = model_selected
                             
-                            # Log type_code warning if it doesn't match hardware
-                            hw_type_code = info.get("type_code") # Might be int or str depending on driver
-                            if hw_type_code is not None:
-                                expected_type_code = detect_info.get("type_code")
-                                logger.info(f"[Scan] Hardware TypeCode: {hw_type_code}, Expected: {expected_type_code}")
+                            logger.info(f"[Scan] TypeCode valid: {ex_tc}")
 
+                        info["slave_id"] = slave_id
                         with scan_state.lock:
                             scan_state.results.append(info)
                         logger.info(f"[Scan] Found inverter at slave {slave_id}: {info.get('serial_number')}")
