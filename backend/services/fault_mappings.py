@@ -562,7 +562,7 @@ SUNGROW_STATE_MAP = {
     0x5500: {'id_sungrow': 21760, 'id_unified': 5,  'name': 'Lỗi',                   'severity': 'ERROR',      'description': 'Xảy ra lỗi, biến tần dừng'},
     0x8000: {'id_sungrow': 32768, 'id_unified': 4,  'name': 'Dừng',                  'severity': 'STABLE',     'description': 'Biến tần đã dừng'},
     0x8100: {'id_sungrow': 33024, 'id_unified': 7,  'name': 'Giảm công suất',        'severity': 'WARNING',    'description': 'Vận hành với công suất giảm'},
-    0x8200: {'id_sungrow': 33280, 'id_unified': 8,  'name': 'Vận hành theo lệnh',    'severity': 'STABLE',     'description': 'Vận hành theo điều độ'},
+    0x8200: {'id_sungrow': 33280, 'id_unified': 8,  'name': 'Vận hành theo lệnh',    'severity': 'WARNING',     'description': 'Vận hành theo điều độ'},
     0x9100: {'id_sungrow': 37120, 'id_unified': 6,  'name': 'Vận hành có cảnh báo',  'severity': 'WARNING',    'description': 'Vận hành với cảnh báo đang hoạt động'},
 }
 
