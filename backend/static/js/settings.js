@@ -303,7 +303,7 @@ async function pollScanStatus() {
 
     const progress = res.total > 0 ? (res.progress / res.total * 100) : 0;
     document.getElementById('scan-progress-bar').style.width = `${progress}%`;
-    document.getElementById('scan-status-text').innerText = res.is_running ? `Äang quÃ©t Slave ID: ${res.progress}/${res.total}` : 'QuÃ©t hoÃ n táº¥t';
+    document.getElementById('scan-status-text').innerText = res.is_running ? `Đang quét Slave ID: ${res.progress}/${res.total}` : 'Quét hoàn tất';
 
     foundInverters = res.inverters || [];
     renderScanResults();
@@ -314,9 +314,9 @@ async function pollScanStatus() {
         document.getElementById('btn-scan').disabled = false;
         document.getElementById('btn-stop-scan').classList.add('hidden');
         if (foundInverters.length === 0 && !res.stop_requested) {
-            document.getElementById('scan-list').innerHTML = '<p style="text-align:center; padding:10px; opacity:0.6">KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹ nÃ o.</p>';
+            document.getElementById('scan-list').innerHTML = '<p style="text-align:center; padding:10px; opacity:0.6">Không tìm thấy thiết bị nào.</p>';
         } else if (res.stop_requested) {
-            document.getElementById('scan-status-text').innerText = 'ÄÃ£ dá»«ng quÃ©t';
+            document.getElementById('scan-status-text').innerText = 'Đã dừng quét';
         }
     }
 }

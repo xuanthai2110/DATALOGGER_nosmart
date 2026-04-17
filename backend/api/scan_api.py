@@ -35,8 +35,8 @@ scan_state = ScanState()
 
 def _get_driver_class(driver_name: str):
     if driver_name == "Huawei":
-        from backend.drivers.huawei_sun2000110KTL import HuaweiSUN2000
-        return HuaweiSUN2000
+        from backend.drivers.huawei_sun2000_110ktl import Huaweisun2000110ktl
+        return Huaweisun2000110ktl
     elif driver_name == "Sungrow":
         from backend.drivers.sungrow_sg110cx import SungrowSG110CX
         return SungrowSG110CX
@@ -97,7 +97,8 @@ def background_scan(comm: dict):
                 try:
                     driver = DriverClass(transport, slave_id=slave_id)
                     info = driver.read_info()
-                    if info and info.get("serial_number"): # Basic check for valid response
+                    # Check serial_number AND is_active (Huawei driver returns is_active=False on error)
+                    if info and info.get("serial_number") and info.get("is_active", True):
                         info["slave_id"] = slave_id
                         with scan_state.lock:
                             scan_state.results.append(info)
@@ -116,7 +117,7 @@ def background_scan(comm: dict):
             scan_state.error = str(e)
     finally:
         if transport:
-            try: transport.disconnect()
+            try: transport.close()
             except: pass
         with scan_state.lock:
             scan_state.is_running = False
