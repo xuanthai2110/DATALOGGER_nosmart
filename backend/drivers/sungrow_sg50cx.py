@@ -285,7 +285,7 @@ class Sungrowsg50cx(BaseDriver):
             state_id = res_state.registers[0]
 
         res_fault = self.transport.read_input_registers(
-            address=5038,
+            address=5044,
             count=1,
             slave=self.slave_id,
         )
