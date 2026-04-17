@@ -211,6 +211,7 @@ class Sungrowsg33cx(BaseDriver):
                 "brand": "Sungrow",
                 "model": "SG33CX",
                 "serial_number": parsed.get("serial_number", ""),
+                "type_code": parsed.get("type_code"),
                 "capacity_kw": rated_kw,
                 "mppt_count": 3,
                 "firmware_version": "1.0",

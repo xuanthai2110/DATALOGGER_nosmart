@@ -215,6 +215,7 @@ class Sungrowsg50cx(BaseDriver):
                 "brand": "Sungrow",
                 "model": "SG50CX",
                 "serial_number": parsed.get("serial_number", ""),
+                "type_code": parsed.get("type_code"),
                 "capacity_kw": rated_kw,
                 "mppt_count": 5,
                 "firmware_version": "1.0",
