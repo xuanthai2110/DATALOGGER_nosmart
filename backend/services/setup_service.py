@@ -314,6 +314,12 @@ class SetupService:
         }
         payload = {k: v for k, v in asdict(inverter).items() if k in inv_fields}
         
+        # Server expects integer for these kw fields
+        if payload.get('rate_dc_kwp') is not None:
+            payload['rate_dc_kwp'] = int(round(float(payload['rate_dc_kwp'])))
+        if payload.get('rate_ac_kw') is not None:
+            payload['rate_ac_kw'] = int(round(float(payload['rate_ac_kw'])))
+        
         # Thêm các ID liên kết (Chỉ chọn 1 trong 2 theo yêu cầu server)
         server_id = sync_info.get("server_id")
         server_req_id = sync_info.get("server_request_id")

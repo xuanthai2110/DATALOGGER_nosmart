@@ -158,6 +158,21 @@ class TelemetryService:
 
         return True
 
+    def is_all_inverters_disconnect(self, inverter_ids: list[int], cache_db: CacheDB) -> bool:
+        if not inverter_ids:
+            return False
+
+        for inv_id in inverter_ids:
+            ac_row = cache_db.get_ac_cache(inv_id)
+            err_row = cache_db.get_error_cache(inv_id)
+            if ac_row is None or err_row is None:
+                return False
+
+            if self._get_error_severity(err_row) != "DISCONNECT":
+                return False
+
+        return True
+
     def _normalize_payload(self, data: Any) -> Any:
         if isinstance(data, dict):
             for k, v in data.items():
@@ -201,6 +216,32 @@ class TelemetryService:
             "severity": "STABLE",
             "created_at": payload_created_at or self._format_ts(ts)
         }
+
+    @staticmethod
+    def _get_error_severity(err_row: dict | None) -> str:
+        if not err_row:
+            return ""
+
+        fault_json = err_row.get("fault_json")
+        if not fault_json:
+            return ""
+
+        try:
+            items = json.loads(fault_json)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return ""
+
+        if not isinstance(items, list):
+            return ""
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            severity = str(item.get("severity", "")).strip().upper()
+            if severity:
+                return severity
+
+        return ""
 
     @staticmethod
     def _num(value: Any, default: float = 0.0) -> float:
