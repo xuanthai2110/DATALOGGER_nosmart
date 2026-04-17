@@ -32,10 +32,33 @@ class UploaderService:
                 if response.status_code in (200, 201):
                     self.db.delete_from_outbox(data["id"])
                     logger.info(f"Uploaded project {server_id} (status={response.status_code})")
+                elif response.status_code == 422:
+                    logger.warning(f"Validation error (422) for project {server_id}. Attempting to fix payload and retry once...")
+                    # Sửa nhanh payload trong bộ nhớ trước khi thử lại
+                    self._fix_payload_severity(payload)
+                    response = requests.post(url, json=payload, headers=headers)
+                    if response.status_code in (200, 201):
+                        self.db.delete_from_outbox(data["id"])
+                        logger.info(f"Uploaded project {server_id} after fix and retry (status={response.status_code})")
+                    else:
+                        self.db.delete_from_outbox(data["id"])
+                        logger.error(f"Upload failed twice for record {data['id']} (status={response.status_code}). Deleted from outbox. Error: {response.text}")
                 else:
                     logger.warning(f"Upload failed for project {server_id} (status={response.status_code}): {response.text}")
             except Exception as e:
                 logger.error(f"Upload error: {e}")
+
+    def _fix_payload_severity(self, obj):
+        """Hàm đệ quy để sửa 'NORMAL' thành 'STABLE' trong payload telemetry."""
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == "severity" and v == "NORMAL":
+                    obj[k] = "STABLE"
+                else:
+                    self._fix_payload_severity(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                self._fix_payload_severity(item)
 
     def send_immediate(self, data: dict):
         token = self.auth.get_access_token()
