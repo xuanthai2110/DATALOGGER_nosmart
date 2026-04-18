@@ -179,8 +179,7 @@ class SetupService:
                     for k, v in payload.items():
                         sv = server_data.get(k)
                         if not self._is_equal(sv, v):
-                            if k not in ['usage_start_at', 'usage_end_at']:
-                                diff_payload[k] = v
+                            diff_payload[k] = v
                     if not diff_payload:
                         logger.info(f"[Sync] Project {project_id} has no changes. Skipping POST update.")
                         return -1
@@ -193,7 +192,7 @@ class SetupService:
                     token = self.auth.handle_unauthorized()
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
-                        resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                        resp = requests.post(update_url, json=diff_payload, headers=headers, timeout=20)
                 
                 if resp.status_code in [200, 201, 202]:
                     res_data = resp.json()
@@ -225,8 +224,7 @@ class SetupService:
                         patch_payload = {}
                         for k, v in payload.items():
                             if not self._is_equal(server_data.get(k), v):
-                                if k not in ['usage_start_at', 'usage_end_at']:
-                                    patch_payload[k] = v
+                                patch_payload[k] = v
                         
                         if not patch_payload:
                             logger.info(f"[Sync] Project {project_id} has no changes to patch.")
@@ -234,6 +232,12 @@ class SetupService:
                         
                         logger.info(f"[Sync] Patching project request {project.server_request_id} with: {patch_payload}")
                         patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
+                        
+                        if patch_resp.status_code == 401:
+                            token = self.auth.handle_unauthorized()
+                            if token:
+                                headers["Authorization"] = f"Bearer {token}"
+                                patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
                         
                         if patch_resp.status_code in [200, 201, 202]:
                             return project.server_request_id
@@ -358,12 +362,17 @@ class SetupService:
                 diff_payload = payload
                 if get_resp.status_code == 200:
                     server_data = get_resp.json()
+                    
+                    if server_data.get("usage_start_at"):
+                        payload["usage_start_at"] = server_data.get("usage_start_at")
+                    if server_data.get("usage_end_at"):
+                        payload["usage_end_at"] = server_data.get("usage_end_at")
+                        
                     diff_payload = {}
                     for k, v in payload.items():
                         sv = server_data.get(k)
                         if not self._is_equal(sv, v):
-                            if k not in ['usage_start_at', 'usage_end_at']:
-                                diff_payload[k] = v
+                            diff_payload[k] = v
                     if not diff_payload:
                         logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping direct PATCH.")
                         return -1
@@ -376,7 +385,7 @@ class SetupService:
                     token = self.auth.handle_unauthorized()
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
-                        resp = requests.patch(update_url, json=payload, headers=headers, timeout=20)
+                        resp = requests.patch(update_url, json=diff_payload, headers=headers, timeout=20)
                 
                 if resp.status_code in [200, 201, 202, 204]:
                     # Trả về -3 để báo hiệu cập nhật trực tiếp thành công (không tạo request mới)
@@ -401,11 +410,15 @@ class SetupService:
                     status = server_data.get("status", "").lower()
                     
                     if status == "pending":
+                        if server_data.get("usage_start_at"):
+                            payload["usage_start_at"] = server_data.get("usage_start_at")
+                        if server_data.get("usage_end_at"):
+                            payload["usage_end_at"] = server_data.get("usage_end_at")
+                            
                         patch_payload = {}
                         for k, v in payload.items():
                             if not self._is_equal(server_data.get(k), v):
-                                if k not in ['usage_start_at', 'usage_end_at']:
-                                    patch_payload[k] = v
+                                patch_payload[k] = v
                                 
                         if not patch_payload:
                             logger.info(f"[Sync] Inverter {inverter_id} has no changes to patch.")
@@ -413,6 +426,12 @@ class SetupService:
                             
                         logger.info(f"[Sync] Patching inverter request {inverter.server_request_id} with: {patch_payload}")
                         patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
+                        
+                        if patch_resp.status_code == 401:
+                            token = self.auth.handle_unauthorized()
+                            if token:
+                                headers["Authorization"] = f"Bearer {token}"
+                                patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
                         
                         if patch_resp.status_code in [200, 201, 202]:
                             return inverter.server_request_id
