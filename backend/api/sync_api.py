@@ -10,7 +10,7 @@ def get_setup_service() -> SetupService:
     metadata_db = MetadataDB(app_config.METADATA_DB)
     realtime_db = RealtimeDB(app_config.REALTIME_DB)
     project_svc = ProjectService(metadata_db, realtime_db)
-    auth_svc = AuthService()
+    auth_svc = AuthService(metadata_db)
     return SetupService(auth_svc, project_svc)
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
@@ -25,9 +25,6 @@ async def sync_project(
     if svc.pre_sync_check(project_id):
         return {"ok": True, "message": "Project matched and approved automatically from server."}
     
-    # 2. Gửi yêu cầu đồng bộ Project mới
-    if not svc.auth.get_access_token():
-        raise HTTPException(status_code=401, detail="Cloud authentication failed. Please check your credentials in .env")
 
     request_id = svc.initiate_project_sync(project_id)
     if request_id == -1:
@@ -59,8 +56,6 @@ async def sync_inverter(
     background_tasks: BackgroundTasks,
     svc: SetupService = Depends(get_setup_service)
 ):
-    if not svc.auth.get_access_token():
-        raise HTTPException(status_code=401, detail="Cloud authentication failed.")
 
     request_id = svc.initiate_inverter_sync(inverter_id)
     
@@ -103,8 +98,6 @@ async def sync_delete_project(
     project_id: int, 
     svc: SetupService = Depends(get_setup_service)
 ):
-    if not svc.auth.get_access_token():
-        raise HTTPException(status_code=401, detail="Cloud authentication failed.")
 
     success = svc.request_delete_project_sync(project_id)
     if not success:
@@ -117,8 +110,6 @@ async def sync_delete_inverter(
     inverter_id: int, 
     svc: SetupService = Depends(get_setup_service)
 ):
-    if not svc.auth.get_access_token():
-        raise HTTPException(status_code=401, detail="Cloud authentication failed.")
 
     success = svc.request_delete_inverter_sync(inverter_id)
     if not success:

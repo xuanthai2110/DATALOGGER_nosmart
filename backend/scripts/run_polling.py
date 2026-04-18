@@ -48,7 +48,7 @@ def main():
         # 2. Service Layer
         project_svc = ProjectService(metadata_db=meta_db, realtime_db=realtime_db)
         fault_service = FaultService(realtime_db, meta_db)
-        schedule_svc = ScheduleService(realtime_db)
+        schedule_svc = ScheduleService(realtime_db, meta_db)
         
         # 3. Worker Layer
         # Chú ý: Cần BuildTeleWorker trước để truyền vào LogicWorker

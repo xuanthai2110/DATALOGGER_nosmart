@@ -8,11 +8,12 @@ let availableModels = { "Sungrow": [], "Huawei": [] };
 
 async function loadSettings() {
     console.log("Loading settings data...");
-    const [pData, cData, iData, mData] = await Promise.all([
+    const [pData, cData, iData, mData, accData] = await Promise.all([
         apiCall('/projects'),
         apiCall('/comm'),
         apiCall('/inverters'),
-        apiCall('/scan/models')
+        apiCall('/scan/models'),
+        apiCall('/server-accounts')
     ]);
 
     console.log("Projects data:", pData);
@@ -25,6 +26,10 @@ async function loadSettings() {
     if (mData) {
         availableModels = mData;
         updateModels();
+    }
+
+    if (accData) {
+        updateProjectAccountDropdown(accData);
     }
 
     // Render bảng Dự án và Truyền thông (Phần cũ)
@@ -166,6 +171,7 @@ async function deleteInverterFromForm() {
 async function saveProject() {
     const id = document.getElementById('proj-id').value;
     const body = {
+        server_account_id: parseInt(document.getElementById('proj-account-id').value) || 1,
         name: document.getElementById('proj-name').value,
         elec_meter_no: document.getElementById('proj-meter').value,
         elec_price_per_kwh: parseFloat(document.getElementById('proj-price').value),
@@ -191,6 +197,7 @@ async function saveProject() {
 
 function editProject(p) {
     document.getElementById('proj-id').value = p.id;
+    document.getElementById('proj-account-id').value = p.server_account_id || 1;
     document.getElementById('proj-name').value = p.name;
     document.getElementById('proj-meter').value = p.elec_meter_no || "";
     document.getElementById('proj-price').value = p.elec_price_per_kwh;
@@ -205,6 +212,7 @@ function editProject(p) {
 
 function resetProjectForm() {
     document.getElementById('proj-id').value = "";
+    document.getElementById('proj-account-id').value = 1;
     document.getElementById('proj-name').value = "";
     document.getElementById('proj-meter').value = "";
     document.getElementById('proj-price').value = 1783;

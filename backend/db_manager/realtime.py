@@ -138,6 +138,7 @@ class RealtimeDB(BaseDB):
             for r in rows:
                 d = json.loads(r["data_json"])
                 d["id"] = r["id"]
+                d["project_id"] = r["project_id"]
                 d["server_id"] = r["server_id"]
                 result.append(d)
             return result

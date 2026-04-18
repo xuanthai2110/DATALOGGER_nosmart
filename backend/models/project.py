@@ -26,6 +26,7 @@ class ProjectCreate:
     # ===== Sync =====
     server_id: Optional[int] = None
     server_request_id: Optional[int] = None
+    server_account_id: Optional[int] = None
 
 
 # =========================
@@ -51,6 +52,7 @@ class ProjectUpdate:
 
     server_id: Optional[int] = None
     server_request_id: Optional[int] = None
+    server_account_id: Optional[int] = None
     sync_status: Optional[str] = None
 
 
@@ -78,6 +80,7 @@ class ProjectResponse:
     # ===== Sync =====
     server_id: Optional[int] = None
     server_request_id: Optional[int] = None
+    server_account_id: Optional[int] = None
     sync_status: str = "pending"
 
     # ===== Metadata =====

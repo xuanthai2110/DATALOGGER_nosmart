@@ -42,6 +42,9 @@ function showView(v) {
     if(v === 'settings') { 
         loadSettings(); 
     }
+    if(v === 'accounts') {
+        loadAccounts();
+    }
 }
 
 function toggleCommFields() {

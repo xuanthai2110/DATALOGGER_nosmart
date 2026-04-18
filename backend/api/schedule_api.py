@@ -8,8 +8,13 @@ from backend.core import settings
 
 router = APIRouter(tags=["Schedules"])
 
+from backend.db_manager.metadata import MetadataDB
+
 def get_schedule_service() -> ScheduleService:
-    return ScheduleService(RealtimeDB(settings.REALTIME_DB))
+    return ScheduleService(
+        RealtimeDB(settings.REALTIME_DB),
+        MetadataDB(settings.METADATA_DB)
+    )
 
 @router.get("/api/control_schedules/", response_model=List[ControlScheduleResponse])
 @router.get("/api/control-schedules/", response_model=List[ControlScheduleResponse], include_in_schema=False)

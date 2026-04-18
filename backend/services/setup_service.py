@@ -18,6 +18,11 @@ class SetupService:
         self.auth = auth_service
         self.project_svc = project_service
 
+    def login(self, account_id: int) -> bool:
+        """Thực hiện đăng nhập cho một tài khoản server cụ thể."""
+        token = self.auth.get_access_token(account_id, force_refresh=True)
+        return token is not None
+
     @staticmethod
     def _is_equal(a, b):
         """So sánh thông minh giữa dữ liệu local và server."""
@@ -66,6 +71,16 @@ class SetupService:
         logger.info(f"[Setup] Scan complete. Found {len(found_ids)} inverters.")
         return found_ids
 
+    def _get_token_for_project(self, project_id: int) -> tuple[Optional[str], Optional[int]]:
+        """Lấy token và account_id cho project."""
+        project = self.project_svc.get_project(project_id)
+        if not project or not project.server_account_id:
+            logger.warning(f"[Sync] Project {project_id} has no server_account_id.")
+            return None, None
+            
+        token = self.auth.get_access_token(project.server_account_id)
+        return token, project.server_account_id
+
     def pre_sync_check(self, project_id: int) -> bool:
         """Kiểm tra dự án trên server bằng elec_meter_no (format mới)."""
         local_project = self.project_svc.get_project(project_id)
@@ -79,7 +94,7 @@ class SetupService:
             logger.info(f"[Sync] Pre-sync: Project already has server_id {local_project.server_id}. Skipping search.")
             return False
 
-        token = self.auth.get_access_token()
+        token, account_id = self._get_token_for_project(project_id)
         if not token: 
             logger.info(f"[Sync] Pre-sync: No access token available.")
             return False
@@ -94,7 +109,7 @@ class SetupService:
             
             if resp.status_code == 401:
                 logger.info("[Sync] Pre-sync: 401 detected, attempting to recover...")
-                token = self.auth.handle_unauthorized()
+                token = self.auth.handle_unauthorized(account_id)
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                     resp = requests.get(url, headers=headers, timeout=10)
@@ -149,7 +164,7 @@ class SetupService:
         project = self.project_svc.get_project(project_id)
         if not project: return None
 
-        token = self.auth.get_access_token()
+        token, account_id = self._get_token_for_project(project_id)
         if not token: return None
 
         # Danh sách các trường Project theo yêu cầu server
@@ -170,7 +185,7 @@ class SetupService:
                 check_url = f"{base_api}/api/projects/{project.server_id}"
                 get_resp = requests.get(check_url, headers=headers, timeout=10)
                 if get_resp.status_code == 401:
-                    token = self.auth.handle_unauthorized()
+                    token = self.auth.handle_unauthorized(account_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
                         get_resp = requests.get(check_url, headers=headers, timeout=10)
@@ -192,7 +207,7 @@ class SetupService:
                 resp = requests.post(update_url, json=diff_payload, headers=headers, timeout=20)
                 
                 if resp.status_code == 401:
-                    token = self.auth.handle_unauthorized()
+                    token = self.auth.handle_unauthorized(account_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
                         resp = requests.post(update_url, json=diff_payload, headers=headers, timeout=20)
@@ -214,7 +229,7 @@ class SetupService:
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
                 
                 if check_resp.status_code == 401:
-                    token = self.auth.handle_unauthorized()
+                    token = self.auth.handle_unauthorized(account_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
                         check_resp = requests.get(req_url, headers=headers, timeout=10)
@@ -237,7 +252,7 @@ class SetupService:
                         patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
                         
                         if patch_resp.status_code == 401:
-                            token = self.auth.handle_unauthorized()
+                            token = self.auth.handle_unauthorized(account_id)
                             if token:
                                 headers["Authorization"] = f"Bearer {token}"
                                 patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
@@ -270,7 +285,7 @@ class SetupService:
             
             if resp.status_code == 401:
                 logger.info("[Sync] Project: 401 detected, attempting to recover...")
-                token = self.auth.handle_unauthorized()
+                token = self.auth.handle_unauthorized(account_id)
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                     resp = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -309,11 +324,11 @@ class SetupService:
         if not inverter: return None
         
         project_id = inverter.project_id
+        token, account_id = self._get_token_for_project(project_id)
+        if not token: return None
+
         sync_info = self.project_svc.metadata_db.get_project_sync_info(project_id)
         if not sync_info: return None
-
-        token = self.auth.get_access_token()
-        if not token: return None
 
         # Danh sách các trường Inverter theo yêu cầu server
         inv_fields = {
@@ -357,7 +372,7 @@ class SetupService:
                 check_url = f"{base_api}/api/inverters/{inverter.server_id}"
                 get_resp = requests.get(check_url, headers=headers, timeout=10)
                 if get_resp.status_code == 401:
-                    token = self.auth.handle_unauthorized()
+                    token = self.auth.handle_unauthorized(account_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
                         get_resp = requests.get(check_url, headers=headers, timeout=10)
@@ -396,7 +411,7 @@ class SetupService:
                     resp = requests.post(update_url, json=update_payload, headers=headers, timeout=20)
                 
                 if resp.status_code == 401:
-                    token = self.auth.handle_unauthorized()
+                    token = self.auth.handle_unauthorized(account_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
                         current_payload = diff_payload if 'diff_payload' in locals() else update_payload
@@ -418,7 +433,7 @@ class SetupService:
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
                 
                 if check_resp.status_code == 401:
-                    token = self.auth.handle_unauthorized()
+                    token = self.auth.handle_unauthorized(account_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
                         check_resp = requests.get(req_url, headers=headers, timeout=10)
@@ -449,7 +464,7 @@ class SetupService:
             
             if resp.status_code == 401:
                 logger.info("[Sync] Inverter: 401 detected, attempting to recover...")
-                token = self.auth.handle_unauthorized()
+                token = self.auth.handle_unauthorized(account_id)
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                     resp = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -490,7 +505,7 @@ class SetupService:
         _ACTIVE_POLLS.add(poll_key)
         try:
             for _ in range(120):
-                token = self.auth.get_access_token()
+                token, _ = self._get_token_for_project(project_id)
                 if not token: 
                     time.sleep(60)
                     continue
@@ -535,7 +550,10 @@ class SetupService:
         _ACTIVE_POLLS.add(poll_key)
         try:
             for _ in range(120):
-                token = self.auth.get_access_token()
+                # We need project_id for token
+                inverter = self.project_svc.get_inverter_by_id(inverter_id)
+                if not inverter: break
+                token, _ = self._get_token_for_project(inverter.project_id)
                 if not token:
                     time.sleep(60)
                     continue
@@ -570,7 +588,7 @@ class SetupService:
         if not project or not project.server_id:
             return True
 
-        token = self.auth.get_access_token()
+        token, account_id = self._get_token_for_project(project_id)
         if not token: return False
 
         try:
@@ -580,7 +598,7 @@ class SetupService:
             
             resp = requests.post(url, headers=headers, timeout=20)
             if resp.status_code == 401:
-                token = self.auth.handle_unauthorized()
+                token = self.auth.handle_unauthorized(account_id)
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                     resp = requests.post(url, headers=headers, timeout=20)
@@ -601,7 +619,7 @@ class SetupService:
         if not inverter or not inverter.server_id:
             return True
 
-        token = self.auth.get_access_token()
+        token, account_id = self._get_token_for_project(inverter.project_id)
         if not token: return False
 
         try:
@@ -611,7 +629,7 @@ class SetupService:
             
             resp = requests.post(url, headers=headers, timeout=20)
             if resp.status_code == 401:
-                token = self.auth.handle_unauthorized()
+                token = self.auth.handle_unauthorized(account_id)
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                     resp = requests.post(url, headers=headers, timeout=20)
@@ -633,7 +651,7 @@ class SetupService:
             return False
 
         request_id = sync_info["server_request_id"]
-        token = self.auth.get_access_token()
+        token, _ = self._get_token_for_project(project_id)
         if not token: return False
 
         try:

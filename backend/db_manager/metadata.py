@@ -8,6 +8,7 @@ from backend.models.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from backend.models.inverter import InverterCreate, InverterResponse, InverterUpdate
 from backend.models.user import UserCreate, UserResponse
 from backend.models.comm import CommConfig
+from backend.models.server_account import ServerAccountCreate, ServerAccountResponse, ServerAccountUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,10 @@ class MetadataDB(BaseDB):
                 inverter_count INTEGER,
                 server_id INTEGER,
                 server_request_id INTEGER,
+                server_account_id INTEGER,
                 sync_status TEXT DEFAULT 'pending',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (server_account_id) REFERENCES server_accounts(id)
             );
             """)
             # Inverter table
@@ -86,6 +89,28 @@ class MetadataDB(BaseDB):
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
             """)
+            # Server Accounts table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS server_accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                username TEXT UNIQUE,
+                password TEXT,
+                token TEXT,
+                refresh_token TEXT,
+                expires_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
+            # Initialize default account if empty (migration support)
+            cursor.execute("SELECT COUNT(*) as count FROM server_accounts")
+            if cursor.fetchone()["count"] == 0:
+                from backend.core.settings import API_USERNAME, API_PASSWORD
+                cursor.execute(
+                    "INSERT INTO server_accounts (id, name, username, password) VALUES (1, 'Default Account', ?, ?)",
+                    (API_USERNAME, API_PASSWORD)
+                )
+
             # Comm config
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS comm_config (
@@ -108,6 +133,9 @@ class MetadataDB(BaseDB):
             self._ensure_column(conn, "projects", "sync_status", "sync_status TEXT DEFAULT 'pending'")
             self._ensure_column(conn, "inverters", "sync_status", "sync_status TEXT DEFAULT 'pending'")
             self._ensure_column(conn, "inverters", "comm_id", "comm_id INTEGER")
+            self._ensure_column(conn, "projects", "server_account_id", "server_account_id INTEGER")
+            # Update existing projects to use account 1 if server_account_id is NULL
+            cursor.execute("UPDATE projects SET server_account_id = 1 WHERE server_account_id IS NULL")
 
     # --- Project API ---
     def get_project(self, project_id: int) -> Optional[ProjectResponse]:
@@ -147,12 +175,13 @@ class MetadataDB(BaseDB):
                 cursor.execute("""
                     INSERT INTO projects (
                         project_index, elec_meter_no, elec_price_per_kwh, name, location, lat, lon,
-                        capacity_kwp, ac_capacity_kw, inverter_count, server_id, server_request_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        capacity_kwp, ac_capacity_kw, inverter_count, server_id, server_request_id,
+                        server_account_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (next_idx, data_dict.get("elec_meter_no"), data_dict.get("elec_price_per_kwh"),
                       data_dict.get("name"), data_dict.get("location"), data_dict.get("lat"), data_dict.get("lon"),
                       data_dict.get("capacity_kwp"), data_dict.get("ac_capacity_kw"), data_dict.get("inverter_count"),
-                      data_dict.get("server_id"), data_dict.get("server_request_id")))
+                      data_dict.get("server_id"), data_dict.get("server_request_id"), data_dict.get("server_account_id")))
                 final_id = cursor.lastrowid
                 
             row = conn.execute("SELECT * FROM projects WHERE id=?", (final_id,)).fetchone()
@@ -168,12 +197,13 @@ class MetadataDB(BaseDB):
             cursor = conn.execute("""
                 INSERT INTO projects (
                     project_index, elec_meter_no, elec_price_per_kwh, name, location, lat, lon,
-                    capacity_kwp, ac_capacity_kw, inverter_count, server_id, server_request_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    capacity_kwp, ac_capacity_kw, inverter_count, server_id, server_request_id,
+                    server_account_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (next_idx, data_dict.get("elec_meter_no"), data_dict.get("elec_price_per_kwh"),
                   data_dict.get("name"), data_dict.get("location"), data_dict.get("lat"), data_dict.get("lon"),
                   data_dict.get("capacity_kwp"), data_dict.get("ac_capacity_kw"), data_dict.get("inverter_count"),
-                  data_dict.get("server_id"), data_dict.get("server_request_id")))
+                  data_dict.get("server_id"), data_dict.get("server_request_id"), data_dict.get("server_account_id")))
             return cursor.lastrowid
 
     def patch_project(self, project_id: int, data: ProjectUpdate):
@@ -355,3 +385,55 @@ class MetadataDB(BaseDB):
                 (data.username, data.password, data.email, data.fullname, data.phone, data.role)
             )
             return cursor.lastrowid
+
+    # --- Server Account API ---
+    def get_server_account(self, account_id: int) -> Optional[ServerAccountResponse]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM server_accounts WHERE id=?", (account_id,)).fetchone()
+            return to_dataclass(ServerAccountResponse, row)
+
+    def get_server_accounts(self) -> List[ServerAccountResponse]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM server_accounts ORDER BY id ASC").fetchall()
+            return [to_dataclass(ServerAccountResponse, r) for r in rows]
+
+    def upsert_server_account(self, data: ServerAccountCreate, account_id: Optional[int] = None) -> ServerAccountResponse:
+        data_dict = asdict(data)
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            if account_id:
+                # Update existing account
+                fields = []
+                values = []
+                for k, v in data_dict.items():
+                    if v is not None:
+                        fields.append(f"{k} = ?")
+                        values.append(v)
+                if not fields:
+                    return self.get_server_account(account_id)
+                values.append(account_id)
+                cursor.execute(f"UPDATE server_accounts SET {', '.join(fields)} WHERE id=?", tuple(values))
+                final_id = account_id
+            else:
+                # Insert new account
+                cursor.execute("""
+                    INSERT INTO server_accounts (name, username, password) VALUES (?, ?, ?)
+                """, (data_dict.get("name"), data_dict.get("username"), data_dict.get("password")))
+                final_id = cursor.lastrowid
+                
+            row = conn.execute("SELECT * FROM server_accounts WHERE id=?", (final_id,)).fetchone()
+            return to_dataclass(ServerAccountResponse, row)
+
+    def patch_server_account(self, account_id: int, data: ServerAccountUpdate):
+        data_dict = asdict(data)
+        fields = [f"{k} = ?" for k, v in data_dict.items() if v is not None]
+        values = [v for v in data_dict.values() if v is not None]
+        if not fields: return
+        values.append(account_id)
+        with self._connect() as conn:
+            conn.execute(f"UPDATE server_accounts SET {', '.join(fields)} WHERE id=?", tuple(values))
+
+    def delete_server_account(self, account_id: int) -> bool:
+        with self._connect() as conn:
+            cursor = conn.execute("DELETE FROM server_accounts WHERE id=?", (account_id,))
+            return cursor.rowcount > 0

@@ -14,7 +14,8 @@ class UploaderWorker(threading.Thread):
         self.cache_db = cache_db
         self.project_svc = project_svc
         self.realtime_db = realtime_db
-        self.uploader = UploaderService(realtime_db)
+        # Ta cần MetadataDB để UploaderService tra cứu Server Account
+        self.uploader = UploaderService(realtime_db, project_svc.metadata_db)
         self.telemetry = TelemetryService(realtime_db)
         self.upload_interval = upload_interval
         self.daemon = True
@@ -45,7 +46,7 @@ class UploaderWorker(threading.Thread):
                     
                     if payload_list:
                         # 3. Quăng vào outbox trước để lỡ cúp điện thì không mất
-                        self.realtime_db.post_to_outbox(proj.id, payload_list[0])
+                        self.realtime_db.post_to_outbox(proj.id, proj.server_id, payload_list[0])
                         new_payloads += 1
                 
                 if new_payloads > 0:

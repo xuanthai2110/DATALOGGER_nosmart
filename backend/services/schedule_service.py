@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 class ScheduleService:
-    def __init__(self, db: RealtimeDB):
+    def __init__(self, db: RealtimeDB, metadata_db):
         self.db = db
-        self.auth = AuthService()
+        self.metadata_db = metadata_db
+        self.auth = AuthService(metadata_db)
         self.fetch_retry_count = 5
         self.fetch_retry_delay_sec = 0.5
 
@@ -29,10 +30,29 @@ class ScheduleService:
         text = value if isinstance(value, str) else str(value)
         return text if len(text) <= limit else text[:limit] + "...<truncated>"
 
-    def _get_headers(self) -> Optional[dict]:
-        token = self.auth.get_access_token()
+    def _get_headers(self, project_id: Optional[int] = None, schedule_id: Optional[int] = None, project_server_id: Optional[int] = None) -> Optional[dict]:
+        account_id = None
+        if project_id:
+            proj = self.metadata_db.get_project(project_id)
+            if proj: account_id = proj.server_account_id
+        elif project_server_id:
+            # Look up project by server_id
+            projects = self.metadata_db.get_projects()
+            proj = next((p for p in projects if p.server_id == project_server_id), None)
+            if proj: account_id = proj.server_account_id
+        elif schedule_id:
+            sched = self.db.get_schedule(schedule_id)
+            if sched and sched.project_id:
+                proj = self.metadata_db.get_project(sched.project_id)
+                if proj: account_id = proj.server_account_id
+        
+        # Fallback to default account (1) if not found, but ideally it should be explicit
+        if not account_id:
+            account_id = 1
+            
+        token = self.auth.get_access_token(account_id)
         if not token:
-            logger.error("[ScheduleService] Cannot call server schedule API because auth token is unavailable.")
+            logger.error(f"[ScheduleService] Cannot call server schedule API for account {account_id} because auth token is unavailable.")
             return None
         return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
@@ -89,8 +109,8 @@ class ScheduleService:
         logger.info(f"[ScheduleService] Deleting schedule {schedule_id}")
         self.db.delete_schedule(schedule_id)
 
-    def fetch_remote_schedule(self, schedule_id: int) -> Optional[dict]:
-        headers = self._get_headers()
+    def fetch_remote_schedule(self, schedule_id: int, project_server_id: Optional[int] = None) -> Optional[dict]:
+        headers = self._get_headers(schedule_id=schedule_id, project_server_id=project_server_id)
         if not headers:
             return None
 
@@ -139,8 +159,8 @@ class ScheduleService:
                 logger.error(f"[ScheduleService] Fetch remote schedule {schedule_id} error: {e}")
                 return None
 
-    def sync_schedule_from_server(self, schedule_id: int) -> Optional[ControlScheduleResponse]:
-        remote_schedule = self.fetch_remote_schedule(schedule_id)
+    def sync_schedule_from_server(self, schedule_id: int, project_server_id: Optional[int] = None) -> Optional[ControlScheduleResponse]:
+        remote_schedule = self.fetch_remote_schedule(schedule_id, project_server_id=project_server_id)
         if not remote_schedule:
             return None
 
@@ -155,7 +175,7 @@ class ScheduleService:
         return self.create(local_schedule)
 
     def patch_remote_status(self, schedule_id: int, status: str) -> bool:
-        headers = self._get_headers()
+        headers = self._get_headers(schedule_id=schedule_id)
         if not headers:
             return False
 

@@ -110,7 +110,8 @@ class MqttSubscriber:
 
                 # Đợi 2 giây để server kịp cập nhật dữ liệu trước khi GET (Tránh lỗi 404)
                 time.sleep(2)
-                synced = self.schedule_service.sync_schedule_from_server(schedule_id)
+                project_server_id = schedule_data.get("project_id")
+                synced = self.schedule_service.sync_schedule_from_server(schedule_id, project_server_id=project_server_id)
                 
                 # Nếu từ RUNNING chuyển sang CANCELED -> Reset ngay lập tức
                 if synced and synced.status == "CANCELED" and old_status == "RUNNING":

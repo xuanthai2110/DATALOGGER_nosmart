@@ -5,154 +5,112 @@ import os
 import requests
 
 from backend.core import settings as _cfg
+from backend.models.server_account import ServerAccountUpdate
 
 API_BASE_URL = _cfg.API_BASE_URL
-TOKEN_FILE = _cfg.TOKEN_FILE
 
 logger = logging.getLogger(__name__)
 
 MAX_LOGIN_RETRIES = 1
 
 
-def _get_credentials() -> tuple[str, str]:
-    # Read env from settings now
-    from backend.core import settings
-    return settings.API_USERNAME, settings.API_PASSWORD
+# Xóa bỏ _get_credentials cũ
 
 
 
 class AuthService:
-    def __init__(self):
-        self.access_token: str | None = None
-        self.refresh_token: str | None = None
-        self._load_tokens()
+    def __init__(self, metadata_db):
+        self.metadata_db = metadata_db
+        # RAM cache for active tokens: {account_id: {"access": str, "refresh": str}}
+        self._token_cache = {}
 
-    def get_access_token(self, force_refresh: bool = False) -> str | None:
-        """Return a valid access token if available. Use force_refresh to trigger a new login."""
-        if force_refresh or not self.access_token:
-            logger.info(f"[Auth] Getting access token (force_refresh={force_refresh})...")
-            self._login()
-        return self.access_token
+    def get_access_token(self, account_id: int, force_refresh: bool = False) -> str | None:
+        """Return a valid access token for a specific server account."""
+        if not account_id: return None
+        
+        # 1. Check RAM Cache
+        if not force_refresh and account_id in self._token_cache:
+            return self._token_cache[account_id]["access"]
+            
+        # 2. Check Database
+        account = self.metadata_db.get_server_account(account_id)
+        if not account:
+            logger.error(f"[Auth] Server account ID {account_id} not found in DB.")
+            return None
+            
+        if account.token and not force_refresh:
+            self._token_cache[account_id] = {"access": account.token, "refresh": account.refresh_token}
+            return account.token
+            
+        # 3. Login if needed
+        logger.info(f"[Auth] Getting access token for account {account.username} (ID: {account_id})...")
+        if self._login(account_id):
+            return self._token_cache[account_id]["access"]
+            
+        return None
 
-    def refresh_access_token(self) -> bool:
-        """Use refresh_token to get a new access_token."""
-        if not self.refresh_token:
-            logger.warning("[Auth] No refresh_token available, will re-login")
+    def refresh_access_token(self, account_id: int) -> bool:
+        """Use refresh_token to get a new access_token for an account."""
+        account = self.metadata_db.get_server_account(account_id)
+        if not account or not account.refresh_token:
             return False
 
         try:
             url = f"{API_BASE_URL}/api/auth/refresh"
-            response = requests.post(
-                url,
-                json={"refresh_token": self.refresh_token},
-                timeout=10,
-            )
+            response = requests.post(url, json={"refresh_token": account.refresh_token}, timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                self.access_token = data.get("access_token")
-                new_refresh = data.get("refresh_token")
-                if new_refresh:
-                    self.refresh_token = new_refresh
-
-                self._save_tokens()
-                logger.info("[Auth] Access token refreshed successfully")
+                access = data.get("access_token")
+                refresh = data.get("refresh_token") or account.refresh_token
+                self._save_tokens(account_id, access, refresh)
                 return True
-
-            logger.warning(
-                f"[Auth] Refresh failed (status={response.status_code}), will re-login"
-            )
-            self._clear_tokens()
             return False
         except Exception as e:
-            logger.error(f"[Auth] Refresh error: {e}")
-            self._clear_tokens()
+            logger.error(f"[Auth] Refresh error for account {account_id}: {e}")
             return False
 
-    def handle_unauthorized(self) -> str | None:
-        """Recover after a 401 response from the API."""
-        logger.info("[Auth] Handling 401 - attempting token refresh...")
-
-        if self.refresh_access_token():
-            return self.access_token
-
-        logger.info("[Auth] Refresh failed, re-logging in...")
-        if self._login():
-            return self.access_token
-
-        logger.error("[Auth] All authentication attempts failed, giving up")
+    def handle_unauthorized(self, account_id: int) -> str | None:
+        """Recover after a 401 response for a specific account."""
+        if self.refresh_access_token(account_id):
+            return self._token_cache.get(account_id, {}).get("access")
+        if self._login(account_id):
+            return self._token_cache.get(account_id, {}).get("access")
         return None
 
-    def _load_tokens(self):
-        """Load tokens from disk if present."""
-        if os.path.exists(TOKEN_FILE):
-            try:
-                with open(TOKEN_FILE, "r") as f:
-                    data = json.load(f)
-                    self.access_token = data.get("access_token")
-                    self.refresh_token = data.get("refresh_token")
-                logger.info("[Auth] Tokens loaded from disk")
-            except Exception as e:
-                logger.error(f"[Auth] Error loading tokens: {e}")
+    def _save_tokens(self, account_id: int, access: str, refresh: str):
+        """Save tokens to both RAM cache and Database."""
+        self._token_cache[account_id] = {"access": access, "refresh": refresh}
+        update_data = ServerAccountUpdate(token=access, refresh_token=refresh)
+        self.metadata_db.patch_server_account(account_id, update_data)
 
-    def _save_tokens(self):
-        """Persist tokens to disk."""
-        try:
-            data = {
-                "access_token": self.access_token,
-                "refresh_token": self.refresh_token,
-            }
-            with open(TOKEN_FILE, "w") as f:
-                json.dump(data, f)
-            logger.info("[Auth] Tokens saved to disk")
-        except Exception as e:
-            logger.error(f"[Auth] Error saving tokens: {e}")
-
-    def _login(self) -> bool:
-        """Login with OAuth2 password flow."""
-        api_username, api_password = _get_credentials()
-        if not api_username or not api_password:
-            logger.warning(
-                "[Auth] API_USERNAME / API_PASSWORD not set in environment. "
-                "Upload to server will fail. Set env vars before running."
-            )
+    def _login(self, account_id: int) -> bool:
+        """Login with OAuth2 password flow using stored credentials."""
+        account = self.metadata_db.get_server_account(account_id)
+        if not account or not account.username or not account.password:
             return False
 
         url = f"{API_BASE_URL}/api/auth/token"
         payload = {
-            "username": api_username,
-            "password": api_password,
+            "username": account.username,
+            "password": account.password,
             "grant_type": "password",
         }
 
-        for attempt in range(1, MAX_LOGIN_RETRIES + 2):
-            try:
-                response = requests.post(url, data=payload, timeout=10)
-                if response.status_code == 200:
-                    data = response.json()
-                    self.access_token = data.get("access_token")
-                    self.refresh_token = data.get("refresh_token")
-                    self._save_tokens()
-                    logger.info("[Auth] Login successful")
-                    return True
-
-                logger.warning(
-                    f"[Auth] Login attempt {attempt} failed (status={response.status_code})"
-                )
-            except Exception as e:
-                logger.warning(f"[Auth] Login attempt {attempt} error: {e}")
-
-            if attempt <= MAX_LOGIN_RETRIES:
-                logger.info(f"[Auth] Retrying login ({attempt}/{MAX_LOGIN_RETRIES})...")
-
-        logger.error("[Auth] Login failed after all retries, skipping upload")
-        self._clear_tokens()
+        try:
+            response = requests.post(url, data=payload, timeout=15)
+            if response.status_code == 200:
+                data = response.json()
+                self._save_tokens(account_id, data.get("access_token"), data.get("refresh_token"))
+                logger.info(f"[Auth] Login successful for {account.username}")
+                return True
+            logger.warning(f"[Auth] Login failed for {account.username}: {response.status_code}")
+        except Exception as e:
+            logger.error(f"[Auth] Login error for {account.username}: {e}")
+            
         return False
 
-    def _clear_tokens(self):
-        self.access_token = None
-        self.refresh_token = None
-        if os.path.exists(TOKEN_FILE):
-            try:
-                os.remove(TOKEN_FILE)
-            except Exception:
-                pass
+    def _clear_tokens(self, account_id: int):
+        """Xóa token trong RAM và Database cho một tài khoản."""
+        self._token_cache.pop(account_id, None)
+        update_data = ServerAccountUpdate(token="", refresh_token="")
+        self.metadata_db.patch_server_account(account_id, update_data)

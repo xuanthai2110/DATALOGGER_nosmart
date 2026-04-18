@@ -7,6 +7,7 @@ from pathlib import Path
 # Thêm thư mục gốc vào sys.path để import được các module trong backend/
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
+from backend.db_manager.metadata import MetadataDB
 from backend.db_manager.realtime import RealtimeDB
 from backend.services.uploader_service import UploaderService
 from backend.core import settings
@@ -20,11 +21,12 @@ logger = logging.getLogger("Uploader")
 def main():
     logger.info("Starting Telemetry Uploader Script...")
     
-    # 1. Initialize RealtimeDB
+    # 1. Initialize DBs
+    meta_db = MetadataDB(settings.METADATA_DB)
     realtime_db = RealtimeDB(settings.REALTIME_DB)
     
     # 2. Initialize UploaderService
-    uploader = UploaderService(realtime_db)
+    uploader = UploaderService(realtime_db, meta_db)
     
     logger.info("Uploader service ready. Monitoring outbox table...")
     

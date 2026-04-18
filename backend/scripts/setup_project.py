@@ -42,7 +42,7 @@ def main():
     realtime_db = RealtimeDB(settings.REALTIME_DB)
     project_svc = ProjectService(metadata_db=meta_db, realtime_db=realtime_db)
     
-    auth_svc = AuthService()
+    auth_svc = AuthService(meta_db)
     setup_svc = SetupService(auth_svc, project_service=project_svc)
     
     print("\n" + "="*50)

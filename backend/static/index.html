@@ -32,6 +32,7 @@
                 <li class="nav-item active" onclick="showView('overview')"><i class="fas fa-chart-line"></i> Dashboard
                 </li>
                 <li class="nav-item" onclick="showView('sync')"><i class="fas fa-sync"></i> Đồng bộ</li>
+                <li class="nav-item" onclick="showView('accounts')"><i class="fas fa-users-cog"></i> Tài khoản Cloud</li>
                 <li class="nav-item" onclick="showView('settings')"><i class="fas fa-cog"></i> Settings</li>
             </ul>
             <div class="nav-item" onclick="handleLogout()" style="margin-top:auto;"><i class="fas fa-power-off"></i>
@@ -181,6 +182,11 @@
                         </div>
                         <div id="form-project">
                             <input type="hidden" id="proj-id">
+                            <div class="input-group"><label>Tài khoản Cloud liên kết *</label>
+                                <select id="proj-account-id">
+                                    <option value="1">Default Account</option>
+                                </select>
+                            </div>
                             <div class="input-group"><label>Tên dự án *</label><input type="text" id="proj-name"
                                     placeholder="Tên dự án..."></div>
                             <div class="input-group"><label>Địa điểm *</label><input type="text" id="proj-loc"
@@ -415,6 +421,41 @@
                     </div>
                 </div>
             </div>
+            <!-- View: Server Accounts Management -->
+            <div id="view-accounts" class="view-section hidden">
+                <div class="header">
+                    <h1>Quản lý Tài khoản Cloud</h1>
+                    <button class="btn btn-primary" style="width:auto; padding:8px 20px;" onclick="showAccountForm()">+ THÊM TÀI KHOẢN</button>
+                </div>
+                
+                <div class="glass table-container fade-in">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Tên hiển thị</th>
+                                <th>Username (Email)</th>
+                                <th>Trạng thái Token</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accounts-body"></tbody>
+                    </table>
+                </div>
+
+                <div id="form-account" class="hidden glass fade-in" style="margin-top:24px; padding:24px; max-width:600px;">
+                    <h2 id="account-form-title">Thêm tài khoản mới</h2>
+                    <input type="hidden" id="account-id">
+                    <div class="input-group"><label>Tên hiển thị (VD: Dự án Miền Bắc)</label><input type="text" id="acc-name" placeholder="Tên để phân biệt..."></div>
+                    <div class="input-group"><label>API Username (Email đăng nhập server)</label><input type="text" id="acc-user" placeholder="email@example.com"></div>
+                    <div class="input-group"><label>API Password</label><input type="password" id="acc-pass" placeholder="Mật khẩu server..."></div>
+                    
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button class="btn btn-success" onclick="saveAccount()">LƯU TÀI KHOẢN</button>
+                        <button class="btn" onclick="hideAccountForm()">HỦY</button>
+                    </div>
+                </div>
+            </div>
         </main>
         <div id="ui-debug"
             style="position:fixed; bottom:10px; right:10px; font-size:10px; color:rgba(255,255,255,0.3); z-index:999; pointer-events:none;">
@@ -426,6 +467,7 @@
     <script src="/static/js/dashboard.js"></script>
     <script src="/static/js/settings.js"></script>
     <script src="/static/js/sync.js"></script>
+    <script src="/static/js/accounts.js"></script>
     <script>
         if (token) initApp();
     </script>
