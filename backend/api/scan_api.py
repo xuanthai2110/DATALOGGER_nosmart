@@ -176,12 +176,21 @@ def background_scan(comm: dict):
                                 continue  # Reject and move to next iteration
                             
                             try:
-                                str_mppt = detect_info.get("string_mppt", "1")
-                                total_strings = sum(int(x) for x in str_mppt.split(";") if x.isdigit())
+                                str_mppt = str(detect_info.get("string_mppt", "1"))
+                                mppt_count = detect_info.get("mppt", 1)
+                                if ";" in str_mppt:
+                                    total_strings = sum(int(x) for x in str_mppt.split(";") if x.isdigit())
+                                    info["strings_per_mppt"] = None  # Phức tạp nên không gán chung
+                                else:
+                                    spm = int(str_mppt)
+                                    total_strings = spm * mppt_count
+                                    info["strings_per_mppt"] = spm
                             except Exception:
+                                mppt_count = detect_info.get("mppt", 1)
                                 total_strings = 1
+                                info["strings_per_mppt"] = 1
                             
-                            info["mppt_count"] = detect_info.get("mppt")
+                            info["mppt_count"] = mppt_count
                             info["string_count"] = total_strings
                             info["capacity_kw"] = detect_info.get("p_ac")
                             info["rate_ac_kw"] = detect_info.get("p_ac")
