@@ -494,7 +494,10 @@ class SetupService:
                     
                     if status == "approved":
                         # Cập nhật ID sau khi Admin duyệt
-                        server_id = data.get("server_id") # Hoặc tùy key server trả về khi approved
+                        server_id = data.get("approved_project_id")
+                        if not server_id:
+                            # Fallback if server uses a different key sometimes
+                            server_id = data.get("target_project_id")
                         self.project_svc.update_project_sync(project_id, server_id=server_id, status='approved')
                         
                         # Cập nhật inverters nếu có map
@@ -512,6 +515,42 @@ class SetupService:
                         break
             except Exception as e:
                 logger.error(f"[Sync] Polling error: {e}")
+            
+            time.sleep(60)
+
+    def background_poll_inverter_status(self, request_id: int, inverter_id: int):
+        """Theo dõi trạng thái phê duyệt từ Admin cho Inverter."""
+        max_retries = 120 # 2 tiếng (1 phút / lần)
+        for _ in range(max_retries):
+            token = self.auth.get_access_token()
+            if not token: 
+                time.sleep(60)
+                continue
+
+            try:
+                base_api = API_BASE_URL.rstrip('/')
+                url = f"{base_api}/api/inverters/requests/{request_id}"
+                headers = {"Authorization": f"Bearer {token}"}
+                resp = requests.get(url, headers=headers, timeout=10)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    status = data.get("status", "").lower()
+                    
+                    if status == "approved":
+                        # Cập nhật ID sau khi Admin duyệt
+                        server_id = data.get("approved_inverter_id")
+                        if not server_id:
+                            # Fallback
+                            server_id = data.get("target_inverter_id")
+                        self.project_svc.update_inverter_sync(inverter_id, server_id=server_id, status='approved')
+                        logger.info(f"[Sync] Inverter {inverter_id} APPROVED by Admin.")
+                        break
+                    elif status == "rejected":
+                        self.project_svc.update_inverter_sync(inverter_id, status='rejected')
+                        break
+            except Exception as e:
+                logger.error(f"[Sync] Polling inverter error: {e}")
             
             time.sleep(60)
 

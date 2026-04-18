@@ -56,6 +56,7 @@ async def sync_project(
 @router.post("/inverter/{inverter_id}")
 async def sync_inverter(
     inverter_id: int, 
+    background_tasks: BackgroundTasks,
     svc: SetupService = Depends(get_setup_service)
 ):
     if not svc.auth.get_access_token():
@@ -66,6 +67,9 @@ async def sync_inverter(
         return {"ok": True, "message": "Inverter is already up-to-date with the server. No changes detected."}
     if not request_id:
         raise HTTPException(status_code=502, detail="Cloud server rejected the inverter request. Ensure project is synced first.")
+    
+    # 3. Chạy polling trong background để theo dõi kết quả phê duyệt cho inverter
+    background_tasks.add_task(svc.background_poll_inverter_status, request_id, inverter_id)
     
     return {
         "ok": True, 
