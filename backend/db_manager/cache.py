@@ -206,3 +206,9 @@ class CacheDB(BaseDB):
         """Reset max_I hàng ngày."""
         with self._connect() as conn:
             conn.execute("UPDATE string_cache SET max_I=0 WHERE inverter_id=?", (inverter_id,))
+
+    def clear_inverter_mppt_string_cache(self, inverter_id: int):
+        """Xoá sạch dữ liệu MPPT và String của một inverter trong Cache (trước khi poll mới)."""
+        with self._connect() as conn:
+            conn.execute("DELETE FROM mppt_cache WHERE inverter_id = ?", (inverter_id,))
+            conn.execute("DELETE FROM string_cache WHERE inverter_id = ?", (inverter_id,))
