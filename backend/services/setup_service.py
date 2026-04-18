@@ -351,8 +351,8 @@ class SetupService:
             url = f"{base_api}/api/inverters/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
-            # 0. Nếu inverter ĐÃ ĐƯỢC DUYỆT, ta dùng PATCH TRỰC TIẾP lên Inverter
-            if inverter.server_id and inverter.sync_status == 'approved':
+            # 0. Nếu inverter ĐÃ ĐƯỢC DUYỆT hoặc BỊ TỪ CHỐI CẬP NHẬT, ta gửi Request Update thay vì sửa trực tiếp
+            if inverter.server_id and inverter.sync_status in ['approved', 'rejected']:
                 # KIỂM TRA SỰ THAY ĐỔI
                 check_url = f"{base_api}/api/inverters/{inverter.server_id}"
                 get_resp = requests.get(check_url, headers=headers, timeout=10)
@@ -362,7 +362,6 @@ class SetupService:
                         headers["Authorization"] = f"Bearer {token}"
                         get_resp = requests.get(check_url, headers=headers, timeout=10)
                         
-                diff_payload = payload
                 if get_resp.status_code == 200:
                     server_data = get_resp.json()
                     
@@ -377,28 +376,39 @@ class SetupService:
                         if not self._is_equal(sv, v):
                             diff_payload[k] = v
                     if not diff_payload:
-                        logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping direct PATCH.")
+                        logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping update request.")
                         return -1
                         
-                update_url = f"{base_api}/api/inverters/{inverter.server_id}"
-                logger.info(f"[Sync] Inverter is approved. Sending direct PATCH to {update_url} with: {diff_payload}")
-                resp = requests.patch(update_url, json=diff_payload, headers=headers, timeout=20)
+                update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}/"
+                logger.info(f"[Sync] Inverter is {inverter.sync_status}. Sending Update Request POST to {update_url} with: {payload}")
+                resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
                 
+                if resp.status_code == 405:
+                    logger.warning(f"[Sync] POST not allowed with trailing slash, trying without...")
+                    update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
+                    resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                    
                 if resp.status_code == 401:
                     token = self.auth.handle_unauthorized()
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
-                        resp = requests.patch(update_url, json=diff_payload, headers=headers, timeout=20)
+                        resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
                 
-                if resp.status_code in [200, 201, 202, 204]:
-                    # Trả về -3 để báo hiệu cập nhật trực tiếp thành công (không tạo request mới)
-                    return -3
+                if resp.status_code in [200, 201]:
+                    new_req_id = resp.json().get("id")
+                    if new_req_id:
+                        self.project_svc.update_inverter_sync(inverter_id, server_request_id=new_req_id, status='pending')
+                        logger.info(f"[Sync] Inverter update request created: {new_req_id}")
+                        return new_req_id
+                    else:
+                        logger.warning(f"[Sync] No ID returned in update request response.")
+                        return None
                 else:
-                    logger.warning(f"[Sync] Inverter direct PATCH failed: {resp.status_code} - {resp.text}")
-                return None
+                    logger.warning(f"[Sync] Inverter Update Request POST failed: {resp.status_code} - {resp.text}")
+                    return None
 
-            # 1. Thử PATCH nếu đang ở trạng thái pending
-            if inverter.server_request_id:
+            # 1. Nếu đang ở trạng thái pending (đã có request chưa xử lý)
+            if inverter.server_request_id and inverter.sync_status == 'pending':
                 req_url = f"{base_api}/api/inverters/requests/{inverter.server_request_id}"
                 check_resp = requests.get(req_url, headers=headers, timeout=10)
                 
@@ -413,52 +423,22 @@ class SetupService:
                     status = server_data.get("status", "").lower()
                     
                     if status == "pending":
-                        if server_data.get("usage_start_at"):
-                            payload["usage_start_at"] = server_data.get("usage_start_at")
-                        if server_data.get("usage_end_at"):
-                            payload["usage_end_at"] = server_data.get("usage_end_at")
-                            
-                        patch_payload = {}
-                        for k, v in payload.items():
-                            if not self._is_equal(server_data.get(k), v):
-                                patch_payload[k] = v
-                                
-                        if not patch_payload:
-                            logger.info(f"[Sync] Inverter {inverter_id} has no changes to patch.")
-                            return inverter.server_request_id
-                            
-                        logger.info(f"[Sync] Patching inverter request {inverter.server_request_id} with: {patch_payload}")
-                        patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
-                        
-                        if patch_resp.status_code == 401:
-                            token = self.auth.handle_unauthorized()
-                            if token:
-                                headers["Authorization"] = f"Bearer {token}"
-                                patch_resp = requests.patch(req_url, json=patch_payload, headers=headers, timeout=20)
-                        
-                        if patch_resp.status_code in [200, 201, 202]:
-                            return inverter.server_request_id
-                        elif patch_resp.status_code == 403:
-                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} is locked by Admin. Cannot patch. Returning current ID.")
-                            return inverter.server_request_id
-                        else:
-                            logger.warning(f"[Sync] Inverter patch failed: {patch_resp.status_code} - {patch_resp.text}")
-                            return None
-                    else:
-                        if status == "approved":
-                            server_id = server_data.get("server_id")
-                            self.project_svc.update_inverter_sync(inverter_id, server_id=server_id, status='approved')
-                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} already approved on server. Verifying changes...")
-                            return self.initiate_inverter_sync(inverter_id)
-                        elif status == "rejected":
-                            # Nếu đã bị từ chối, cho phép gửi yêu cầu mới hoàn toàn
-                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} was rejected. Allowing re-submission.")
-                            self.project_svc.update_inverter_sync(inverter_id, server_request_id=0)
-                            # Không return ở đây để code chạy xuống bước 2 (POST mới)
-                        else:
-                            logger.info(f"[Sync] Inverter request {inverter.server_request_id} is '{status}'. Cannot patch.")
-            # 2. Tạo mới bằng POST nếu chưa có
+                        logger.info(f"[Sync] Inverter request {inverter.server_request_id} is still pending. Blocking new update.")
+                        return -99  # Trả về code đặc biệt để nhắc gọi điện
+                    elif status == "approved":
+                        server_id = server_data.get("approved_inverter_id") or server_data.get("target_inverter_id")
+                        self.project_svc.update_inverter_sync(inverter_id, server_id=server_id, status='approved')
+                        logger.info(f"[Sync] Inverter request {inverter.server_request_id} already approved. Re-verifying...")
+                        return self.initiate_inverter_sync(inverter_id)
+                    elif status == "rejected":
+                        logger.info(f"[Sync] Inverter request {inverter.server_request_id} was rejected. Allowing re-submission.")
+                        self.project_svc.update_inverter_sync(inverter_id, server_request_id=0, status='rejected')
+                        return self.initiate_inverter_sync(inverter_id)
+                else:
+                    logger.warning(f"[Sync] Failed to check pending request {inverter.server_request_id}: {check_resp.status_code}")
+                    return None
 
+            # 2. Tạo mới bằng POST nếu chưa có (Create Request)
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
             
             if resp.status_code == 401:
@@ -510,41 +490,41 @@ class SetupService:
                     time.sleep(60)
                     continue
 
-                try:
-                    base_api = API_BASE_URL.rstrip('/')
-                    url = f"{base_api}/api/projects/requests/{request_id}"
-                    headers = {"Authorization": f"Bearer {token}"}
-                    resp = requests.get(url, headers=headers, timeout=10)
-                    
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        status = data.get("status", "").lower()
-                        
-                        if status == "approved":
-                            # Cập nhật ID sau khi Admin duyệt
-                            server_id = data.get("approved_project_id")
-                            if not server_id:
-                                # Fallback if server uses a different key sometimes
-                                server_id = data.get("target_project_id")
-                            self.project_svc.update_project_sync(project_id, server_id=server_id, status='approved')
-                            
-                            # Cập nhật inverters nếu có map
-                            inv_map = data.get("inverter_map", {})
-                            local_invs = self.project_svc.get_inverters_by_project(project_id)
-                            for li in local_invs:
-                                s_inv_id = inv_map.get(li.serial_number)
-                                if s_inv_id:
-                                    self.project_svc.update_inverter_sync(li.id, server_id=s_inv_id, status='approved')
-                            
-                            logger.info(f"[Sync] Project {project_id} APPROVED by Admin.")
-                            break
-                        elif status == "rejected":
-                            self.project_svc.update_project_sync(project_id, status='rejected')
-                            break
-                except Exception as e:
-                    logger.error(f"[Sync] Polling error: {e}")
+            try:
+                base_api = API_BASE_URL.rstrip('/')
+                url = f"{base_api}/api/projects/requests/{request_id}"
+                headers = {"Authorization": f"Bearer {token}"}
+                resp = requests.get(url, headers=headers, timeout=10)
                 
-                time.sleep(60)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    status = data.get("status", "").lower()
+                    
+                    if status == "approved":
+                        # Cập nhật ID sau khi Admin duyệt
+                        server_id = data.get("approved_project_id")
+                        if not server_id:
+                            # Fallback if server uses a different key sometimes
+                            server_id = data.get("target_project_id")
+                        self.project_svc.update_project_sync(project_id, server_id=server_id, status='approved')
+                        
+                        # Cập nhật inverters nếu có map
+                        inv_map = data.get("inverter_map", {})
+                        local_invs = self.project_svc.get_inverters_by_project(project_id)
+                        for li in local_invs:
+                            s_inv_id = inv_map.get(li.serial_number)
+                            if s_inv_id:
+                                self.project_svc.update_inverter_sync(li.id, server_id=s_inv_id, status='approved')
+                        
+                        logger.info(f"[Sync] Project {project_id} APPROVED by Admin.")
+                        break
+                    elif status == "rejected":
+                        self.project_svc.update_project_sync(project_id, status='rejected')
+                        break
+            except Exception as e:
+                logger.error(f"[Sync] Polling error: {e}")
+            
+            time.sleep(60)
         finally:
             _ACTIVE_POLLS.discard(poll_key)
 
@@ -563,32 +543,32 @@ class SetupService:
                     time.sleep(60)
                     continue
 
-                try:
-                    base_api = API_BASE_URL.rstrip('/')
-                    url = f"{base_api}/api/inverters/requests/{request_id}"
-                    headers = {"Authorization": f"Bearer {token}"}
-                    resp = requests.get(url, headers=headers, timeout=10)
-                    
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        status = data.get("status", "").lower()
-                        
-                        if status == "approved":
-                            # Cập nhật ID sau khi Admin duyệt
-                            server_id = data.get("approved_inverter_id")
-                            if not server_id:
-                                # Fallback
-                                server_id = data.get("target_inverter_id")
-                            self.project_svc.update_inverter_sync(inverter_id, server_id=server_id, status='approved')
-                            logger.info(f"[Sync] Inverter {inverter_id} APPROVED by Admin.")
-                            break
-                        elif status == "rejected":
-                            self.project_svc.update_inverter_sync(inverter_id, status='rejected')
-                            break
-                except Exception as e:
-                    logger.error(f"[Sync] Polling inverter error: {e}")
+            try:
+                base_api = API_BASE_URL.rstrip('/')
+                url = f"{base_api}/api/inverters/requests/{request_id}"
+                headers = {"Authorization": f"Bearer {token}"}
+                resp = requests.get(url, headers=headers, timeout=10)
                 
-                time.sleep(60)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    status = data.get("status", "").lower()
+                    
+                    if status == "approved":
+                        # Cập nhật ID sau khi Admin duyệt
+                        server_id = data.get("approved_inverter_id")
+                        if not server_id:
+                            # Fallback
+                            server_id = data.get("target_inverter_id")
+                        self.project_svc.update_inverter_sync(inverter_id, server_id=server_id, status='approved')
+                        logger.info(f"[Sync] Inverter {inverter_id} APPROVED by Admin.")
+                        break
+                    elif status == "rejected":
+                        self.project_svc.update_inverter_sync(inverter_id, status='rejected')
+                        break
+            except Exception as e:
+                logger.error(f"[Sync] Polling inverter error: {e}")
+            
+            time.sleep(60)
         finally:
             _ACTIVE_POLLS.discard(poll_key)
 

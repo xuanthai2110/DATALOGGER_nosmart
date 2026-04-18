@@ -63,12 +63,19 @@ async def sync_inverter(
         raise HTTPException(status_code=401, detail="Cloud authentication failed.")
 
     request_id = svc.initiate_inverter_sync(inverter_id)
+    
+    if request_id == -99:
+        return {"ok": False, "message": "Yêu cầu trước đó vẫn đang chờ phê duyệt. Vui lòng gọi đến 0836684169 để xử lý!"}
+    
     if request_id == -2:
         return {"ok": False, "message": "Vui lòng tạo yêu cầu đồng bộ cho Dự án (Project) trước khi đồng bộ Inverter!"}
+    
     if request_id == -3:
         return {"ok": True, "message": "Inverter đã được cập nhật thành công trực tiếp lên Server."}
+    
     if request_id == -1:
-        return {"ok": True, "message": "Inverter is already up-to-date with the server. No changes detected."}
+        return {"ok": True, "message": "Dữ liệu Inverter local đã khớp hoàn toàn với Server. Không cần cập nhật."}
+    
     if not request_id:
         raise HTTPException(status_code=502, detail="Cloud server rejected the inverter request.")
     
