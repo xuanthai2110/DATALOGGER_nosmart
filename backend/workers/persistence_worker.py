@@ -31,6 +31,7 @@ class PersistenceWorker(threading.Thread):
         self.interval = interval
         self.daemon = True
         self._stop_event = threading.Event()
+        self._last_purge_date = None
 
     def run(self):
         logger.info(f"Persistence Worker started (Interval: {self.interval}s)")
@@ -42,6 +43,17 @@ class PersistenceWorker(threading.Thread):
             time.sleep(self.interval)
 
     def _save_snapshot(self):
+        # 0. Thực hiện dọn dẹp dữ liệu cũ (Purge) vào lúc 00:00 hàng ngày
+        now = time.localtime()
+        if now.tm_hour == 0:
+            current_date = f"{now.tm_year}-{now.tm_mon}-{now.tm_mday}"
+            if self._last_purge_date != current_date:
+                try:
+                    self.realtime_db.purge_old_data(settings.DATA_RETENTION_DAYS)
+                    self._last_purge_date = current_date
+                except Exception as e:
+                    logger.error(f"Persistence Worker: Error during daily purge at 00:00: {e}")
+
         logger.info("Persistence Worker: Saving snapshot to disk...")
         
         # 1. Fetch all cache data

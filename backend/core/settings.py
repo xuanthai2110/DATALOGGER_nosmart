@@ -55,6 +55,7 @@ API_PASSWORD = os.getenv("API_PASSWORD", "")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "10"))
 SNAPSHOT_INTERVAL = int(os.getenv("SNAPSHOT_INTERVAL", "300"))
 CONFIG_REFRESH_INTERVAL = int(os.getenv("CONFIG_REFRESH_INTERVAL", "300"))
+DATA_RETENTION_DAYS = 30 # Lưu trữ tối đa 60 ngày
 
 # ===========================================================
 # COMMUNICATION (CommConfig defaults)

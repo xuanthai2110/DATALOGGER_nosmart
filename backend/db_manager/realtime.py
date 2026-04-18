@@ -359,3 +359,39 @@ class RealtimeDB(BaseDB):
             conn.execute("DELETE FROM project_realtime WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM uploader_outbox WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM control_schedules WHERE project_id=?", (project_id,))
+
+    def purge_old_data(self, days: int):
+        """Xóa dữ liệu lịch sử cũ hơn N ngày để giải phóng bộ nhớ."""
+        if days <= 0:
+            return
+            
+        from datetime import datetime, timedelta
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+        logger.info(f"RealtimeDB: Purging data older than {cutoff_date} ({days} days)...")
+        
+        tables = [
+            "project_realtime", 
+            "inverter_ac_realtime", 
+            "inverter_errors", 
+            "mppt_realtime", 
+            "string_realtime"
+        ]
+        
+        try:
+            with self._connect() as conn:
+                total_deleted = 0
+                for table in tables:
+                    cursor = conn.execute(f"DELETE FROM {table} WHERE created_at < ?", (cutoff_date,))
+                    total_deleted += cursor.rowcount
+                
+                if total_deleted > 0:
+                    logger.info(f"RealtimeDB: Deleted {total_deleted} old records. Running VACUUM...")
+                    conn.execute("VACUUM")
+                    logger.info("RealtimeDB: VACUUM completed.")
+                else:
+                    logger.info("RealtimeDB: No old records found to purge.")
+        except Exception as e:
+            logger.error(f"RealtimeDB: Error during purge: {e}")
