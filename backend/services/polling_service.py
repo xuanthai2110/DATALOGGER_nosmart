@@ -12,6 +12,7 @@ from backend.communication.modbus_tcp import ModbusTCP
 from backend.communication.modbus_rtu import ModbusRTU
 from backend.services.normalization_service import NormalizationService
 from backend.services.fault_service import FaultService
+from backend.services.string_monitoring_service import StringMonitoringService
 from backend.core import settings
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class PollingService:
         self.cache_db = cache_db
         self.normalization = NormalizationService()
         self.fault_service = FaultService()
+        self.string_monitor = StringMonitoringService(cache_db)
         self.transports = {}
         self._transport_lock = threading.Lock()
         
@@ -138,6 +140,21 @@ class PollingService:
                 
                 polling_time = datetime.now().isoformat()
                 errors_payload = self.fault_service.get_inverter_status_payload(inv.brand, status_code, fault_code, polling_time)
+                
+                # --- Custom Logic: Check String Open Circuit ---
+                current_strings_data = []
+                for i in range(1, inv.mppt_count + 1):
+                    for s_idx in [2*i-1, 2*i]:
+                        current_strings_data.append({
+                            "string_index": s_idx,
+                            "I_string": clean.get(f"string_{s_idx}_current", 0.0)
+                        })
+                
+                string_faults = self.string_monitor.process_strings(inv.id, current_strings_data, polling_time)
+                if string_faults:
+                    # Gộp lỗi string vào payload chung của inverter
+                    errors_payload.extend(string_faults)
+
                 state_snapshot = self.fault_service.get_state_snapshot(inv.brand, status_code)
                 
                 fault_json = json.dumps(errors_payload, ensure_ascii=False) if errors_payload else "[]"

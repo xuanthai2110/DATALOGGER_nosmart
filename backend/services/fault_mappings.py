@@ -5,7 +5,7 @@ UNIFIED_STATES = {
     6: "VẬN HÀNH CÓ CẢNH BÁO", 7: "GIẢM CÔNG SUẤT", 8: "VẬN HÀNH THEO LỆNH ĐIỀU ĐỘ", 9: "LỖI TRUYỀN THÔNG",
     10: "DỪNG KHẨN CẤP", 11: "DỪNG BẰNG NÚT", 12: "CHỜ KHỞI TẠO", 13: "ĐANG DÒ LƯỚI",
     14: "KIỂM TRA CÁCH ĐIỆN", 15: "TỰ KIỂM TRA", 16: "VẬN HÀNH ĐỘC LẬP", 17: "CHẾ ĐỘ BẢO TRÌ",
-    18: "ĐANG NÂNG CẤP", 19: "ĐANG TẮT", 20: "GIỚI HẠN CÔNG SUẤT", 21: "CHỜ PHỤC HỒI LƯỚI", 22: "NGỦ"
+    18: "ĐANG NÂNG CẤP", 19: "ĐANG TẮT", 20: "GIỚI HẠN CÔNG SUẤT", 21: "CHỜ PHỤC HỒI LƯỚI", 22: "NGỦ",23:"Phát hiện String bị hở mach"
 }
 
 UNIFIED_FAULTS = {

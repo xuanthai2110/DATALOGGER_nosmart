@@ -55,7 +55,7 @@ def main():
         build_tele_worker = BuildTeleWorker(cache_db, project_svc, realtime_db, settings.SNAPSHOT_INTERVAL)
         poll_worker = PollingWorker(project_svc, cache_db, settings.POLL_INTERVAL)
         logic_worker = LogicWorker(cache_db, project_svc, realtime_db, fault_service, build_tele_worker)
-        persist_worker = PersistenceWorker(cache_db, realtime_db, logic_worker.energy_service, settings.SNAPSHOT_INTERVAL)
+        persist_worker = PersistenceWorker(cache_db, realtime_db, logic_worker.energy_service, settings.SNAPSHOT_INTERVAL, string_monitor=poll_worker.service.string_monitor)
         
         # Khởi tạo Control Service dựa vào polling service nội bộ của poll_worker
         control_svc = ControlService(polling_service=poll_worker.service)

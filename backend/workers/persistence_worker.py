@@ -22,11 +22,12 @@ def _num(value, default: float = 0.0) -> float:
         return default
 
 class PersistenceWorker(threading.Thread):
-    def __init__(self, cache_db: CacheDB, realtime_db: RealtimeDB, energy_service: EnergyService, interval: float = 300.0):
+    def __init__(self, cache_db: CacheDB, realtime_db: RealtimeDB, energy_service: EnergyService, interval: float = 300.0, string_monitor=None):
         super().__init__()
         self.cache_db = cache_db
         self.realtime_db = realtime_db
         self.energy_service = energy_service
+        self.string_monitor = string_monitor # Tham chiếu đến service theo dõi string
         self.telemetry = TelemetryService(realtime_db)
         self.interval = interval
         self.daemon = True
@@ -50,6 +51,8 @@ class PersistenceWorker(threading.Thread):
             if self._last_purge_date != current_date:
                 try:
                     self.realtime_db.purge_old_data(settings.DATA_RETENTION_DAYS)
+                    if self.string_monitor:
+                        self.string_monitor.reset_daily()
                     self._last_purge_date = current_date
                 except Exception as e:
                     logger.error(f"Persistence Worker: Error during daily purge at 00:00: {e}")
