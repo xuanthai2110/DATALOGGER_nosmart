@@ -329,9 +329,9 @@ class SetupService:
         elif server_req_id:
             payload["project_request_id"] = server_req_id
         else:
-            logger.warning(f"[Sync] Project {project_id} has neither server_id nor server_request_id. Inverter sync will likely fail.")
-            # Vẫn để mặc định 0 để trigger lỗi 422 rõ ràng hơn hoặc handle tùy server
-            payload["project_id"] = 0
+            logger.warning(f"[Sync] Project {project_id} has neither server_id nor server_request_id. Inverter sync will fail.")
+            # Trường hợp 3: dự án chưa có cả 2 -> thông báo tạo request cho project trước
+            return -2
         
         # Format date strings if they are objects
         if payload.get("usage_start_at") is None:
@@ -342,7 +342,7 @@ class SetupService:
             url = f"{base_api}/api/inverters/requests/"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
-            # 0. Nếu inverter ĐÃ ĐƯỢC DUYỆT, ta dùng POST update với full payload
+            # 0. Nếu inverter ĐÃ ĐƯỢC DUYỆT, ta dùng PATCH TRỰC TIẾP lên Inverter
             if inverter.server_id and inverter.sync_status == 'approved':
                 # KIỂM TRA SỰ THAY ĐỔI
                 check_url = f"{base_api}/api/inverters/{inverter.server_id}"
@@ -362,28 +362,24 @@ class SetupService:
                         if not self._is_equal(sv, v):
                             diff_payload[k] = v
                     if not diff_payload:
-                        logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping POST update.")
+                        logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping direct PATCH.")
                         return -1
                         
-                update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
-                logger.info(f"[Sync] Inverter is approved. Sending update request to {update_url} with: {diff_payload}")
-                resp = requests.post(update_url, json=diff_payload, headers=headers, timeout=20)
+                update_url = f"{base_api}/api/inverters/{inverter.server_id}"
+                logger.info(f"[Sync] Inverter is approved. Sending direct PATCH to {update_url} with: {diff_payload}")
+                resp = requests.patch(update_url, json=diff_payload, headers=headers, timeout=20)
                 
                 if resp.status_code == 401:
                     token = self.auth.handle_unauthorized()
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
-                        resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                        resp = requests.patch(update_url, json=payload, headers=headers, timeout=20)
                 
-                if resp.status_code in [200, 201, 202]:
-                    res_data = resp.json()
-                    request_id = res_data.get("id")
-                    if request_id:
-                        # Giữ trạng thái 'approved'
-                        self.project_svc.update_inverter_sync(inverter_id, server_request_id=request_id, status='approved')
-                        return request_id
+                if resp.status_code in [200, 201, 202, 204]:
+                    # Trả về -3 để báo hiệu cập nhật trực tiếp thành công (không tạo request mới)
+                    return -3
                 else:
-                    logger.warning(f"[Sync] Inverter update request failed: {resp.status_code} - {resp.text}")
+                    logger.warning(f"[Sync] Inverter direct PATCH failed: {resp.status_code} - {resp.text}")
                 return None
 
             # 1. Thử PATCH nếu đang ở trạng thái pending
