@@ -482,49 +482,41 @@ class SetupService:
             return
             
         _ACTIVE_POLLS.add(poll_key)
-        max_retries = 120 # 2 tiếng (1 phút / lần)
         try:
-            for _ in range(max_retries):
+            for _ in range(120):
                 token = self.auth.get_access_token()
                 if not token: 
                     time.sleep(60)
                     continue
 
-            try:
-                base_api = API_BASE_URL.rstrip('/')
-                url = f"{base_api}/api/projects/requests/{request_id}"
-                headers = {"Authorization": f"Bearer {token}"}
-                resp = requests.get(url, headers=headers, timeout=10)
-                
-                if resp.status_code == 200:
-                    data = resp.json()
-                    status = data.get("status", "").lower()
+                try:
+                    url = f"{API_BASE_URL.rstrip('/')}/api/projects/requests/{request_id}"
+                    headers = {"Authorization": f"Bearer {token}"}
+                    resp = requests.get(url, headers=headers, timeout=10)
                     
-                    if status == "approved":
-                        # Cập nhật ID sau khi Admin duyệt
-                        server_id = data.get("approved_project_id")
-                        if not server_id:
-                            # Fallback if server uses a different key sometimes
-                            server_id = data.get("target_project_id")
-                        self.project_svc.update_project_sync(project_id, server_id=server_id, status='approved')
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        status = data.get("status", "").lower()
                         
-                        # Cập nhật inverters nếu có map
-                        inv_map = data.get("inverter_map", {})
-                        local_invs = self.project_svc.get_inverters_by_project(project_id)
-                        for li in local_invs:
-                            s_inv_id = inv_map.get(li.serial_number)
-                            if s_inv_id:
-                                self.project_svc.update_inverter_sync(li.id, server_id=s_inv_id, status='approved')
-                        
-                        logger.info(f"[Sync] Project {project_id} APPROVED by Admin.")
-                        break
-                    elif status == "rejected":
-                        self.project_svc.update_project_sync(project_id, status='rejected')
-                        break
-            except Exception as e:
-                logger.error(f"[Sync] Polling error: {e}")
-            
-            time.sleep(60)
+                        if status == "approved":
+                            s_id = data.get("approved_project_id") or data.get("target_project_id")
+                            self.project_svc.update_project_sync(project_id, server_id=s_id, status='approved')
+                            
+                            inv_map = data.get("inverter_map", {})
+                            for li in self.project_svc.get_inverters_by_project(project_id):
+                                s_inv_id = inv_map.get(li.serial_number)
+                                if s_inv_id:
+                                    self.project_svc.update_inverter_sync(li.id, server_id=s_inv_id, status='approved')
+                            
+                            logger.info(f"[Sync] Project {project_id} APPROVED by Admin.")
+                            break
+                        elif status == "rejected":
+                            self.project_svc.update_project_sync(project_id, status='rejected')
+                            break
+                except Exception as e:
+                    logger.error(f"[Sync] Polling error: {e}")
+                
+                time.sleep(60)
         finally:
             _ACTIVE_POLLS.discard(poll_key)
 
@@ -535,40 +527,34 @@ class SetupService:
             return
             
         _ACTIVE_POLLS.add(poll_key)
-        max_retries = 120 # 2 tiếng (1 phút / lần)
         try:
-            for _ in range(max_retries):
+            for _ in range(120):
                 token = self.auth.get_access_token()
-                if not token: 
+                if not token:
                     time.sleep(60)
                     continue
 
-            try:
-                base_api = API_BASE_URL.rstrip('/')
-                url = f"{base_api}/api/inverters/requests/{request_id}"
-                headers = {"Authorization": f"Bearer {token}"}
-                resp = requests.get(url, headers=headers, timeout=10)
-                
-                if resp.status_code == 200:
-                    data = resp.json()
-                    status = data.get("status", "").lower()
+                try:
+                    url = f"{API_BASE_URL.rstrip('/')}/api/inverters/requests/{request_id}"
+                    headers = {"Authorization": f"Bearer {token}"}
+                    resp = requests.get(url, headers=headers, timeout=10)
                     
-                    if status == "approved":
-                        # Cập nhật ID sau khi Admin duyệt
-                        server_id = data.get("approved_inverter_id")
-                        if not server_id:
-                            # Fallback
-                            server_id = data.get("target_inverter_id")
-                        self.project_svc.update_inverter_sync(inverter_id, server_id=server_id, status='approved')
-                        logger.info(f"[Sync] Inverter {inverter_id} APPROVED by Admin.")
-                        break
-                    elif status == "rejected":
-                        self.project_svc.update_inverter_sync(inverter_id, status='rejected')
-                        break
-            except Exception as e:
-                logger.error(f"[Sync] Polling inverter error: {e}")
-            
-            time.sleep(60)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        status = data.get("status", "").lower()
+                        
+                        if status == "approved":
+                            s_id = data.get("approved_inverter_id") or data.get("target_inverter_id")
+                            self.project_svc.update_inverter_sync(inverter_id, server_id=s_id, status='approved')
+                            logger.info(f"[Sync] Inverter {inverter_id} APPROVED by Admin.")
+                            break
+                        elif status == "rejected":
+                            self.project_svc.update_inverter_sync(inverter_id, status='rejected')
+                            break
+                except Exception as e:
+                    logger.error(f"[Sync] Polling inverter error: {e}")
+                
+                time.sleep(60)
         finally:
             _ACTIVE_POLLS.discard(poll_key)
 
