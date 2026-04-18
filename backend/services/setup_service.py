@@ -379,15 +379,10 @@ class SetupService:
                         logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping update request.")
                         return -1
                         
-                update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}/"
-                logger.info(f"[Sync] Inverter is {inverter.sync_status}. Sending Update Request POST to {update_url} with: {payload}")
+                update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
+                logger.info(f"[Sync] Inverter is {inverter.sync_status}. Sending Update Request POST to {update_url}")
                 resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
                 
-                if resp.status_code == 405:
-                    logger.warning(f"[Sync] POST not allowed with trailing slash, trying without...")
-                    update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
-                    resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
-                    
                 if resp.status_code == 401:
                     token = self.auth.handle_unauthorized()
                     if token:
