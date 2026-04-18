@@ -179,7 +179,8 @@ class SetupService:
                     for k, v in payload.items():
                         sv = server_data.get(k)
                         if not self._is_equal(sv, v):
-                            diff_payload[k] = v
+                            if k not in ['usage_start_at', 'usage_end_at']:
+                                diff_payload[k] = v
                     if not diff_payload:
                         logger.info(f"[Sync] Project {project_id} has no changes. Skipping POST update.")
                         return -1
@@ -223,8 +224,9 @@ class SetupService:
                     if status == "pending":
                         patch_payload = {}
                         for k, v in payload.items():
-                            if server_data.get(k) != v:
-                                patch_payload[k] = v
+                            if not self._is_equal(server_data.get(k), v):
+                                if k not in ['usage_start_at', 'usage_end_at']:
+                                    patch_payload[k] = v
                         
                         if not patch_payload:
                             logger.info(f"[Sync] Project {project_id} has no changes to patch.")
@@ -360,7 +362,8 @@ class SetupService:
                     for k, v in payload.items():
                         sv = server_data.get(k)
                         if not self._is_equal(sv, v):
-                            diff_payload[k] = v
+                            if k not in ['usage_start_at', 'usage_end_at']:
+                                diff_payload[k] = v
                     if not diff_payload:
                         logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping direct PATCH.")
                         return -1
@@ -400,8 +403,9 @@ class SetupService:
                     if status == "pending":
                         patch_payload = {}
                         for k, v in payload.items():
-                            if server_data.get(k) != v:
-                                patch_payload[k] = v
+                            if not self._is_equal(server_data.get(k), v):
+                                if k not in ['usage_start_at', 'usage_end_at']:
+                                    patch_payload[k] = v
                                 
                         if not patch_payload:
                             logger.info(f"[Sync] Inverter {inverter_id} has no changes to patch.")
