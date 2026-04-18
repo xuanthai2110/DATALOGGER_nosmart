@@ -364,6 +364,8 @@ class SetupService:
                         
                 if get_resp.status_code == 200:
                     server_data = get_resp.json()
+                    logger.info(f"[Sync] Data from Server: {server_data}")
+                    logger.info(f"[Sync] Data from Local (to compare): {payload}")
                     
                     if server_data.get("usage_start_at"):
                         payload["usage_start_at"] = server_data.get("usage_start_at")
