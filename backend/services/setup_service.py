@@ -372,27 +372,33 @@ class SetupService:
                         
                     diff_payload = {}
                     for k, v in payload.items():
-                        sv = server_data.get(k)
-                        if not self._is_equal(sv, v):
+                        if k in ["project_id", "project_request_id"]:
+                            continue
+                        if not self._is_equal(server_data.get(k), v):
                             diff_payload[k] = v
+                            
                     if not diff_payload:
                         logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping update request.")
                         return -1
                         
-                # Đối với luồng UPDATE, server không cho phép gửi project_id/project_request_id trong body
-                update_payload = payload.copy()
-                update_payload.pop("project_id", None)
-                update_payload.pop("project_request_id", None)
-
-                update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
-                logger.info(f"[Sync] Inverter is {inverter.sync_status}. Sending Update Request POST to {update_url}")
-                resp = requests.post(update_url, json=update_payload, headers=headers, timeout=20)
+                    update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
+                    logger.info(f"[Sync] Sending Inverter Update Request (Diff) to {update_url}: {diff_payload}")
+                    resp = requests.post(update_url, json=diff_payload, headers=headers, timeout=20)
+                else:
+                    # Nếu không lấy được server_data, gửi toàn bộ (loại bỏ project link)
+                    update_payload = payload.copy()
+                    update_payload.pop("project_id", None)
+                    update_payload.pop("project_request_id", None)
+                    update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
+                    logger.info(f"[Sync] Could not fetch server data, sending full update payload.")
+                    resp = requests.post(update_url, json=update_payload, headers=headers, timeout=20)
                 
                 if resp.status_code == 401:
                     token = self.auth.handle_unauthorized()
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
-                        resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                        current_payload = diff_payload if 'diff_payload' in locals() else update_payload
+                        resp = requests.post(update_url, json=current_payload, headers=headers, timeout=20)
                 
                 if resp.status_code in [200, 201]:
                     new_req_id = resp.json().get("id")
@@ -400,12 +406,9 @@ class SetupService:
                         self.project_svc.update_inverter_sync(inverter_id, server_request_id=new_req_id, status='pending')
                         logger.info(f"[Sync] Inverter update request created: {new_req_id}")
                         return new_req_id
-                    else:
-                        logger.warning(f"[Sync] No ID returned in update request response.")
-                        return None
-                else:
-                    logger.warning(f"[Sync] Inverter Update Request POST failed: {resp.status_code} - {resp.text}")
-                    return None
+                
+                logger.warning(f"[Sync] Inverter Update Request failed: {resp.status_code} - {resp.text}")
+                return None
 
             # 1. Nếu đang ở trạng thái pending (đã có request chưa xử lý)
             if inverter.server_request_id and inverter.sync_status == 'pending':
@@ -439,6 +442,7 @@ class SetupService:
                     return None
 
             # 2. Tạo mới bằng POST nếu chưa có (Create Request)
+            logger.info(f"[Sync] Sending Inverter Create Request to {url}: {payload}")
             resp = requests.post(url, json=payload, headers=headers, timeout=20)
             
             if resp.status_code == 401:
