@@ -379,9 +379,14 @@ class SetupService:
                         logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping update request.")
                         return -1
                         
+                # Đối với luồng UPDATE, server không cho phép gửi project_id/project_request_id trong body
+                update_payload = payload.copy()
+                update_payload.pop("project_id", None)
+                update_payload.pop("project_request_id", None)
+
                 update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
                 logger.info(f"[Sync] Inverter is {inverter.sync_status}. Sending Update Request POST to {update_url}")
-                resp = requests.post(update_url, json=payload, headers=headers, timeout=20)
+                resp = requests.post(update_url, json=update_payload, headers=headers, timeout=20)
                 
                 if resp.status_code == 401:
                     token = self.auth.handle_unauthorized()
