@@ -43,6 +43,9 @@ class UploaderService:
                     else:
                         self.db.delete_from_outbox(data["id"])
                         logger.error(f"Upload failed twice for record {data['id']} (status={response.status_code}). Deleted from outbox. Error: {response.text}")
+                elif response.status_code == 409:
+                    self.db.delete_from_outbox(data["id"])
+                    logger.warning(f"Upload conflict (409) for project {server_id}. Data already exists. Record {data['id']} deleted from outbox.")
                 else:
                     logger.warning(f"Upload failed for project {server_id} (status={response.status_code}): {response.text}")
             except Exception as e:
