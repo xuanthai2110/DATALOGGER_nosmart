@@ -212,3 +212,21 @@ class CacheDB(BaseDB):
         with self._connect() as conn:
             conn.execute("DELETE FROM mppt_cache WHERE inverter_id = ?", (inverter_id,))
             conn.execute("DELETE FROM string_cache WHERE inverter_id = ?", (inverter_id,))
+
+    def update_mppt_max(self, inverter_id: int, mppt_index: int, max_v: float, max_i: float, max_p: float):
+        """Cập nhật giá trị Max cho MPPT - dùng để đồng bộ từ RAM MaxTrackingService."""
+        with self._connect() as conn:
+            conn.execute("""
+                UPDATE mppt_cache 
+                SET Max_V = ?, Max_I = ?, Max_P = ?
+                WHERE inverter_id = ? AND mppt_index = ?
+            """, (max_v, max_i, max_p, inverter_id, mppt_index))
+
+    def update_string_max(self, inverter_id: int, string_id: int, max_i: float):
+        """Cập nhật giá trị Max cho String - dùng để đồng bộ từ RAM MaxTrackingService."""
+        with self._connect() as conn:
+            conn.execute("""
+                UPDATE string_cache 
+                SET max_I = ?
+                WHERE inverter_id = ? AND string_id = ?
+            """, (max_i, inverter_id, string_id))

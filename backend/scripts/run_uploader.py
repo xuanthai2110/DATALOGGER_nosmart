@@ -46,4 +46,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Uploader stopped by user.")
     except Exception as e:
-        logger.error(f"Critical error: {e}", exc_info=True)
+        logger.error(f"Uploader error: {e}", exc_info=True)

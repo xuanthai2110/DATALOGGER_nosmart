@@ -65,7 +65,13 @@ class LogicWorker(threading.Thread):
             if hold_zero_max:
                 self.cache_db.reset_mppt_max(inv_id)
                 self.cache_db.reset_string_max(inv_id)
-            self.max_service.update(inv_id, mppts, strings, polling_time=polling_time) if not hold_zero_max else None
+            else:
+                maxes = self.max_service.update(inv_id, mppts, strings, polling_time=polling_time)
+                # Sync back to CacheDB (SQLite RAM) to ensure Telemetry and Persistence see the REAL daily max
+                for mppt_idx, m_max in maxes.get("mppt", {}).items():
+                    self.cache_db.update_mppt_max(inv_id, mppt_idx, m_max["Max_V"], m_max["Max_I"], m_max["Max_P"])
+                for str_id, s_max_i in maxes.get("string", {}).items():
+                    self.cache_db.update_string_max(inv_id, str_id, s_max_i)
             
             # Process Faults and States
             err_cache = self.cache_db.get_error_cache(inv_id)
