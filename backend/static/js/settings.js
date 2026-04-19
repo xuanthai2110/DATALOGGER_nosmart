@@ -23,14 +23,37 @@ async function loadSettings() {
             apiCall('/evn/settings')
         ]);
 
-        console.log("DEBUG: pData:", pData);
-        console.log("DEBUG: cData:", cData);
-        console.log("DEBUG: mData:", mData);
+        console.log("DEBUG: Data fetched:", { pData, cData, iData });
 
         settingsProjects = (pData && pData.projects) || [];
         settingsComms = cData || [];
         settingsInverters = iData || [];
         
+        // --- 1. ĐIỀN DROPDOWN DỰ ÁN (ƯU TIÊN LÀM TRƯỚC) ---
+        const projOptions = ['<option value="">-- Chọn dự án --</option>', ...settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`)].join('');
+        const projectDropdownIds = ['inv-mgmt-project-filter', 'meter-mgmt-project-filter', 'inv-proj-select', 'meter-proj-select', 'sync-project-select'];
+        
+        projectDropdownIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.innerHTML = projOptions;
+                console.log(`DEBUG: Populated #${id} with ${settingsProjects.length} projects`);
+            }
+        });
+
+        // --- 2. ĐIỀN DROPDOWN TRUYỀN THÔNG ---
+        const commOptions = ['<option value="">-- Chọn truyền thông --</option>', ...settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`)].join('');
+        const commDropdownIds = ['inv-comm-select', 'meter-comm-select', 'meter-scan-comm-select'];
+
+        commDropdownIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.innerHTML = commOptions;
+                console.log(`DEBUG: Populated #${id} with ${settingsComms.length} configs`);
+            }
+        });
+
+        // --- 3. CÁC CẤU HÌNH KHÁC ---
         if (mData) {
             availableModels = mData;
             updateModels();
@@ -59,35 +82,6 @@ async function loadSettings() {
         if (commBody) {
             commBody.innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
         }
-        
-        // --- ĐIỀN DROPDOWN DỰ ÁN ---
-        const projOptions = ['<option value="">-- Chọn dự án --</option>', ...settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`)].join('');
-        
-        ['inv-mgmt-project-filter', 'meter-mgmt-project-filter', 'inv-proj-select', 'meter-proj-select'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.innerHTML = projOptions;
-                console.log(`DEBUG: Populated project dropdown #${id} with ${settingsProjects.length} projects`);
-            } else {
-                console.warn(`DEBUG: Element #${id} not found for project dropdown population`);
-            }
-        });
-
-        // --- ĐIỀN DROPDOWN TRUYỀN THÔNG ---
-        let commOptions = '<option value="">-- Chọn truyền thông --</option>';
-        if (settingsComms.length > 0) {
-            commOptions = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
-        }
-
-        ['inv-comm-select', 'meter-comm-select', 'meter-scan-comm-select'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.innerHTML = commOptions;
-                console.log(`DEBUG: Populated comm dropdown #${id} with ${settingsComms.length} configs`);
-            } else {
-                console.warn(`DEBUG: Element #${id} not found for comm dropdown population`);
-            }
-        });
 
         renderInvertersByProject();
         renderMetersByProject();
