@@ -12,79 +12,91 @@ let availableModels = { "Sungrow": [], "Huawei": [] };
 let availableMeterModels = { "Chint": ["DTSU666"], "Acrel": ["DTSD1352"] };
 
 async function loadSettings() {
-    console.log("Loading settings data...");
-    const [pData, cData, iData, mData, accData, evnData] = await Promise.all([
-        apiCall('/projects'),
-        apiCall('/comm'),
-        apiCall('/inverters'),
-        apiCall('/scan/models'),
-        apiCall('/server-accounts'),
-        apiCall('/evn/settings')
-    ]);
+    console.log("DEBUG: loadSettings started");
+    try {
+        const [pData, cData, iData, mData, accData, evnData] = await Promise.all([
+            apiCall('/projects'),
+            apiCall('/comm'),
+            apiCall('/inverters'),
+            apiCall('/scan/models'),
+            apiCall('/server-accounts'),
+            apiCall('/evn/settings')
+        ]);
 
-    console.log("Projects data:", pData);
-    console.log("Inverters data:", iData);
+        console.log("DEBUG: pData:", pData);
+        console.log("DEBUG: cData:", cData);
+        console.log("DEBUG: mData:", mData);
 
-    settingsProjects = (pData && pData.projects) || [];
-    settingsComms = cData || [];
-    settingsInverters = iData || [];
-    
-    if (mData) {
-        availableModels = mData;
-        updateModels();
+        settingsProjects = (pData && pData.projects) || [];
+        settingsComms = cData || [];
+        settingsInverters = iData || [];
+        
+        if (mData) {
+            availableModels = mData;
+            updateModels();
+        }
+
+        if (accData) {
+            updateProjectAccountDropdown(accData);
+        }
+
+        if (evnData) {
+            const hostEl = document.getElementById('evn-host');
+            const portEl = document.getElementById('evn-port');
+            const enabledEl = document.getElementById('evn-enabled');
+            if (hostEl) hostEl.value = evnData.host || '0.0.0.0';
+            if (portEl) portEl.value = evnData.port || 502;
+            if (enabledEl) enabledEl.checked = evnData.enabled || false;
+        }
+
+        // Render bảng Dự án và Truyền thông
+        const projectBody = document.getElementById('body-settings-projects');
+        if (projectBody) {
+            projectBody.innerHTML = settingsProjects.map(p => `<tr><td>${p.name}</td><td class="action-btns"><button class="action-btn edit" onclick='editProject(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+        }
+        
+        const commBody = document.getElementById('body-settings-comm');
+        if (commBody) {
+            commBody.innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+        }
+        
+        // --- ĐIỀN DROPDOWN DỰ ÁN ---
+        const projOptions = ['<option value="">-- Chọn dự án --</option>', ...settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`)].join('');
+        
+        ['inv-mgmt-project-filter', 'meter-mgmt-project-filter', 'inv-proj-select', 'meter-proj-select'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.innerHTML = projOptions;
+                console.log(`DEBUG: Populated project dropdown #${id} with ${settingsProjects.length} projects`);
+            } else {
+                console.warn(`DEBUG: Element #${id} not found for project dropdown population`);
+            }
+        });
+
+        // --- ĐIỀN DROPDOWN TRUYỀN THÔNG ---
+        let commOptions = '<option value="">-- Chọn truyền thông --</option>';
+        if (settingsComms.length > 0) {
+            commOptions = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
+        }
+
+        ['inv-comm-select', 'meter-comm-select', 'meter-scan-comm-select'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.innerHTML = commOptions;
+                console.log(`DEBUG: Populated comm dropdown #${id} with ${settingsComms.length} configs`);
+            } else {
+                console.warn(`DEBUG: Element #${id} not found for comm dropdown population`);
+            }
+        });
+
+        renderInvertersByProject();
+        renderMetersByProject();
+        renderScanResults();
+        renderMeterScanResults();
+
+    } catch (err) {
+        console.error("ERROR in loadSettings:", err);
     }
-
-    if (accData) {
-        updateProjectAccountDropdown(accData);
-    }
-
-    if (evnData) {
-        document.getElementById('evn-host').value = evnData.host || '0.0.0.0';
-        document.getElementById('evn-port').value = evnData.port || 502;
-        document.getElementById('evn-enabled').checked = evnData.enabled || false;
-    }
-
-    // Render bảng Dự án và Truyền thông (Phần cũ)
-    const projectBody = document.getElementById('body-settings-projects');
-    if (projectBody) {
-        projectBody.innerHTML = settingsProjects.map(p => `<tr><td>${p.name}</td><td class="action-btns"><button class="action-btn edit" onclick='editProject(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
-    }
-    
-    const commBody = document.getElementById('body-settings-comm');
-    if (commBody) {
-        commBody.innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
-    }
-    
-    // ĐIỀN DROPDOWN DỰ ÁN
-    const mgmtFilter = document.getElementById('inv-mgmt-project-filter');
-    const meterMgmtFilter = document.getElementById('meter-mgmt-project-filter');
-    const invProjSelect = document.getElementById('inv-proj-select');
-    const meterProjSelect = document.getElementById('meter-proj-select');
-
-    let projOptions = '<option value="">-- Chọn dự án --</option>';
-    settingsProjects.forEach(p => {
-        projOptions += `<option value="${p.id}">${p.name}</option>`;
-    });
-
-    if (mgmtFilter) mgmtFilter.innerHTML = projOptions;
-    if (meterMgmtFilter) meterMgmtFilter.innerHTML = projOptions;
-    if (invProjSelect) invProjSelect.innerHTML = projOptions;
-    if (meterProjSelect) meterProjSelect.innerHTML = projOptions;
-
-    // Cập nhật dropdown Truyền thông
-    const invCommSelect = document.getElementById('inv-comm-select');
-    const meterCommSelect = document.getElementById('meter-comm-select');
-    const meterScanCommSelect = document.getElementById('meter-scan-comm-select');
-
-    let commOptions = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
-    if (invCommSelect) invCommSelect.innerHTML = commOptions;
-    if (meterCommSelect) meterCommSelect.innerHTML = commOptions;
-    if (meterScanCommSelect) meterScanCommSelect.innerHTML = commOptions;
-
-    renderInvertersByProject();
-    renderMetersByProject();
-    renderScanResults();
-    renderMeterScanResults();
 }
 
 function renderInvertersByProject() {
@@ -448,10 +460,16 @@ function captureScanSelections() {
 }
 
 function getCommLabel(comm) {
-    const endpoint = comm.comm_type === 'TCP'
-        ? `${comm.host || '-'}:${comm.port || '-'}`
-        : `${comm.com_port || '-'} @ ${comm.baudrate || 9600}`;
-    return `${comm.driver} | ${comm.comm_type} | ${endpoint}`;
+    try {
+        if (!comm) return "Cấu hình trống";
+        const endpoint = comm.comm_type === 'TCP'
+            ? `${comm.host || '-'}:${comm.port || '-'}`
+            : `${comm.com_port || '-'} @ ${comm.baudrate || 9600}`;
+        return `${comm.driver || 'Unknown'} | ${comm.comm_type || 'Unknown'} | ${endpoint}`;
+    } catch (e) {
+        console.error("Error in getCommLabel:", e);
+        return "Lỗi hiển thị cấu hình";
+    }
 }
 
 function getDefaultCommId() {
