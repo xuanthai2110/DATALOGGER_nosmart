@@ -381,6 +381,85 @@
                             </div>
                         </div>
                     </div>
+                    <div class="glass settings-section fade-in" style="animation-delay:0.3s">
+                        <h2>Quản lý Meter <span style="font-size:12px; opacity:0.6;">(Công tơ)</span></h2>
+                        <div class="input-group">
+                            <label>Chọn dự án</label>
+                            <select id="meter-mgmt-project-filter" onchange="renderMetersByProject()">
+                                <option value="">-- Chọn dự án --</option>
+                            </select>
+                        </div>
+                        <div style="max-height: 200px; overflow-y: auto; margin-bottom: 24px;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>SN</th>
+                                        <th>Slave</th>
+                                        <th>Loại</th>
+                                        <th>Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="body-settings-meters">
+                                    <tr>
+                                        <td colspan="4" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="form-meter" class="hidden glass" style="padding: 15px; border: 1px solid var(--primary); margin-bottom: 20px;">
+                            <h3 style="margin-bottom:15px; font-size:14px; color:var(--primary)">Thêm / Sửa Meter</h3>
+                            <input type="hidden" id="meter-id">
+                            <div class="form-row">
+                                <div class="input-group"><label>Dự án</label><select id="meter-proj-select"></select></div>
+                                <div class="input-group"><label>Truyền thông</label><select id="meter-comm-select"></select></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="input-group"><label>Số Serial (SN)</label><input type="text" id="meter-sn"></div>
+                                <div class="input-group"><label>Slave ID</label><input type="number" id="meter-slave" value="1"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="input-group"><label>Hãng (Brand)</label><input type="text" id="meter-brand" value="Chint"></div>
+                                <div class="input-group"><label>Model</label><input type="text" id="meter-model" value="DTSU666"></div>
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <button class="btn btn-success" onclick="saveMeter()">LƯU METER</button>
+                                <button class="btn" style="background:rgba(255,255,255,0.05)" onclick="resetMeterForm()">HỦY</button>
+                            </div>
+                        </div>
+
+                        <h3 style="font-size:14px; margin-bottom:10px;">Scan Meter Tự Động</h3>
+                        <div class="form-row">
+                            <div class="input-group"><label>Truyền thông</label><select id="meter-scan-comm-select"></select></div>
+                            <button class="btn btn-primary" onclick="startMeterScan()" id="btn-scan-meter" style="align-self: flex-end; margin-bottom: 15px;"><i class="fas fa-search"></i> QUÉT METER</button>
+                        </div>
+                        
+                        <div id="meter-scan-results" class="hidden glass" style="margin-bottom:16px; padding:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span id="meter-scan-status-text" style="font-size:12px; opacity:0.8">Đang quét...</span>
+                                <button class="action-btn delete" id="btn-stop-scan-meter" onclick="stopMeterScan()" title="Dừng quét"><i class="fas fa-stop"></i></button>
+                            </div>
+                            <div style="height:4px; background:rgba(255,255,255,0.1); border-radius:10px; margin-bottom:15px; overflow:hidden;">
+                                <div id="meter-scan-progress-bar" style="width:0%; height:100%; background:var(--primary); transition:0.3s;"></div>
+                            </div>
+                            <div id="meter-scan-list" style="max-height:200px; overflow-y:auto; font-size:13px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="glass settings-section fade-in" style="animation-delay:0.4s">
+                        <h2>Cấu hình EVN <span style="font-size:12px; opacity:0.6;">(Đẩy dữ liệu Modbus TCP)</span></h2>
+                        <div id="form-evn" class="glass" style="padding: 20px; border: 1px solid var(--primary);">
+                            <div class="input-group" style="flex-direction: row; align-items: center; gap: 10px; margin-bottom: 15px;">
+                                <label style="margin:0;">Kích hoạt đẩy EVN</label>
+                                <input type="checkbox" id="evn-enabled" style="width: auto; margin:0;">
+                            </div>
+                            <div class="form-row">
+                                <div class="input-group"><label>Host (Listen IP)</label><input type="text" id="evn-host" placeholder="0.0.0.0"></div>
+                                <div class="input-group"><label>Port</label><input type="number" id="evn-port" placeholder="502"></div>
+                            </div>
+                            <button class="btn btn-success" onclick="saveEVNConfig()">LƯU CẤU HÌNH EVN</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

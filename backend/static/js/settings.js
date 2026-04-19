@@ -1,19 +1,25 @@
 let settingsProjects = [];
 let settingsComms = [];
 let settingsInverters = [];
+let settingsMeters = [];
 let foundInverters = [];
+let foundMeters = [];
 let scanPollInterval = null;
+let meterScanPollInterval = null;
 let scanSelections = {};
+let meterScanSelections = {};
 let availableModels = { "Sungrow": [], "Huawei": [] };
+let availableMeterModels = { "Chint": ["DTSU666"], "Acrel": ["DTSD1352"] };
 
 async function loadSettings() {
     console.log("Loading settings data...");
-    const [pData, cData, iData, mData, accData] = await Promise.all([
+    const [pData, cData, iData, mData, accData, evnData] = await Promise.all([
         apiCall('/projects'),
         apiCall('/comm'),
         apiCall('/inverters'),
         apiCall('/scan/models'),
-        apiCall('/server-accounts')
+        apiCall('/server-accounts'),
+        apiCall('/evn/settings')
     ]);
 
     console.log("Projects data:", pData);
@@ -32,6 +38,12 @@ async function loadSettings() {
         updateProjectAccountDropdown(accData);
     }
 
+    if (evnData) {
+        document.getElementById('evn-host').value = evnData.host || '0.0.0.0';
+        document.getElementById('evn-port').value = evnData.port || 502;
+        document.getElementById('evn-enabled').checked = evnData.enabled || false;
+    }
+
     // Render bảng Dự án và Truyền thông (Phần cũ)
     const projectBody = document.getElementById('body-settings-projects');
     if (projectBody) {
@@ -43,29 +55,36 @@ async function loadSettings() {
         commBody.innerHTML = settingsComms.map(c => `<tr><td>${c.driver}</td><td>${c.comm_type}</td><td class="action-btns"><button class="action-btn edit" onclick='editComm(${JSON.stringify(c)})'><i class="fas fa-edit"></i></button><button class="action-btn delete" onclick="deleteComm(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');
     }
     
-    // ĐIỀN DROPDOWN DỰ ÁN (Phần quan trọng này bị lỗi ở bước trước)
+    // ĐIỀN DROPDOWN DỰ ÁN
     const mgmtFilter = document.getElementById('inv-mgmt-project-filter');
-    if (mgmtFilter) {
-        let options = '<option value="">-- Chọn dự án --</option>';
-        settingsProjects.forEach(p => {
-            options += `<option value="${p.id}">${p.name}</option>`;
-        });
-        mgmtFilter.innerHTML = options;
-        console.log("Populated mgmtFilter with", settingsProjects.length, "projects");
-    }
-
-    // Fill selects in Inverter Form (Cập nhật dropdown trong form sửa)
+    const meterMgmtFilter = document.getElementById('meter-mgmt-project-filter');
     const invProjSelect = document.getElementById('inv-proj-select');
+    const meterProjSelect = document.getElementById('meter-proj-select');
+
+    let projOptions = '<option value="">-- Chọn dự án --</option>';
+    settingsProjects.forEach(p => {
+        projOptions += `<option value="${p.id}">${p.name}</option>`;
+    });
+
+    if (mgmtFilter) mgmtFilter.innerHTML = projOptions;
+    if (meterMgmtFilter) meterMgmtFilter.innerHTML = projOptions;
+    if (invProjSelect) invProjSelect.innerHTML = projOptions;
+    if (meterProjSelect) meterProjSelect.innerHTML = projOptions;
+
+    // Cập nhật dropdown Truyền thông
     const invCommSelect = document.getElementById('inv-comm-select');
-    if (invProjSelect) {
-        invProjSelect.innerHTML = settingsProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-    }
-    if (invCommSelect) {
-        invCommSelect.innerHTML = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
-    }
+    const meterCommSelect = document.getElementById('meter-comm-select');
+    const meterScanCommSelect = document.getElementById('meter-scan-comm-select');
+
+    let commOptions = settingsComms.map(c => `<option value="${c.id}">${getCommLabel(c)}</option>`).join('');
+    if (invCommSelect) invCommSelect.innerHTML = commOptions;
+    if (meterCommSelect) meterCommSelect.innerHTML = commOptions;
+    if (meterScanCommSelect) meterScanCommSelect.innerHTML = commOptions;
 
     renderInvertersByProject();
+    renderMetersByProject();
     renderScanResults();
+    renderMeterScanResults();
 }
 
 function renderInvertersByProject() {
@@ -481,4 +500,194 @@ function renderScanResults() {
         </div>
         `;
     }).join('');
+}
+
+// === METER MANAGEMENT ===
+async function renderMetersByProject() {
+    const filterEl = document.getElementById('meter-mgmt-project-filter');
+    const tbody = document.getElementById('body-settings-meters');
+    if (!filterEl || !tbody) return;
+    
+    const projId = filterEl.value;
+    if (!projId) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...</td></tr>';
+        return;
+    }
+
+    const data = await apiCall(`/meters/project/${projId}`);
+    settingsMeters = data || [];
+    
+    if (settingsMeters.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; opacity:0.5;">Dự án này chưa có Meter nào.</td></tr>';
+    } else {
+        tbody.innerHTML = settingsMeters.map(m => `
+            <tr>
+                <td>${m.serial_number || 'N/A'}</td>
+                <td>${m.slave_id}</td>
+                <td>${m.brand} ${m.model}</td>
+                <td class="action-btns">
+                    <button class="action-btn edit" onclick=\'editMeter(${JSON.stringify(m)})\' title="Sửa"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn delete" onclick="deleteMeter(${m.id})" title="Xóa"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
+}
+
+async function saveMeter() {
+    const id = document.getElementById('meter-id').value;
+    const body = {
+        project_id: parseInt(document.getElementById('meter-proj-select').value),
+        comm_id: parseInt(document.getElementById('meter-comm-select').value),
+        serial_number: document.getElementById('meter-sn').value,
+        slave_id: parseInt(document.getElementById('meter-slave').value),
+        brand: document.getElementById('meter-brand').value,
+        model: document.getElementById('meter-model').value
+    };
+
+    if (!body.project_id || !body.comm_id || isNaN(body.slave_id)) {
+        return alert("Vui lòng nhập đầy đủ thông tin!");
+    }
+
+    const m = id ? 'PATCH' : 'POST';
+    const url = id ? `/meters/${id}` : '/meters/';
+    
+    const r = await apiCall(url, m, body);
+    if (r) {
+        alert("Lưu Meter thành công!");
+        resetMeterForm();
+        renderMetersByProject();
+    }
+}
+
+function editMeter(m) {
+    document.getElementById('meter-id').value = m.id;
+    document.getElementById('meter-proj-select').value = m.project_id;
+    document.getElementById('meter-comm-select').value = m.comm_id;
+    document.getElementById('meter-sn').value = m.serial_number || "";
+    document.getElementById('meter-slave').value = m.slave_id;
+    document.getElementById('meter-brand').value = m.brand;
+    document.getElementById('meter-model').value = m.model;
+    document.getElementById('form-meter').classList.remove('hidden');
+}
+
+function resetMeterForm() {
+    document.getElementById('meter-id').value = "";
+    document.getElementById('meter-sn').value = "";
+    document.getElementById('meter-slave').value = 1;
+    document.getElementById('form-meter').classList.add('hidden');
+}
+
+async function deleteMeter(id) {
+    if (confirm("Xoá meter này?")) {
+        await apiCall(`/meters/${id}`, 'DELETE');
+        renderMetersByProject();
+    }
+}
+
+// === METER SCANNING ===
+async function startMeterScan() {
+    const commId = document.getElementById('meter-scan-comm-select').value;
+    if (!commId) return alert("Vui lòng chọn cấu hình truyền thông!");
+    
+    const comm = settingsComms.find(c => String(c.id) === String(commId));
+    const body = {
+        comm: {
+            ...comm,
+            brand: "Chint", // Mặc định hoặc cho chọn
+            model: "DTSU666",
+            slave_id_start: 1,
+            slave_id_end: 20
+        }
+    };
+
+    const res = await apiCall('/scan/meters/start', 'POST', body);
+    if (res && res.ok) {
+        foundMeters = [];
+        document.getElementById('meter-scan-results').classList.remove('hidden');
+        document.getElementById('btn-scan-meter').disabled = true;
+        if (meterScanPollInterval) clearInterval(meterScanPollInterval);
+        meterScanPollInterval = setInterval(pollMeterScanStatus, 1000);
+    }
+}
+
+async function pollMeterScanStatus() {
+    const res = await apiCall('/scan/meters/status');
+    if (!res) return;
+
+    const progress = res.total > 0 ? (res.progress / res.total * 100) : 0;
+    document.getElementById('meter-scan-progress-bar').style.width = `${progress}%`;
+    document.getElementById('meter-scan-status-text').innerText = res.is_running ? `Đang quét Slave ID: ${res.progress}/${res.total}` : 'Quét hoàn tất';
+
+    foundMeters = res.results || [];
+    renderMeterScanResults();
+
+    if (!res.is_running) {
+        clearInterval(meterScanPollInterval);
+        meterScanPollInterval = null;
+        document.getElementById('btn-scan-meter').disabled = false;
+    }
+}
+
+function renderMeterScanResults() {
+    const scanList = document.getElementById('meter-scan-list');
+    if (!scanList) return;
+
+    if (!foundMeters.length) {
+        scanList.innerHTML = "";
+        return;
+    }
+
+    const projId = document.getElementById('meter-mgmt-project-filter').value;
+    const commId = document.getElementById('meter-scan-comm-select').value;
+
+    scanList.innerHTML = foundMeters.map((m, idx) => `
+        <div class="scan-item">
+            <div class="scan-item__meta">
+                <b>SN: ${m.serial_number || 'Unknown'}</b> <small>(Slave: ${m.slave_id})</small><br/>
+                <span style="font-size:11px;">${m.brand} ${m.model} | P: ${m.p_total} W</span>
+            </div>
+            <div class="scan-item__actions">
+                <button onclick="saveFoundMeter(${idx})" class="btn-success scan-save-btn">LƯU</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function saveFoundMeter(idx) {
+    const meter = foundMeters[idx];
+    const projId = document.getElementById('meter-mgmt-project-filter').value;
+    const commId = document.getElementById('meter-scan-comm-select').value;
+
+    if (!projId) return alert("Vui lòng chọn dự án ở phía trên!");
+
+    const body = {
+        project_id: parseInt(projId),
+        meters: [{
+            ...meter,
+            comm_id: parseInt(commId)
+        }]
+    };
+    const r = await apiCall('/scan/meters/save', 'POST', body);
+    if (r) {
+        alert("Đã lưu Meter!");
+        renderMetersByProject();
+    }
+}
+
+async function stopMeterScan() {
+    await apiCall('/scan/meters/stop', 'POST');
+}
+
+// === EVN CONFIGURATION ===
+async function saveEVNConfig() {
+    const body = {
+        host: document.getElementById('evn-host').value,
+        port: parseInt(document.getElementById('evn-port').value),
+        enabled: document.getElementById('evn-enabled').checked
+    };
+    const r = await apiCall('/evn/settings', 'POST', body);
+    if (r) {
+        alert("Lưu cấu hình EVN thành công!");
+    }
 }
