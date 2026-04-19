@@ -396,3 +396,49 @@ class RealtimeDB(BaseDB):
                     logger.info("RealtimeDB: No old records found to purge.")
         except Exception as e:
             logger.error(f"RealtimeDB: Error during purge: {e}")
+
+    # --- Yesterday Energy (D-1) ---
+    def get_yesterday_energy_by_inverter(self, inverter_id: int) -> float:
+        """Lấy E_daily từ record CUỐI CÙNG của ngày hôm qua."""
+        from datetime import date, timedelta
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        with self._connect() as conn:
+            row = conn.execute("""
+                SELECT E_daily FROM inverter_ac_realtime
+                WHERE inverter_id = ? AND created_at LIKE ?
+                ORDER BY created_at DESC LIMIT 1
+            """, (inverter_id, f"{yesterday}%")).fetchone()
+            return float(row["E_daily"]) if row and row["E_daily"] is not None else 0.0
+
+    def get_yesterday_energy_by_project(self, project_id: int) -> float:
+        """Tổng E_daily cuối ngày hôm qua của tất cả inverter trong project."""
+        from datetime import date, timedelta
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        with self._connect() as conn:
+            # Lấy E_daily từ record cuối cùng của mỗi inverter trong ngày hôm qua
+            rows = conn.execute("""
+                SELECT E_daily FROM inverter_ac_realtime
+                WHERE id IN (
+                    SELECT MAX(id) FROM inverter_ac_realtime
+                    WHERE project_id = ? AND created_at LIKE ?
+                    GROUP BY inverter_id
+                )
+            """, (project_id, f"{yesterday}%")).fetchall()
+            total = sum(float(r["E_daily"]) for r in rows if r["E_daily"] is not None)
+            return round(total, 2)
+
+    def get_yesterday_energy_per_inverter(self, project_id: int) -> dict:
+        """Trả về {inverter_id: E_daily_yesterday} cho tất cả inverter trong project."""
+        from datetime import date, timedelta
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        with self._connect() as conn:
+            rows = conn.execute("""
+                SELECT inverter_id, E_daily FROM inverter_ac_realtime
+                WHERE id IN (
+                    SELECT MAX(id) FROM inverter_ac_realtime
+                    WHERE project_id = ? AND created_at LIKE ?
+                    GROUP BY inverter_id
+                )
+            """, (project_id, f"{yesterday}%")).fetchall()
+            return {r["inverter_id"]: float(r["E_daily"]) if r["E_daily"] is not None else 0.0 for r in rows}
+

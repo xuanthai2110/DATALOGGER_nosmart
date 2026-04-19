@@ -695,3 +695,29 @@ class SetupService:
         """
         invs = self.project_svc.get_inverters_by_project(project_id)
         return len(invs)
+
+    # ==============================
+    # EVN & METER SETUP (WEB)
+    # ==============================
+    
+    def get_evn_settings(self) -> dict:
+        """Lấy cấu hình EVN toàn cục."""
+        from backend.core import settings
+        host = self.project_svc.metadata_db.get_setting("evn_modbus_host", settings.EVN_MODBUS_HOST)
+        port = int(self.project_svc.metadata_db.get_setting("evn_modbus_port", settings.EVN_MODBUS_PORT))
+        enabled = self.project_svc.metadata_db.get_setting("evn_enabled", str(settings.EVN_ENABLED)).lower() == "true"
+        return {"host": host, "port": port, "enabled": enabled}
+
+    def update_evn_settings(self, host: str, port: int, enabled: bool):
+        """Lưu cấu hình EVN toàn cục."""
+        self.project_svc.metadata_db.set_setting("evn_modbus_host", host)
+        self.project_svc.metadata_db.set_setting("evn_modbus_port", port)
+        self.project_svc.metadata_db.set_setting("evn_enabled", "true" if enabled else "false")
+
+    def scan_meters(self, brand: str, model: str, comm_type: str, host: str, port: int, com_port: str, baudrate: int, slave_start: int, slave_end: int, polling_service) -> List[Dict]:
+        """Thực hiện quét Meter qua polling service."""
+        return polling_service.scan_meters(
+            brand=brand, model=model, comm_type=comm_type,
+            host=host, port=port, com_port=com_port, baudrate=baudrate,
+            slave_start=slave_start, slave_end=slave_end
+        )

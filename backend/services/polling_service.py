@@ -59,9 +59,17 @@ class PollingService:
             for project in projects:
                 inverters = self.project_svc.get_inverters_by_project(project.id)
                 active_inverters = [inv for inv in inverters if inv.is_active]
+                
+                # EVN: Lấy danh sách meters của project
+                from backend.db_manager.metadata import MetadataDB
+                meta_db = MetadataDB()
+                meters = meta_db.get_meters_by_project(project.id)
+                active_meters = [m for m in meters if m.is_active]
+
                 new_cache.append({
                     "project": project,
-                    "inverters": active_inverters
+                    "inverters": active_inverters,
+                    "meters": active_meters
                 })
             
             self._config_cache = new_cache
@@ -159,7 +167,111 @@ class PollingService:
                 
                 self.cache_db.upsert_error(inv.id, project_id, status_code, fault_code, status_text=status_text, fault_json=fault_json)
                 
-                logger.info(f"Poll & Cache Success - Inverter {inv.id}")
+                logger.error(f"Poll & Cache Success - Inverter {inv.id}")
                 
             except Exception as e:
                 logger.error(f"Error polling inverter {inv.id}: {e}")
+
+    def poll_meters(self, project_id: int, meters: List[Any]):
+        """Đọc dữ liệu từ Meter (điểm đấu nối lưới) và lưu vào CacheDB."""
+        for m in meters:
+            try:
+                # Meter thường dùng RTU
+                transport = self._get_transport(m.brand)
+                driver = self._get_meter_driver(m.brand, transport, m.slave_id, m.model)
+                if not driver:
+                    continue
+
+                with transport.arbiter.operation("polling_meter"):
+                    raw_data = driver.read_all()
+                
+                if not raw_data:
+                    logger.warning(f"Meter {m.id} (Slave {m.slave_id}) failed to respond.")
+                    continue
+
+                # Lưu vào CacheDB
+                self.cache_db.upsert_meter_cache(m.id, project_id, raw_data)
+                logger.info(f"Poll & Cache Success - Meter {m.id}")
+
+            except Exception as e:
+                logger.error(f"Error polling meter {m.id}: {e}")
+
+    def scan_meters(
+        self, 
+        brand: str, 
+        model: str, 
+        comm_type: str, 
+        host: Optional[str] = None, 
+        port: Optional[int] = None,
+        com_port: Optional[str] = None,
+        baudrate: int = 9600,
+        slave_start: int = 1,
+        slave_end: int = 247
+    ) -> List[Dict]:
+        """
+        Quét các thiết bị Meter trong một dải Slave ID.
+        Trả về danh sách các meter tìm thấy.
+        """
+        from backend.communication.modbus_tcp import ModbusTCP
+        from backend.communication.modbus_rtu import ModbusRTU
+        
+        transport = None
+        if comm_type.upper() == "TCP":
+            transport = ModbusTCP(host, port)
+        else:
+            transport = ModbusRTU(com_port, baudrate)
+            
+        if not transport.connect():
+            logger.error("[Polling] Scan meters: Failed to connect to %s:%s", host or com_port, port or baudrate)
+            return []
+            
+        found_meters = []
+        try:
+            for sid in range(slave_start, slave_end + 1):
+                logger.info("[Polling] Scanning meter brand=%s model=%s sid=%s", brand, model, sid)
+                driver = self._get_meter_driver(brand, transport, sid, model)
+                if not driver:
+                    continue
+                    
+                # Thử đọc một tập dữ liệu cơ bản
+                data = driver.read_all()
+                if data:
+                    # Đọc Serial Number (nếu driver hỗ trợ)
+                    sn = driver.read_serial_number()
+                    found_meters.append({
+                        "brand": brand,
+                        "model": model,
+                        "slave_id": sid,
+                        "serial_number": sn, # Có thể là None
+                        "data_preview": {
+                            "V_a": data.get("v_a"),
+                            "P_total": data.get("p_total")
+                        }
+                    })
+        finally:
+            transport.close()
+            
+        return found_meters
+
+    def _get_meter_driver(self, brand: str, transport, slave_id: int, model: str):
+        """Tải driver cho Meter."""
+        if not brand or not model:
+            return None
+        
+        # Mapping: brand_model.py (Acrel_DTSD1352 -> acrel_dtsd1352.py)
+        clean_brand = brand.lower().replace(" ", "_").replace("-", "_")
+        clean_model = model.lower().replace(" ", "_").replace("-", "_")
+        module_name = f"backend.drivers.{clean_brand}_{clean_model}"
+        
+        clean_model_class = model.lower().replace(" ", "").replace("-", "").replace("_", "")
+        class_name = f"Meter{brand.capitalize()}{clean_model_class}"
+        
+        try:
+            module = importlib.import_module(module_name)
+            driver_class = getattr(module, class_name)
+            return driver_class(transport, slave_id=slave_id)
+        except (ImportError, AttributeError):
+            # Fallback về Base class nếu chưa có driver cụ thể (dùng cho testing)
+            logger.warning(f"Meter driver {class_name} not found, using MeterDriverBase")
+            from backend.drivers.meter_base import MeterDriverBase
+            return MeterDriverBase(transport, slave_id=slave_id)

@@ -1,11 +1,12 @@
 import sqlite3
 import logging
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from dataclasses import asdict, fields
 from .base_db import BaseDB, to_dataclass
 
 from backend.models.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from backend.models.inverter import InverterCreate, InverterResponse, InverterUpdate
+from backend.models.meter import MeterCreate, MeterResponse, MeterUpdate
 from backend.models.user import UserCreate, UserResponse
 from backend.models.comm import CommConfig
 from backend.models.server_account import ServerAccountCreate, ServerAccountResponse, ServerAccountUpdate
@@ -19,6 +20,28 @@ class MetadataDB(BaseDB):
         conn = super()._connect()
         conn.execute("PRAGMA foreign_keys = ON;")
         return conn
+
+    # =========================
+    # SYSTEM SETTINGS
+    # =========================
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        with self._connect() as conn:
+            c = conn.cursor()
+            c.execute("SELECT value FROM system_settings WHERE key = ?", (key,))
+            row = c.fetchone()
+            return row[0] if row else default
+
+    def set_setting(self, key: str, value: Any):
+        with self._connect() as conn:
+            c = conn.cursor()
+            c.execute("""
+                INSERT INTO system_settings (key, value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET 
+                value = excluded.value,
+                updated_at = CURRENT_TIMESTAMP
+            """, (key, str(value)))
+            conn.commit()
 
     def _create_tables(self):
         with self._connect() as conn:
@@ -129,13 +152,39 @@ class MetadataDB(BaseDB):
                 slave_id_end INTEGER
             );
             """)
-            # Đảm bảo cột sync_status tồn tại (Migration cho hệ thống cũ)
+            # Meters table
+            cursor.execute('''CREATE TABLE IF NOT EXISTS meters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                brand TEXT NOT NULL,
+                model TEXT NOT NULL,
+                serial_number TEXT,
+                slave_id INTEGER,
+                comm_id INTEGER,
+                ct_ratio REAL DEFAULT 1.0,
+                is_active BOOLEAN DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects(id)
+            )''')
+
+            # system_settings table
+            cursor.execute('''CREATE TABLE IF NOT EXISTS system_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )''')
+
+            # Migration: Add EVN columns to projects if not exist
+            self._ensure_column(conn, "projects", "evn_slave_id", "evn_slave_id INTEGER DEFAULT 1")
+            self._ensure_column(conn, "projects", "evn_project_id", "evn_project_id INTEGER")
             self._ensure_column(conn, "projects", "sync_status", "sync_status TEXT DEFAULT 'pending'")
             self._ensure_column(conn, "inverters", "sync_status", "sync_status TEXT DEFAULT 'pending'")
             self._ensure_column(conn, "inverters", "comm_id", "comm_id INTEGER")
             self._ensure_column(conn, "projects", "server_account_id", "server_account_id INTEGER")
+            
             # Update existing projects to use account 1 if server_account_id is NULL
             cursor.execute("UPDATE projects SET server_account_id = 1 WHERE server_account_id IS NULL")
+            conn.commit()
 
     # --- Project API ---
     def get_project(self, project_id: int) -> Optional[ProjectResponse]:
@@ -433,7 +482,55 @@ class MetadataDB(BaseDB):
         with self._connect() as conn:
             conn.execute(f"UPDATE server_accounts SET {', '.join(fields)} WHERE id=?", tuple(values))
 
-    def delete_server_account(self, account_id: int) -> bool:
+    def delete_server_account(self, account_id: int):
         with self._connect() as conn:
-            cursor = conn.execute("DELETE FROM server_accounts WHERE id=?", (account_id,))
-            return cursor.rowcount > 0
+            conn.execute("DELETE FROM server_accounts WHERE id=?", (account_id,))
+
+    # --- Meter API ---
+    def get_meter(self, meter_id: int) -> Optional[MeterResponse]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM meters WHERE id=?", (meter_id,)).fetchone()
+            return to_dataclass(MeterResponse, row)
+
+    def get_meters_by_project(self, project_id: int) -> List[MeterResponse]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM meters WHERE project_id=? ORDER BY id ASC", (project_id,)).fetchall()
+            return [to_dataclass(MeterResponse, r) for r in rows]
+
+    def upsert_meter(self, data: MeterCreate) -> MeterResponse:
+        data_dict = asdict(data)
+        serial = data_dict.get("serial_number")
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            row = conn.execute("SELECT id FROM meters WHERE serial_number=?", (serial,)).fetchone()
+            if row:
+                meter_id = row["id"]
+                fields = []
+                values = []
+                for k, v in data_dict.items():
+                    if k != "serial_number" and v is not None:
+                        fields.append(f"{k} = ?")
+                        values.append(v)
+                if fields:
+                    values.append(meter_id)
+                    cursor.execute(f"UPDATE meters SET {', '.join(fields)} WHERE id=?", tuple(values))
+                final_id = meter_id
+            else:
+                keys = [k for k, v in data_dict.items() if v is not None]
+                placeholders = ["?" for _ in keys]
+                values = [data_dict[k] for k in keys]
+                cursor.execute(f"INSERT INTO meters ({', '.join(keys)}) VALUES ({', '.join(placeholders)})", tuple(values))
+                final_id = cursor.lastrowid
+            row = conn.execute("SELECT * FROM meters WHERE id=?", (final_id,)).fetchone()
+            return to_dataclass(MeterResponse, row)
+
+    def delete_meter(self, meter_id: int):
+        with self._connect() as conn:
+            conn.execute("DELETE FROM meters WHERE id=?", (meter_id,))
+
+    # --- EVN Project Mapping ---
+    def get_evn_project_map(self) -> Dict[int, ProjectResponse]:
+        """Trả về {evn_slave_id: ProjectResponse} cho tất cả project có evn_slave_id > 0."""
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM projects WHERE evn_slave_id > 0 ORDER BY evn_slave_id ASC").fetchall()
+            return {to_dataclass(ProjectResponse, r).evn_slave_id: to_dataclass(ProjectResponse, r) for r in rows}

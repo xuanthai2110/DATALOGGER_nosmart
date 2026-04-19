@@ -69,6 +69,124 @@ class ScanState:
         self.lock = threading.Lock()
 
 scan_state = ScanState()
+meter_scan_state = ScanState()
+
+# ... (Existing inverter scan functions) ...
+
+def background_meter_scan(comm: dict):
+    global meter_scan_state
+    
+    brand = comm.get("brand")
+    model = comm.get("model")
+    slave_start = int(comm.get("slave_id_start", 1))
+    slave_end = int(comm.get("slave_id_end", 30))
+    
+    with meter_scan_state.lock:
+        meter_scan_state.is_running = True
+        meter_scan_state.stop_requested = False
+        meter_scan_state.progress = slave_start
+        meter_scan_state.total = slave_end
+        meter_scan_state.results = []
+        meter_scan_state.error = None
+
+    transport = None
+    try:
+        from backend.services.polling_service import PollingService
+        from backend.db_manager import MetadataDB, RealtimeDB
+        # We need a temporary polling service for scanning
+        db = MetadataDB(app_config.METADATA_DB)
+        rdb = RealtimeDB(app_config.REALTIME_DB)
+        ps = PollingService(db, rdb)
+        
+        transport = _get_transport(comm)
+        
+        for slave_id in range(slave_start, slave_end + 1):
+            with meter_scan_state.lock:
+                if meter_scan_state.stop_requested: break
+                meter_scan_state.progress = slave_id
+
+            try:
+                # Dùng logic scan_meters đã viết trong PollingService
+                driver = ps._get_meter_driver(brand, transport, slave_id, model)
+                if driver:
+                    data = driver.read_all()
+                    if data:
+                        sn = driver.read_serial_number()
+                        res = {
+                            "brand": brand,
+                            "model": model,
+                            "slave_id": slave_id,
+                            "serial_number": sn,
+                            "v_a": data.get("v_a"),
+                            "p_total": data.get("p_total")
+                        }
+                        with meter_scan_state.lock:
+                            meter_scan_state.results.append(res)
+            except Exception as e:
+                logger.debug(f"[MeterScan] Error at sid {slave_id}: {e}")
+
+    except Exception as e:
+        logger.error(f"[MeterScan] Critical error: {e}")
+        with meter_scan_state.lock:
+            meter_scan_state.error = str(e)
+    finally:
+        if transport: transport.close()
+        with meter_scan_state.lock:
+            meter_scan_state.is_running = False
+
+@router.get("/meters/models")
+def get_meter_models():
+    # Danh sách các meter driver hiện có
+    return {
+        "Chint": ["DTSU666"],
+        "Acrel": ["DTSD1352"] # Ví dụ
+    }
+
+@router.post("/meters/start")
+def start_meter_scan(background_tasks: BackgroundTasks, body: dict = Body(...)):
+    global meter_scan_state
+    with meter_scan_state.lock:
+        if meter_scan_state.is_running:
+            return JSONResponse(status_code=400, content={"ok": False, "error": "Meter scan already running"})
+    
+    comm = body.get("comm", {})
+    background_tasks.add_task(background_meter_scan, comm)
+    return {"ok": True, "message": "Meter scan started"}
+
+@router.get("/meters/status")
+def get_meter_scan_status():
+    with meter_scan_state.lock:
+        return {
+            "is_running": meter_scan_state.is_running,
+            "progress": meter_scan_state.progress,
+            "total": meter_scan_state.total,
+            "results": meter_scan_state.results,
+            "error": meter_scan_state.error
+        }
+
+@router.post("/meters/stop")
+def stop_meter_scan():
+    with meter_scan_state.lock:
+        meter_scan_state.stop_requested = True
+    return {"ok": True}
+
+@router.post("/meters/save")
+def save_meters(body: dict = Body(...)):
+    from backend.models.meter import MeterCreate
+    svc = get_project_service()
+    meters_in = body.get("meters", [])
+    project_id = body.get("project_id")
+    if not project_id:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "project_id is required"})
+        
+    saved = 0
+    for m in meters_in:
+        m["project_id"] = project_id
+        # Nếu không có serial_number (read_serial_number trả về None), user phải nhập tay từ frontend
+        # Ở đây ta giả định data đã hợp lệ
+        svc.create_meter(MeterCreate(**m))
+        saved += 1
+    return {"ok": True, "saved": saved}
 
 def _get_driver_class(driver_name: str, brand: str = None, model: str = None):
     if brand and model:

@@ -27,6 +27,8 @@ from backend.services.project_service import ProjectService
 from backend.services.schedule_service import ScheduleService
 from backend.services.control_service import ControlService
 from backend.communication.mqtt_subscriber import MqttSubscriber
+from backend.services.modbus_server_service import ModbusServerService
+from backend.workers.evn_worker import EVNWorker
 from backend.core import settings
 
 logging.basicConfig(
@@ -59,7 +61,28 @@ def main():
         
         # Khởi tạo Control Service dựa vào polling service nội bộ của poll_worker
         control_svc = ControlService(polling_service=poll_worker.service)
-        schedule_worker = ScheduleWorker(schedule_svc, control_svc, interval=1.0)
+        
+        # 4. EVN Layer (Sử dụng cấu hình từ DB hoặc settings mặc định)
+        evn_settings = {
+            "enabled": meta_db.get_setting("evn_enabled", str(settings.EVN_ENABLED)).lower() == "true",
+            "host": meta_db.get_setting("evn_modbus_host", settings.EVN_MODBUS_HOST),
+            "port": int(meta_db.get_setting("evn_modbus_port", settings.EVN_MODBUS_PORT))
+        }
+
+        modbus_server = None
+        evn_worker = None
+        if evn_settings["enabled"]:
+            modbus_server = ModbusServerService()
+            evn_worker = EVNWorker(
+                modbus_server=modbus_server,
+                cache_db=cache_db,
+                realtime_db=realtime_db,
+                metadata_db=meta_db,
+                control_service=control_svc,
+                project_svc=project_svc
+            )
+        
+        schedule_worker = ScheduleWorker(schedule_svc, control_svc, modbus_server=modbus_server, interval=1.0)
         
         mqtt_sub = MqttSubscriber(
             broker=settings.MQTT_BROKER, 
@@ -80,6 +103,15 @@ def main():
         build_tele_worker.start()
         schedule_worker.start()
         mqtt_sub.connect()
+
+        # Start EVN
+        if evn_settings["enabled"]:
+            logger.info(f"EVN Integration enabled. Starting Modbus Server at {evn_settings['host']}:{evn_settings['port']}...")
+            # Lấy list slave_id từ projects
+            evn_map = meta_db.get_evn_project_map()
+            slave_ids = list(evn_map.keys())
+            modbus_server.start(evn_settings['host'], evn_settings['port'], slave_ids)
+            evn_worker.start()
         
         logger.info("System operational (Polling/Logic/BuildTele). Press Ctrl+C to exit.")
         while True:

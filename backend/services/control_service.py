@@ -625,3 +625,154 @@ class ControlService:
         except Exception as e:
             logger.error(f"[ControlService] Error reset limit: {e}")
             return False
+
+    # =====================================================
+    # EVN Control Methods (Granular P/Q)
+    # =====================================================
+    def apply_evn_p_control(self, project_id: int, mode: str, value: float) -> bool:
+        """
+        Áp dụng lệnh điều khiển P từ EVN.
+        
+        Args:
+            project_id: ID dự án
+            mode: "PERCENT" hoặc "KW"
+            value: Giá trị setpoint
+        """
+        try:
+            project_item = self._find_project_item(project_id)
+            if not project_item:
+                logger.error("[ControlService] EVN P: project %s not found", project_id)
+                return False
+
+            # Tạo pseudo-schedule để tái sử dụng logic phân bổ
+            from types import SimpleNamespace
+            pseudo_schedule = SimpleNamespace(
+                id=-1,
+                project_id=project_id,
+                scope="PROJECT",
+                mode="LIMIT_PERCENT" if mode == "PERCENT" else "MAXP",
+                setpoint=value,
+                serial_number=None,
+            )
+
+            if mode == "PERCENT":
+                result = self._apply_project_scope(project_item, pseudo_schedule)
+            elif mode == "KW":
+                result = self._apply_project_scope(project_item, pseudo_schedule)
+            else:
+                logger.warning("[ControlService] EVN P: Unknown mode %s", mode)
+                return False
+
+            logger.info(
+                "[ControlService] EVN P control applied: mode=%s value=%.2f project=%s result=%s",
+                mode, value, project_id, result,
+            )
+            return result
+
+        except Exception as e:
+            logger.error("[ControlService] EVN P control error: %s", e, exc_info=True)
+            return False
+
+    def apply_evn_q_control(self, project_id: int, mode: str, value: float) -> bool:
+        """
+        Áp dụng lệnh điều khiển Q từ EVN.
+        
+        Args:
+            project_id: ID dự án
+            mode: "PERCENT" hoặc "KVAR"
+            value: Giá trị setpoint
+        
+        Note: Cần driver hỗ trợ Q control methods.
+              User sẽ cung cấp register map cho từng hãng.
+        """
+        try:
+            project_item = self._find_project_item(project_id)
+            if not project_item:
+                logger.error("[ControlService] EVN Q: project %s not found", project_id)
+                return False
+
+            inverters = project_item.get("inverters", [])
+            if not inverters:
+                logger.warning("[ControlService] EVN Q: no inverters for project %s", project_id)
+                return False
+
+            success_count = 0
+            for inv in inverters:
+                try:
+                    transport = self.polling_service._get_transport(inv.brand)
+                    driver = self.polling_service._get_driver(
+                        inv.brand, transport, inv.slave_id, inv.model
+                    )
+                    if not driver:
+                        continue
+
+                    # Gọi Q control method trên driver (placeholder)
+                    if mode == "PERCENT" and hasattr(driver, "set_reactive_power_percent"):
+                        driver.set_reactive_power_percent(value)
+                        success_count += 1
+                    elif mode == "KVAR" and hasattr(driver, "set_reactive_power_kvar"):
+                        driver.set_reactive_power_kvar(value)
+                        success_count += 1
+                    else:
+                        logger.warning(
+                            "[ControlService] EVN Q: Driver %s does not support Q control (mode=%s)",
+                            type(driver).__name__, mode,
+                        )
+                except Exception as e:
+                    logger.error("[ControlService] EVN Q error on inv %s: %s", inv.id, e)
+
+            logger.info(
+                "[ControlService] EVN Q control: mode=%s value=%.2f success=%d/%d",
+                mode, value, success_count, len(inverters),
+            )
+            return success_count > 0
+
+        except Exception as e:
+            logger.error("[ControlService] EVN Q control error: %s", e, exc_info=True)
+            return False
+
+    def reset_evn_p_control(self, project_id: int) -> bool:
+        """Reset P control khi EVN tắt Enable_Set_P → trả inverter về 100%."""
+        try:
+            project_item = self._find_project_item(project_id)
+            if not project_item:
+                return False
+
+            from types import SimpleNamespace
+            pseudo_schedule = SimpleNamespace(
+                id=-1,
+                project_id=project_id,
+                scope="PROJECT",
+                mode="LIMIT_PERCENT",
+                setpoint=100.0,
+                serial_number=None,
+            )
+            return self._reset_project_scope(project_item, pseudo_schedule)
+        except Exception as e:
+            logger.error("[ControlService] EVN P reset error: %s", e)
+            return False
+
+    def reset_evn_q_control(self, project_id: int) -> bool:
+        """Reset Q control khi EVN tắt Enable_Set_Q."""
+        try:
+            project_item = self._find_project_item(project_id)
+            if not project_item:
+                return False
+
+            inverters = project_item.get("inverters", [])
+            for inv in inverters:
+                try:
+                    transport = self.polling_service._get_transport(inv.brand)
+                    driver = self.polling_service._get_driver(
+                        inv.brand, transport, inv.slave_id, inv.model
+                    )
+                    if driver and hasattr(driver, "set_reactive_power_percent"):
+                        driver.set_reactive_power_percent(0.0)  # Reset Q về 0
+                except Exception as e:
+                    logger.error("[ControlService] EVN Q reset error inv %s: %s", inv.id, e)
+
+            logger.info("[ControlService] EVN Q control reset for project %s", project_id)
+            return True
+        except Exception as e:
+            logger.error("[ControlService] EVN Q reset error: %s", e)
+            return False

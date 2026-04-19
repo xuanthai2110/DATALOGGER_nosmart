@@ -27,6 +27,8 @@ class ProjectCreate:
     server_id: Optional[int] = None
     server_request_id: Optional[int] = None
     server_account_id: Optional[int] = None
+    evn_slave_id: Optional[int] = 1
+    evn_project_id: Optional[int] = None
 
 
 # =========================
@@ -55,6 +57,10 @@ class ProjectUpdate:
     server_account_id: Optional[int] = None
     sync_status: Optional[str] = None
 
+    # ===== EVN =====
+    evn_slave_id: Optional[int] = None
+    evn_project_id: Optional[int] = None
+
 
 # =========================
 # RESPONSE
@@ -82,6 +88,10 @@ class ProjectResponse:
     server_request_id: Optional[int] = None
     server_account_id: Optional[int] = None
     sync_status: str = "pending"
+
+    # ===== EVN =====
+    evn_slave_id: Optional[int] = 0
+    evn_project_id: Optional[int] = None
 
     # ===== Metadata =====
     created_at: Optional[datetime] = None

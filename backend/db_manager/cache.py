@@ -79,6 +79,28 @@ class CacheDB(BaseDB):
             if "fault_json" not in cols:
                 conn.execute("ALTER TABLE error_cache ADD COLUMN fault_json TEXT")
 
+            # Meter Cache — Dữ liệu đo lường tại điểm đấu nối lưới
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS meter_cache (
+                meter_id INTEGER PRIMARY KEY,
+                project_id INTEGER,
+                P_total REAL, P_a REAL, P_b REAL, P_c REAL,
+                Q_total REAL, Q_a REAL, Q_b REAL, Q_c REAL,
+                S_total REAL, S_a REAL, S_b REAL, S_c REAL,
+                V_a REAL, V_b REAL, V_c REAL, V_phase_avg REAL,
+                V_ab REAL, V_bc REAL, V_ca REAL, V_line_avg REAL,
+                I_a REAL, I_b REAL, I_c REAL, I_avg REAL,
+                PF REAL, PF_a REAL, PF_b REAL, PF_c REAL,
+                F REAL,
+                exp_st_today REAL, exp_pt_today REAL, exp_qt_today REAL,
+                imp_st_today REAL, imp_pt_today REAL, imp_qt_today REAL,
+                e_pt_import REAL, e_pt_export REAL,
+                e_qt_import REAL, e_qt_export REAL,
+                e_st_import REAL, e_st_export REAL,
+                updated_at TEXT
+            );
+            """)
+
     def get_ac_cache(self, inverter_id: int) -> Optional[dict]:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM inverter_ac_cache WHERE inverter_id = ?", (inverter_id,)).fetchone()
@@ -230,3 +252,71 @@ class CacheDB(BaseDB):
                 SET max_I = ?
                 WHERE inverter_id = ? AND string_id = ?
             """, (max_i, inverter_id, string_id))
+
+    # --- Meter Cache ---
+    def upsert_meter_cache(self, meter_id: int, project_id: int, data: dict):
+        """Cập nhật dữ liệu đo lường Meter vào cache."""
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO meter_cache (
+                    meter_id, project_id,
+                    P_total, P_a, P_b, P_c,
+                    Q_total, Q_a, Q_b, Q_c,
+                    S_total, S_a, S_b, S_c,
+                    V_a, V_b, V_c, V_phase_avg,
+                    V_ab, V_bc, V_ca, V_line_avg,
+                    I_a, I_b, I_c, I_avg,
+                    PF, PF_a, PF_b, PF_c,
+                    F,
+                    exp_st_today, exp_pt_today, exp_qt_today,
+                    imp_st_today, imp_pt_today, imp_qt_today,
+                    e_pt_import, e_pt_export,
+                    e_qt_import, e_qt_export,
+                    e_st_import, e_st_export,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(meter_id) DO UPDATE SET
+                    project_id=excluded.project_id,
+                    P_total=excluded.P_total, P_a=excluded.P_a, P_b=excluded.P_b, P_c=excluded.P_c,
+                    Q_total=excluded.Q_total, Q_a=excluded.Q_a, Q_b=excluded.Q_b, Q_c=excluded.Q_c,
+                    S_total=excluded.S_total, S_a=excluded.S_a, S_b=excluded.S_b, S_c=excluded.S_c,
+                    V_a=excluded.V_a, V_b=excluded.V_b, V_c=excluded.V_c, V_phase_avg=excluded.V_phase_avg,
+                    V_ab=excluded.V_ab, V_bc=excluded.V_bc, V_ca=excluded.V_ca, V_line_avg=excluded.V_line_avg,
+                    I_a=excluded.I_a, I_b=excluded.I_b, I_c=excluded.I_c, I_avg=excluded.I_avg,
+                    PF=excluded.PF, PF_a=excluded.PF_a, PF_b=excluded.PF_b, PF_c=excluded.PF_c,
+                    F=excluded.F,
+                    exp_st_today=excluded.exp_st_today, exp_pt_today=excluded.exp_pt_today, exp_qt_today=excluded.exp_qt_today,
+                    imp_st_today=excluded.imp_st_today, imp_pt_today=excluded.imp_pt_today, imp_qt_today=excluded.imp_qt_today,
+                    e_pt_import=excluded.e_pt_import, e_pt_export=excluded.e_pt_export,
+                    e_qt_import=excluded.e_qt_import, e_qt_export=excluded.e_qt_export,
+                    e_st_import=excluded.e_st_import, e_st_export=excluded.e_st_export,
+                    updated_at=excluded.updated_at
+            """, (
+                meter_id, project_id,
+                data.get("p_total"), data.get("p_a"), data.get("p_b"), data.get("p_c"),
+                data.get("q_total"), data.get("q_a"), data.get("q_b"), data.get("q_c"),
+                data.get("s_total"), data.get("s_a"), data.get("s_b"), data.get("s_c"),
+                data.get("v_a"), data.get("v_b"), data.get("v_c"), data.get("v_phase_avg"),
+                data.get("v_ab"), data.get("v_bc"), data.get("v_ca"), data.get("v_line_avg"),
+                data.get("i_a"), data.get("i_b"), data.get("i_c"), data.get("i_avg"),
+                data.get("pf"), data.get("pf_a"), data.get("pf_b"), data.get("pf_c"),
+                data.get("f"),
+                data.get("exp_st_today"), data.get("exp_pt_today"), data.get("exp_qt_today"),
+                data.get("imp_st_today"), data.get("imp_pt_today"), data.get("imp_qt_today"),
+                data.get("e_pt_import"), data.get("e_pt_export"),
+                data.get("e_qt_import"), data.get("e_qt_export"),
+                data.get("e_st_import"), data.get("e_st_export"),
+                now_str,
+            ))
+
+    def get_meter_cache(self, meter_id: int) -> Optional[dict]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM meter_cache WHERE meter_id = ?", (meter_id,)).fetchone()
+            return dict(row) if row else None
+
+    def get_meter_cache_by_project(self, project_id: int) -> List[dict]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM meter_cache WHERE project_id = ?", (project_id,)).fetchall()
+            return [dict(r) for r in rows]

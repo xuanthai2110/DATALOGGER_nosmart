@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any
 from backend.models.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from backend.models.inverter import InverterCreate, InverterResponse, InverterUpdate
 from backend.models.realtime import ProjectRealtimeResponse, ProjectRealtimeCreate
+from backend.models.meter import MeterCreate, MeterResponse, MeterUpdate
 import requests
 import time
 import threading
@@ -124,4 +125,19 @@ class ProjectService:
 
     def get_project_sync_info(self, project_id: int):
         return self.metadata_db.get_project_sync_info(project_id)
+
+    # ==============================
+    # METER
+    # ==============================
+    def get_meters_by_project(self, project_id: int) -> List[MeterResponse]:
+        return self.metadata_db.get_meters_by_project(project_id)
+
+    def create_meter(self, data: MeterCreate) -> int:
+        return self.metadata_db.post_meter(data)
+
+    def update_meter(self, meter_id: int, data: MeterUpdate):
+        return self.metadata_db.patch_meter(meter_id, data)
+
+    def delete_meter(self, meter_id: int):
+        return self.metadata_db.delete_meter(meter_id)
 

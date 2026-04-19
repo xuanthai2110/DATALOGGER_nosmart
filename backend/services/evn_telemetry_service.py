@@ -1,0 +1,174 @@
+"""
+backend/services/evn_telemetry_service.py — Đóng gói và gửi dữ liệu EVN lên Cloud.
+
+Giá trị trong payload JSON phải TRÙNG KHỚP với giá trị trên thanh ghi Modbus server.
+Cả hai đều đọc từ cùng nguồn DB.
+"""
+
+import logging
+import requests
+from datetime import datetime, timezone, timedelta
+from typing import Optional, List
+
+from backend.db_manager import CacheDB, RealtimeDB, MetadataDB
+from backend.services.modbus_server_service import ModbusServerService
+from backend.core import settings
+
+logger = logging.getLogger(__name__)
+
+# Timezone Việt Nam
+VN_TZ = timezone(timedelta(hours=7))
+
+
+class EVNTelemetryService:
+
+    def __init__(
+        self,
+        cache_db: CacheDB,
+        realtime_db: RealtimeDB,
+        metadata_db: MetadataDB,
+        modbus_server: ModbusServerService,
+    ):
+        self.cache_db = cache_db
+        self.realtime_db = realtime_db
+        self.metadata_db = metadata_db
+        self.modbus_server = modbus_server
+
+    def _get_grid_data(self, project_id: int, inverter_ids: List[int]) -> dict:
+        """
+        Lấy dữ liệu lưới (P_out, Q_out, U, I, F, PF) theo thứ tự ưu tiên:
+            1. Meter (nếu có) → meter_cache
+            2. Inverter (fallback):
+               - U, F, PF → từ inverter đầu tiên
+               - I → tổng I của tất cả inverter
+
+        Returns: dict với các trường dữ liệu đo lường thô và năng lượng.
+        """
+        result = {
+            "p_out": 0.0, "q_out": 0.0,
+            "ua": 0.0, "ub": 0.0, "uc": 0.0,
+            "ia": 0.0, "ib": 0.0, "ic": 0.0,
+            "f": 0.0, "pf": 0.0,
+        }
+
+        # --- Thử đọc từ Meter trước ---
+        meter_rows = self.cache_db.get_meter_cache_by_project(project_id)
+        if meter_rows:
+            # Lấy meter đầu tiên
+            m = meter_rows[0]
+            result["p_out"] = float(m.get("P_total") or 0.0)
+            result["q_out"] = float(m.get("Q_total") or 0.0)
+            result["ua"] = float(m.get("V_a") or 0.0)
+            result["ub"] = float(m.get("V_b") or 0.0)
+            result["uc"] = float(m.get("V_c") or 0.0)
+            result["ia"] = float(m.get("I_a") or 0.0)
+            result["ib"] = float(m.get("I_b") or 0.0)
+            result["ic"] = float(m.get("I_c") or 0.0)
+            result["f"] = float(m.get("F") or 0.0)
+            result["pf"] = float(m.get("PF") or 0.0)
+            return result
+
+        # --- Fallback: Đọc từ Inverter ---
+        all_caches = []
+        for inv_id in inverter_ids:
+            ac = self.cache_db.get_ac_cache(inv_id)
+            if ac:
+                all_caches.append(ac)
+
+        if not all_caches:
+            return result
+
+        result["p_out"] = round(sum(float(c.get("P_ac") or 0.0) for c in all_caches), 2)
+        result["q_out"] = round(sum(float(c.get("Q_ac") or 0.0) for c in all_caches), 2)
+
+        first = all_caches[0]
+        result["ua"] = float(first.get("V_a") or 0.0)
+        result["ub"] = float(first.get("V_b") or 0.0)
+        result["uc"] = float(first.get("V_c") or 0.0)
+        result["f"] = float(first.get("H") or 0.0)
+        result["pf"] = float(first.get("PF") or 0.0)
+
+        result["ia"] = round(sum(float(c.get("I_a") or 0.0) for c in all_caches), 2)
+        result["ib"] = round(sum(float(c.get("I_b") or 0.0) for c in all_caches), 2)
+        result["ic"] = round(sum(float(c.get("I_c") or 0.0) for c in all_caches), 2)
+
+        return result
+
+    def build_evn_payload(self, project_id: int, slave_id: int) -> dict:
+        """Đóng gói payload EVN telemetry."""
+        inverters = self.metadata_db.get_inverters_by_project(project_id)
+        active_invs = [inv for inv in inverters if getattr(inv, "is_active", True)]
+        inverter_ids = [inv.id for inv in active_invs]
+
+        grid = self._get_grid_data(project_id, inverter_ids)
+
+        p_inv_out = 0.0
+        e_daily_total = 0.0
+        for inv_id in inverter_ids:
+            ac = self.cache_db.get_ac_cache(inv_id)
+            if ac:
+                p_inv_out += float(ac.get("P_ac") or 0.0)
+                e_daily_total += float(ac.get("E_daily") or 0.0)
+
+        e_yday = self.realtime_db.get_yesterday_energy_by_project(project_id)
+        e_yday_per_inv = self.realtime_db.get_yesterday_energy_per_inverter(project_id)
+        evn_state = self.modbus_server.get_evn_control_state(slave_id)
+
+        type_set_p = "PERCENT"
+        if evn_state.get("Set_P_kW", 0.0) > 0: type_set_p = "KW"
+        type_set_q = "PERCENT"
+        if evn_state.get("Set_Q_kVAr", 0.0) > 0: type_set_q = "KVAR"
+
+        invs_data = []
+        for inv in active_invs:
+            ac = self.cache_db.get_ac_cache(inv.id)
+            p_inv = float(ac.get("P_ac") or 0.0) if ac else 0.0
+            e_yd = e_yday_per_inv.get(inv.id, 0.0)
+            invs_data.append([round(p_inv, 2), round(e_yd, 2)])
+
+        now_str = datetime.now(VN_TZ).isoformat()
+
+        payload = {
+            "EVN_connect": self.modbus_server.get_connection_status(),
+            "Logger_connect": True,
+            "P_out": round(grid["p_out"], 2),
+            "Q_out": round(grid["q_out"], 2),
+            "P_inv_out": round(p_inv_out, 2),
+            "E_daily": round(e_daily_total, 2),
+            "E_yday": round(e_yday, 2),
+            "F": round(grid["f"], 2),
+            "PF": round(grid["pf"], 4),
+            "I_a": round(grid["ia"], 2),
+            "I_b": round(grid["ib"], 2),
+            "I_c": round(grid["ic"], 2),
+            "U_a": round(grid["ua"], 2),
+            "U_b": round(grid["ub"], 2),
+            "U_c": round(grid["uc"], 2),
+            "Enable_Set_P": evn_state["Enable_Set_P"],
+            "Type_Set_P": type_set_p,
+            "Set_P_pct": evn_state["Set_P_pct"],
+            "Set_P_kW": evn_state["Set_P_kW"],
+            "Enable_Set_Q": evn_state["Enable_Set_Q"],
+            "Type_Set_Q": type_set_q,
+            "Set_Q_pct": evn_state["Set_Q_pct"],
+            "Set_Q_kVAr": evn_state["Set_Q_kVAr"],
+            "Invs_Data": invs_data,
+            "created_at": now_str,
+        }
+        return payload
+
+    def send_to_cloud(self, project_id: int, server_id: int, slave_id: int) -> bool:
+        """Gửi EVN telemetry payload lên Cloud API."""
+        try:
+            payload = self.build_evn_payload(project_id, slave_id)
+            url = f"{settings.API_BASE_URL}api/telemetry/project/{server_id}"
+            resp = requests.post(url, json=payload, timeout=10)
+            if resp.status_code in (200, 201):
+                logger.info("[EVNTelemetry] Sent to Cloud project=%s (server_id=%s)", project_id, server_id)
+                return True
+            else:
+                logger.warning("[EVNTelemetry] Cloud responded %s: %s", resp.status_code, resp.text[:200])
+                return False
+        except Exception as e:
+            logger.error("[EVNTelemetry] Failed to send: %s", e)
+            return False

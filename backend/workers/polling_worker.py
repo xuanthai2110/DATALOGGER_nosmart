@@ -30,8 +30,10 @@ class PollingWorker(threading.Thread):
                 for item in polling_config:
                     project = item["project"]
                     inverters = item["inverters"]
+                    meters = item.get("meters", [])
                     # 2. Quét dữ liệu Modbus
                     self.service.poll_all_inverters(project.id, inverters=inverters)
+                    self.service.poll_meters(project.id, meters=meters)
                     
             except Exception as e:
                 logger.error(f"Error in Polling Worker cycle: {e}")
