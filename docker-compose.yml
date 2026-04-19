@@ -25,6 +25,8 @@ services:
     restart: always
     container_name: datalogger_polling
     command: [ "python", "backend/scripts/run_polling.py" ]
+    ports:
+      - "502:502"  # EVN Modbus TCP Server Port
     env_file:
       - .env
     devices:
