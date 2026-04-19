@@ -1,7 +1,7 @@
 import requests
 import logging
 import time
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime, timezone
 from dataclasses import asdict
 from backend.core.settings import API_BASE_URL
