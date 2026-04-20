@@ -61,9 +61,7 @@ class PollingService:
                 active_inverters = [inv for inv in inverters if inv.is_active]
                 
                 # EVN: Lấy danh sách meters của project
-                from backend.db_manager.metadata import MetadataDB
-                meta_db = MetadataDB()
-                meters = meta_db.get_meters_by_project(project.id)
+                meters = self.project_svc.get_meters_by_project(project.id)
                 active_meters = [m for m in meters if m.is_active]
 
                 new_cache.append({
@@ -101,7 +99,7 @@ class PollingService:
     def poll_all_inverters(self, project_id: int, inverters: List[Any] = None):
         """Đọc dữ liệu thô từ Inverter, chuẩn hóa và đẩy vào CacheDB."""
         if inverters is None:
-            all_invs = self.metadata_db.get_inverters_by_project(project_id)
+            all_invs = self.project_svc.get_inverters_by_project(project_id)
             active_inverters = [inv for inv in all_invs if inv.is_active]
         else:
             active_inverters = inverters
