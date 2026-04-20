@@ -39,6 +39,8 @@ class UploaderService:
                 url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
                 response = requests.post(url, json=payload, headers=headers)
+                logger.info(f"Headers: {headers}")
+                logger.info(f"Response: {response.text}")
                 
                 if response.status_code == 401:
                     token = self.auth.handle_unauthorized(proj_meta.server_account_id)
