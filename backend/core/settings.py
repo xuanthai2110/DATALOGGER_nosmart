@@ -31,9 +31,9 @@ WEB_PORT = int(os.getenv("WEB_PORT", "5000"))
 DATABASE_DIR = BASE_DIR / "db_manager" / "data"
 DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 
+
 METADATA_DB    = str(DATABASE_DIR / "metadata.db")
 REALTIME_DB    = str(DATABASE_DIR / "realtime.db")
-TOKEN_FILE     = str(DATABASE_DIR / "tokens.json")
 
 # CACHE_DB: Dữ liệu thực tế 10s lưu trên RAM để bảo vệ thẻ SD
 if os.path.exists("/dev/shm"):

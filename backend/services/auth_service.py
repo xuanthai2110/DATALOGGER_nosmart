@@ -21,31 +21,26 @@ MAX_LOGIN_RETRIES = 1
 class AuthService:
     def __init__(self, metadata_db):
         self.metadata_db = metadata_db
-        # RAM cache for active tokens: {account_id: {"access": str, "refresh": str}}
-        self._token_cache = {}
 
     def get_access_token(self, account_id: int, force_refresh: bool = False) -> str | None:
-        """Return a valid access token for a specific server account."""
+        """Return a valid access token for a specific server account from metadata.db."""
         if not account_id: return None
-        
-        # 1. Check RAM Cache
-        if not force_refresh and account_id in self._token_cache:
-            return self._token_cache[account_id]["access"]
             
-        # 2. Check Database
+        # 1. Check Database
         account = self.metadata_db.get_server_account_for_auth(account_id)
         if not account:
             logger.error(f"[Auth] Server account ID {account_id} not found in DB.")
             return None
             
         if account.token and not force_refresh:
-            self._token_cache[account_id] = {"access": account.token, "refresh": account.refresh_token}
             return account.token
             
-        # 3. Login if needed
+        # 2. Login if needed (this will update the DB)
         logger.info(f"[Auth] Getting access token for account {account.username} (ID: {account_id})...")
         if self._login(account_id):
-            return self._token_cache[account_id]["access"]
+            # Re-fetch or get from newly updated DB
+            account_updated = self.metadata_db.get_server_account_for_auth(account_id)
+            return account_updated.token if account_updated else None
             
         return None
 
@@ -72,14 +67,17 @@ class AuthService:
     def handle_unauthorized(self, account_id: int) -> str | None:
         """Recover after a 401 response for a specific account."""
         if self.refresh_access_token(account_id):
-            return self._token_cache.get(account_id, {}).get("access")
+            account = self.metadata_db.get_server_account_for_auth(account_id)
+            return account.token if account else None
+            
         if self._login(account_id):
-            return self._token_cache.get(account_id, {}).get("access")
+            account = self.metadata_db.get_server_account_for_auth(account_id)
+            return account.token if account else None
+            
         return None
 
     def _save_tokens(self, account_id: int, access: str, refresh: str):
-        """Save tokens to both RAM cache and Database."""
-        self._token_cache[account_id] = {"access": access, "refresh": refresh}
+        """Save tokens to Database."""
         update_data = ServerAccountUpdate(token=access, refresh_token=refresh)
         self.metadata_db.patch_server_account(account_id, update_data)
 
@@ -111,7 +109,6 @@ class AuthService:
         return False
 
     def _clear_tokens(self, account_id: int):
-        """Xóa token trong RAM và Database cho một tài khoản."""
-        self._token_cache.pop(account_id, None)
+        """Xóa token trong Database cho một tài khoản."""
         update_data = ServerAccountUpdate(token="", refresh_token="")
         self.metadata_db.patch_server_account(account_id, update_data)
