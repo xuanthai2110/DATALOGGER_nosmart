@@ -39,16 +39,19 @@ class UploaderService:
                 url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
                 response = requests.post(url, json=payload, headers=headers)
-                logger.info(f"Headers: {headers}")
-                logger.info(f"Response: {response.text}")
+                logger.info(f"Headers-before: {headers}")
+                logger.info(f"Response-before: {response.status_code}")
                 
                 if response.status_code == 401:
                     token = self.auth.handle_unauthorized(proj_meta.server_account_id)
                     if token:
+                        logger.info(f"Have token: {token}")
                         headers["Authorization"] = f"Bearer {token}"
                         response = requests.post(url, json=payload, headers=headers)
                         logger.info(f"Uploaded project {server_id} (status={response.status_code})")
-                logger.info(f"Headers: {headers}")
+                logger.info(f"Headers-after-401: {headers}")
+                logger.info(f"Response-after-401: {response.status_code}")
+                
                 if response.status_code in (200, 201):
                     self.db.delete_from_outbox(data["id"])
                     logger.info(f"Uploaded project {server_id} (status={response.status_code})")

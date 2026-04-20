@@ -66,6 +66,7 @@ class AuthService:
 
     def handle_unauthorized(self, account_id: int) -> str | None:
         """Recover after a 401 response for a specific account."""
+        logger.info(f"[Auth] Handling unauthorized for account {account_id}...")
         if self.refresh_access_token(account_id):
             account = self.metadata_db.get_server_account_for_auth(account_id)
             return account.token if account else None
