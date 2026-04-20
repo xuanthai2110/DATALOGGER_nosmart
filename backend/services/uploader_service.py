@@ -45,7 +45,8 @@ class UploaderService:
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
                         response = requests.post(url, json=payload, headers=headers)
-
+                        logger.info(f"Uploaded project {server_id} (status={response.status_code})")
+                logger.info(f"Headers: {headers}")
                 if response.status_code in (200, 201):
                     self.db.delete_from_outbox(data["id"])
                     logger.info(f"Uploaded project {server_id} (status={response.status_code})")
