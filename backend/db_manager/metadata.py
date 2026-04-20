@@ -9,7 +9,12 @@ from backend.models.inverter import InverterCreate, InverterResponse, InverterUp
 from backend.models.meter import MeterCreate, MeterResponse, MeterUpdate
 from backend.models.user import UserCreate, UserResponse
 from backend.models.comm import CommConfig
-from backend.models.server_account import ServerAccountCreate, ServerAccountResponse, ServerAccountUpdate
+from backend.models.server_account import (
+    ServerAccountCreate,
+    ServerAccountResponse,
+    ServerAccountStored,
+    ServerAccountUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -441,12 +446,21 @@ class MetadataDB(BaseDB):
             row = conn.execute("SELECT * FROM server_accounts WHERE id=?", (account_id,)).fetchone()
             return to_dataclass(ServerAccountResponse, row)
 
+    def get_server_account_for_auth(self, account_id: int) -> Optional[ServerAccountStored]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM server_accounts WHERE id=?", (account_id,)).fetchone()
+            return to_dataclass(ServerAccountStored, row)
+
     def get_server_accounts(self) -> List[ServerAccountResponse]:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM server_accounts ORDER BY id ASC").fetchall()
             return [to_dataclass(ServerAccountResponse, r) for r in rows]
 
-    def upsert_server_account(self, data: ServerAccountCreate, account_id: Optional[int] = None) -> ServerAccountResponse:
+    def upsert_server_account(
+        self,
+        data: ServerAccountCreate | ServerAccountUpdate,
+        account_id: Optional[int] = None,
+    ) -> ServerAccountResponse:
         data_dict = asdict(data)
         with self._connect() as conn:
             cursor = conn.cursor()

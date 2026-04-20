@@ -33,7 +33,7 @@ class AuthService:
             return self._token_cache[account_id]["access"]
             
         # 2. Check Database
-        account = self.metadata_db.get_server_account(account_id)
+        account = self.metadata_db.get_server_account_for_auth(account_id)
         if not account:
             logger.error(f"[Auth] Server account ID {account_id} not found in DB.")
             return None
@@ -51,7 +51,7 @@ class AuthService:
 
     def refresh_access_token(self, account_id: int) -> bool:
         """Use refresh_token to get a new access_token for an account."""
-        account = self.metadata_db.get_server_account(account_id)
+        account = self.metadata_db.get_server_account_for_auth(account_id)
         if not account or not account.refresh_token:
             return False
 
@@ -85,8 +85,9 @@ class AuthService:
 
     def _login(self, account_id: int) -> bool:
         """Login with OAuth2 password flow using stored credentials."""
-        account = self.metadata_db.get_server_account(account_id)
+        account = self.metadata_db.get_server_account_for_auth(account_id)
         if not account or not account.username or not account.password:
+            logger.warning(f"[Auth] Missing username/password for account ID {account_id}")
             return False
 
         url = f"{API_BASE_URL}/api/auth/token"
