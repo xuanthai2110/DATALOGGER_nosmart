@@ -9,7 +9,6 @@ services:
     env_file:
       - .env
     devices:
-      # Web API also uses RTU during scan/setup flows
       - "/dev/ttyUSB0:/dev/ttyUSB0"
     volumes:
       - ./backend/db_manager/data:/app/backend/db_manager/data
@@ -25,12 +24,9 @@ services:
     restart: always
     container_name: datalogger_polling
     command: [ "python", "backend/scripts/run_polling.py" ]
-    ports:
-      - "502:502"  # EVN Modbus TCP Server Port
     env_file:
       - .env
     devices:
-      # Map the USB serial port to the container for Modbus RTU communication
       - "/dev/ttyUSB0:/dev/ttyUSB0"
     volumes:
       - ./backend/db_manager/data:/app/backend/db_manager/data
@@ -60,3 +56,24 @@ services:
         max-file: "3"
     depends_on:
       - web
+
+  evn:
+    build: .
+    restart: always
+    container_name: datalogger_evn
+    command: [ "python", "backend/scripts/run_evn.py" ]
+    ports:
+      - "502:502"
+    env_file:
+      - .env
+    volumes:
+      - ./backend/db_manager/data:/app/backend/db_manager/data
+      - /dev/shm:/dev/shm
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - web
+      - polling
