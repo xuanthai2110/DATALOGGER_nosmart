@@ -73,8 +73,9 @@ class EVNTelemetryService:
         if not all_caches:
             return result
 
-        result["p_out"] = round(sum(float(c.get("P_ac") or 0.0) for c in all_caches), 2)
-        result["q_out"] = round(sum(float(c.get("Q_ac") or 0.0) for c in all_caches), 2)
+        # Lưu ý: P_ac và Q_ac từ Inverter thường là W/VAr
+        result["p_out"] = sum(float(c.get("P_ac") or 0.0) for c in all_caches)
+        result["q_out"] = sum(float(c.get("Q_ac") or 0.0) for c in all_caches)
 
         first = all_caches[0]
         result["ua"] = float(first.get("V_a") or 0.0)
@@ -119,8 +120,10 @@ class EVNTelemetryService:
         for inv in active_invs:
             ac = self.cache_db.get_ac_cache(inv.id)
             p_inv = float(ac.get("P_ac") or 0.0) if ac else 0.0
+            # Chia 1000 cho công suất từng inverter
+            p_inv_kw = round(p_inv / 1000.0, 3)
             e_yd = e_yday_per_inv.get(inv.id, 0.0)
-            invs_data.append([round(p_inv, 2), round(e_yd, 2)])
+            invs_data.append([p_inv_kw, round(e_yd, 2)])
 
         now_str = datetime.now(VN_TZ).isoformat()
 
@@ -131,9 +134,11 @@ class EVNTelemetryService:
         payload = {
             "EVN_connect": self.modbus_server.get_connection_status(),
             "Logger_connect": True,
-            "P_out": round(grid["p_out"], 2),
-            "Q_out": round(grid["q_out"], 2),
-            "P_inv_out": round(p_inv_out, 2),
+            # Chia 1000 cho các thông số công suất tổng
+            "P_out": round(grid["p_out"] / 1000.0, 3),
+            "Q_out": round(grid["q_out"] / 1000.0, 3),
+            "P_inv_out": round(p_inv_out / 1000.0, 3),
+            
             "E_daily": round(e_daily_total, 2),
             "E_yday": round(e_yday, 2),
             "F": round(grid["f"], 2),
