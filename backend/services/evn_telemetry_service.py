@@ -2,6 +2,7 @@
 backend/services/evn_telemetry_service.py — Đóng gói và gửi dữ liệu EVN lên Cloud qua Uploader.
 """
 
+import json
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
@@ -169,6 +170,13 @@ class EVNTelemetryService:
         """Đóng gói và đẩy vào outbox để UploaderService xử lý gửi đi."""
         try:
             payload = self.build_evn_payload(project_id, slave_id)
+            logger.info(
+                "[EVNTelemetry] Built payload project=%s slave_id=%s server_id=%s payload=%s",
+                project_id,
+                slave_id,
+                server_id,
+                json.dumps(payload, ensure_ascii=False),
+            )
             self.realtime_db.post_to_outbox(project_id, server_id, payload, data_type="EVN")
             logger.info("[EVNTelemetry] Queued to outbox project=%s (server_id=%s)", project_id, server_id)
             return True
