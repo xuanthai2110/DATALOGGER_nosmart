@@ -111,6 +111,19 @@ class RealtimeDB(BaseDB):
             if "updated_at" not in cols_sched:
                 conn.execute("ALTER TABLE control_schedules ADD COLUMN updated_at TEXT")
 
+            # EVN Control Commands (giao tiếp giữa container EVN → Polling)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS evn_control_commands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                axis TEXT NOT NULL,        -- 'P' hoặc 'Q'
+                mode TEXT NOT NULL,        -- 'KW', 'KVAR', 'PERCENT', 'RESET'
+                value REAL DEFAULT 0.0,
+                status TEXT DEFAULT 'PENDING',  -- 'PENDING', 'DONE'
+                created_at TEXT
+            );
+            """)
+
             # --- Migration: project_realtime ---
             cols_proj = {row[1] for row in conn.execute("PRAGMA table_info(project_realtime)").fetchall()}
             if "delta_E_monthly" not in cols_proj:
@@ -165,6 +178,50 @@ class RealtimeDB(BaseDB):
                 if ids:
                     placeholders = ",".join("?" * len(ids))
                     conn.execute(f"DELETE FROM uploader_outbox WHERE id IN ({placeholders})", ids)
+
+    # --- EVN Control Commands API ---
+    def push_evn_command(self, project_id: int, axis: str, mode: str, value: float = 0.0):
+        """
+        Ghi lệnh điều khiển EVN vào DB để container Polling thực hiện.
+        Args:
+            project_id: ID của project cần điều khiển.
+            axis: 'P' hoặc 'Q'.
+            mode: 'KW', 'KVAR', 'PERCENT', hoặc 'RESET'.
+            value: Giá trị điều khiển (0.0 nếu RESET).
+        """
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO evn_control_commands (project_id, axis, mode, value, status, created_at) VALUES (?, ?, ?, ?, 'PENDING', ?)",
+                (project_id, axis, mode, value, now_str)
+            )
+
+    def get_pending_evn_commands(self) -> List[dict]:
+        """Lấy tất cả lệnh EVN đang chờ thực hiện (status=PENDING)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, project_id, axis, mode, value, created_at FROM evn_control_commands WHERE status='PENDING' ORDER BY id ASC"
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def mark_evn_command_done(self, command_id: int):
+        """Đánh dấu lệnh EVN đã được thực hiện xong."""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE evn_control_commands SET status='DONE' WHERE id=?",
+                (command_id,)
+            )
+
+    def clear_old_evn_commands(self, keep_hours: int = 24):
+        """Xóa các lệnh EVN cũ hơn N giờ để tránh đầy DB."""
+        from datetime import datetime, timedelta
+        cutoff = (datetime.now() - timedelta(hours=keep_hours)).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM evn_control_commands WHERE status='DONE' AND created_at < ?",
+                (cutoff,)
+            )
 
     # --- History API ---
     def post_inverter_error(self, data: InverterErrorCreate):

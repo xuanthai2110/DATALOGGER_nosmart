@@ -4,7 +4,6 @@ import logging
 import time
 from pathlib import Path
 
-# Add project root correctly
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -33,7 +32,7 @@ def main():
         # 2. Service Layer
         project_svc = ProjectService(metadata_db=meta_db, realtime_db=realtime_db)
         
-        # 3. EVN Layer
+        # 3. Kiểm tra EVN có được bật không
         evn_enabled = meta_db.get_setting("evn_enabled", str(settings.EVN_ENABLED)).lower() == "true"
         if not evn_enabled:
             logger.info("EVN Integration is disabled in settings. Exiting.")
@@ -42,33 +41,33 @@ def main():
         host = meta_db.get_setting("evn_modbus_host", settings.EVN_MODBUS_HOST)
         port = int(meta_db.get_setting("evn_modbus_port", settings.EVN_MODBUS_PORT))
         
+        # 4. Lấy danh sách slave_id và IP được phép
+        evn_map = meta_db.get_evn_project_map()
+        slave_ids = list(evn_map.keys())
+
+        if not slave_ids:
+            logger.warning("No EVN project configured (evn_slave_id). Exiting.")
+            return
+
+        allowed_ips_str = meta_db.get_setting("evn_allowed_ips", settings.EVN_ALLOWED_IPS)
+        allowed_ips_list = [ip.strip() for ip in allowed_ips_str.split(",") if ip.strip()]
+
+        # 5. Khởi chạy Modbus Server
         modbus_server = ModbusServerService()
-        
-        # Lưu ý: Khi tách riêng, EVNWorker sẽ không có direct ControlService (trực tiếp điều khiển polling)
-        # mà sẽ thông qua MQTT hoặc DB để ra lệnh. 
-        # Hiện tại EVNWorker trong code của chúng ta nhận control_service làm tham số.
-        # Chúng ta sẽ khởi tạo một ControlService "rỗng" hoặc sửa EVNWorker để gửi lệnh qua MQTT.
-        
+        logger.info(f"Starting Modbus Server at {host}:{port} | Allowed IPs: {allowed_ips_list or 'ALL'}")
+        modbus_server.start(host, port, slave_ids, allowed_ips=allowed_ips_list)
+
+        # 6. Khởi chạy EVNWorker
+        # Lưu ý: control_service=None vì điều khiển được thực hiện qua DB (evn_control_commands)
+        # Container Polling sẽ đọc lệnh từ DB và thực hiện qua EVNCommandWorker
         evn_worker = EVNWorker(
             modbus_server=modbus_server,
             cache_db=cache_db,
             realtime_db=realtime_db,
             metadata_db=meta_db,
-            control_service=None, # Sẽ được xử lý qua MQTT/DB sau
-            project_svc=project_svc
+            project_svc=project_svc,
+            control_service=None,
         )
-
-        # 4. Khởi chạy Modbus Server
-        evn_map = meta_db.get_evn_project_map()
-        slave_ids = list(evn_map.keys())
-        
-        allowed_ips_str = meta_db.get_setting("evn_allowed_ips", settings.EVN_ALLOWED_IPS)
-        allowed_ips_list = [ip.strip() for ip in allowed_ips_str.split(",") if ip.strip()]
-
-        logger.info(f"Starting Modbus Server at {host}:{port} with allowed IPs: {allowed_ips_list}")
-        modbus_server.start(host, port, slave_ids, allowed_ips=allowed_ips_list)
-        
-        # 5. Khởi chạy EVN Worker (Gửi telemetry)
         evn_worker.start()
         
         logger.info("EVN Service operational. Press Ctrl+C to exit.")

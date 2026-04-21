@@ -4,18 +4,17 @@ import logging
 import time
 from pathlib import Path
 
-# Add project root correctly
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# 2. Imports using absolute package names
 from backend.db_manager import MetadataDB, CacheDB, RealtimeDB
 from backend.workers.polling_worker import PollingWorker
 from backend.workers.logic_worker import LogicWorker
 from backend.workers.persistence_worker import PersistenceWorker
 from backend.workers.build_tele_worker import BuildTeleWorker
 from backend.workers.schedule_worker import ScheduleWorker
+from backend.workers.evn_command_worker import EVNCommandWorker
 from backend.services.fault_service import FaultService
 from backend.services.project_service import ProjectService
 from backend.services.schedule_service import ScheduleService
@@ -48,13 +47,23 @@ def main():
         build_tele_worker = BuildTeleWorker(cache_db, project_svc, realtime_db, settings.SNAPSHOT_INTERVAL)
         poll_worker = PollingWorker(project_svc, cache_db, settings.POLL_INTERVAL)
         logic_worker = LogicWorker(cache_db, project_svc, realtime_db, fault_service, build_tele_worker)
-        persist_worker = PersistenceWorker(cache_db, realtime_db, logic_worker.energy_service, settings.SNAPSHOT_INTERVAL, string_monitor=poll_worker.service.string_monitor)
+        persist_worker = PersistenceWorker(
+            cache_db, realtime_db,
+            logic_worker.energy_service,
+            settings.SNAPSHOT_INTERVAL,
+            string_monitor=poll_worker.service.string_monitor
+        )
         
-        # Khởi tạo Control Service dựa vào polling service nội bộ của poll_worker
+        # 4. Control Service
         control_svc = ControlService(polling_service=poll_worker.service)
+
+        # 5. EVN Command Worker — đọc lệnh từ DB do container EVN ghi vào
+        evn_command_worker = EVNCommandWorker(
+            realtime_db=realtime_db,
+            control_service=control_svc,
+        )
         
-        # 4. Schedule & MQTT
-        # (EVN logic đã được tách sang container riêng)
+        # 6. Schedule & MQTT
         schedule_worker = ScheduleWorker(schedule_svc, control_svc, modbus_server=None, interval=1.0)
         
         mqtt_sub = MqttSubscriber(
@@ -65,7 +74,8 @@ def main():
             username=settings.MQTT_USERNAME,
             password=settings.MQTT_PASSWORD,
             project_server_ids_provider=lambda: [
-                project.server_id for project in project_svc.get_projects() if getattr(project, "server_id", None) is not None
+                project.server_id for project in project_svc.get_projects()
+                if getattr(project, "server_id", None) is not None
             ],
         )
         
@@ -75,6 +85,7 @@ def main():
         persist_worker.start()
         build_tele_worker.start()
         schedule_worker.start()
+        evn_command_worker.start()
         mqtt_sub.connect()
         
         logger.info("Polling Service operational. Press Ctrl+C to exit.")

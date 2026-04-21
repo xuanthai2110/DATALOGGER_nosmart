@@ -17,6 +17,11 @@ class ControlService:
         self._project_maxp_lock = threading.Lock()
         self._project_maxp_stop_events: Dict[int, threading.Event] = {}
 
+        # EVN Priority Lock — khi EVN đang điều khiển, server/MQTT không được ghi đè
+        self._evn_lock = threading.Lock()
+        self._evn_p_locked: set = set()  # {project_id} đang bị EVN giới hạn P
+        self._evn_q_locked: set = set()  # {project_id} đang bị EVN giới hạn Q
+
     def _find_project_item(self, schedule_project_id: int):
         for force_refresh in (False, True):
             polling_config = self.polling_service.get_polling_config(force_refresh=force_refresh)
@@ -54,6 +59,34 @@ class ControlService:
             stop = self._project_maxp_stop_events.pop(schedule_id, None)
         if stop is not None:
             stop.set()
+
+    # =====================================================
+    # EVN Priority Lock API
+    # =====================================================
+    def set_evn_lock(self, project_id: int, lock_p: bool = False, lock_q: bool = False):
+        """Đặt/gỡ khóa EVN cho project. Gọi từ EVNCommandWorker."""
+        with self._evn_lock:
+            if lock_p:
+                self._evn_p_locked.add(project_id)
+                logger.info(f"[ControlService] EVN LOCK P for project {project_id}")
+            else:
+                self._evn_p_locked.discard(project_id)
+                logger.info(f"[ControlService] EVN UNLOCK P for project {project_id}")
+
+            if lock_q:
+                self._evn_q_locked.add(project_id)
+                logger.info(f"[ControlService] EVN LOCK Q for project {project_id}")
+            else:
+                self._evn_q_locked.discard(project_id)
+                logger.info(f"[ControlService] EVN UNLOCK Q for project {project_id}")
+
+    def is_evn_locked_p(self, project_id: int) -> bool:
+        with self._evn_lock:
+            return project_id in self._evn_p_locked
+
+    def is_evn_locked_q(self, project_id: int) -> bool:
+        with self._evn_lock:
+            return project_id in self._evn_q_locked
 
     @staticmethod
     def _clamp_percent(pct: float) -> float:
@@ -571,6 +604,7 @@ class ControlService:
         return success
 
     def apply(self, schedule: ControlScheduleResponse):
+        """Thực hiện lệnh điều khiển từ Server/MQTT. Kiểm tra EVN lock trước."""
         logger.info(f"[ControlService] Applying schedule: {schedule.id}")
 
         try:
@@ -578,6 +612,25 @@ class ControlService:
 
             if not project_item:
                 logger.error(f"[ControlService] Project {schedule.project_id} not found in polling config.")
+                return False
+
+            # --- Kiểm tra EVN Priority Lock ---
+            mode = getattr(schedule, 'mode', '')
+            is_p_control = mode in ('MAXP', 'LIMIT_PERCENT')
+            is_q_control = mode in ('LIMIT_Q_PERCENT', 'LIMIT_Q_KVAR')
+
+            if is_p_control and self.is_evn_locked_p(schedule.project_id):
+                logger.warning(
+                    "[ControlService] BLOCKED schedule %s (mode=%s) for project %s — EVN is controlling P axis.",
+                    schedule.id, mode, schedule.project_id,
+                )
+                return False
+
+            if is_q_control and self.is_evn_locked_q(schedule.project_id):
+                logger.warning(
+                    "[ControlService] BLOCKED schedule %s (mode=%s) for project %s — EVN is controlling Q axis.",
+                    schedule.id, mode, schedule.project_id,
+                )
                 return False
 
             if schedule.scope == "PROJECT":
@@ -599,11 +652,31 @@ class ControlService:
             return False
 
     def reset(self, schedule: ControlScheduleResponse):
+        """Reset lệnh điều khiển từ Server/MQTT. Kiểm tra EVN lock trước."""
         logger.info(f"[ControlService] Resetting limit for schedule: {schedule.id}")
         try:
             project_item = self._find_project_item(schedule.project_id)
 
             if not project_item:
+                return False
+
+            # --- Kiểm tra EVN Priority Lock khi reset ---
+            mode = getattr(schedule, 'mode', '')
+            is_p_control = mode in ('MAXP', 'LIMIT_PERCENT')
+            is_q_control = mode in ('LIMIT_Q_PERCENT', 'LIMIT_Q_KVAR')
+
+            if is_p_control and self.is_evn_locked_p(schedule.project_id):
+                logger.warning(
+                    "[ControlService] BLOCKED reset schedule %s for project %s — EVN is controlling P axis.",
+                    schedule.id, schedule.project_id,
+                )
+                return False
+
+            if is_q_control and self.is_evn_locked_q(schedule.project_id):
+                logger.warning(
+                    "[ControlService] BLOCKED reset schedule %s for project %s — EVN is controlling Q axis.",
+                    schedule.id, schedule.project_id,
+                )
                 return False
 
             if schedule.scope == "PROJECT":
