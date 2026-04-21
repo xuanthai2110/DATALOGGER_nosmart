@@ -46,7 +46,7 @@ class UploaderWorker(threading.Thread):
                     
                     if payload_list:
                         # 3. Quăng vào outbox trước để lỡ cúp điện thì không mất
-                        self.realtime_db.post_to_outbox(proj.id, proj.server_id, payload_list[0])
+                        self.realtime_db.post_to_outbox(proj.id, proj.server_id, payload_list[0], data_type="Project")
                         new_payloads += 1
                 
                 if new_payloads > 0:

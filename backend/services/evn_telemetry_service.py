@@ -1,18 +1,13 @@
 """
-backend/services/evn_telemetry_service.py — Đóng gói và gửi dữ liệu EVN lên Cloud.
-
-Giá trị trong payload JSON phải TRÙNG KHỚP với giá trị trên thanh ghi Modbus server.
-Cả hai đều đọc từ cùng nguồn DB.
+backend/services/evn_telemetry_service.py — Đóng gói và gửi dữ liệu EVN lên Cloud qua Uploader.
 """
 
 import logging
-import requests
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from backend.db_manager import CacheDB, RealtimeDB, MetadataDB
 from backend.services.modbus_server_service import ModbusServerService
-from backend.core import settings
 
 logger = logging.getLogger(__name__)
 
@@ -158,17 +153,12 @@ class EVNTelemetryService:
         return payload
 
     def send_to_cloud(self, project_id: int, server_id: int, slave_id: int) -> bool:
-        """Gửi EVN telemetry payload lên Cloud API."""
+        """Đóng gói và đẩy vào outbox để UploaderService xử lý gửi đi."""
         try:
             payload = self.build_evn_payload(project_id, slave_id)
-            url = f"{settings.API_BASE_URL}api/telemetry/project/{server_id}"
-            resp = requests.post(url, json=payload, timeout=10)
-            if resp.status_code in (200, 201):
-                logger.info("[EVNTelemetry] Sent to Cloud project=%s (server_id=%s)", project_id, server_id)
-                return True
-            else:
-                logger.warning("[EVNTelemetry] Cloud responded %s: %s", resp.status_code, resp.text[:200])
-                return False
+            self.realtime_db.post_to_outbox(project_id, server_id, payload, data_type="EVN")
+            logger.info("[EVNTelemetry] Queued to outbox project=%s (server_id=%s)", project_id, server_id)
+            return True
         except Exception as e:
-            logger.error("[EVNTelemetry] Failed to send: %s", e)
+            logger.error("[EVNTelemetry] Failed to queue: %s", e)
             return False

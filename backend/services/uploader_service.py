@@ -30,32 +30,35 @@ class UploaderService:
                 token = self.auth.get_access_token(proj_meta.server_account_id)
                 if not token: continue
 
+                data_type = data.get("data_type", "Project")
                 payload = data.copy()
                 payload.pop("id", None)
                 payload.pop("project_id", None)
                 payload.pop("server_id", None)
+                payload.pop("data_type", None)
                 payload.pop("timestamp", None)
                 
-                url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
+                if data_type == "EVN":
+                    url = f"{API_BASE_URL}/api/telemetry/evn/project/{server_id}"
+                else:
+                    url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
+
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-                response = requests.post(url, json=payload, headers=headers)
-                logger.info(f"Headers-before: {headers}")
-                logger.info(f"Response-before: {response.status_code}")
+                
+                logger.info(f"[Uploader] Sending {data_type} telemetry for project {server_id} to {url}...")
+                response = requests.post(url, json=payload, headers=headers, timeout=15)
                 
                 if response.status_code == 401:
+                    logger.warning(f"[Uploader] 401 Unauthorized for project {server_id}. Attempting token refresh...")
                     token = self.auth.handle_unauthorized(proj_meta.server_account_id)
                     if token:
-                        logger.info(f"Have token: {token}")
                         headers["Authorization"] = f"Bearer {token}"
-                        response = requests.post(url, json=payload, headers=headers)
-                        logger.info(f"Uploaded project {server_id} (status={response.status_code})")
-                    
-                    logger.info(f"Headers-after-401: {headers}")
-                    logger.info(f"Response-after-401: {response.status_code}")
+                        response = requests.post(url, json=payload, headers=headers, timeout=15)
+                        logger.info(f"[Uploader] Retry result for project {server_id}: status={response.status_code}")
                 
                 if response.status_code in (200, 201):
                     self.db.delete_from_outbox(data["id"])
-                    logger.info(f"Uploaded project {server_id} (status={response.status_code})")
+                    logger.info(f"[Uploader] SUCCESS: Uploaded {data_type} for project {server_id} (status={response.status_code})")
                 elif response.status_code == 422:
                     logger.warning(f"Validation error (422) for project {server_id}. Attempting to fix payload and retry once...")
                     # Sửa nhanh payload trong bộ nhớ trước khi thử lại
@@ -98,20 +101,29 @@ class UploaderService:
         token = self.auth.get_access_token(proj_meta.server_account_id)
         if not token: return
 
+        data_type = data.get("data_type", "Project")
         payload = data.copy()
         payload.pop("project_id", None)
         payload.pop("server_id", None)
+        payload.pop("data_type", None)
         payload.pop("timestamp", None)
         
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
+        if data_type == "EVN":
+            url = f"{API_BASE_URL}/api/telemetry/evn/project/{server_id}"
+        else:
+            url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
+
         try:
-            logger.info(f"Sending immediate update for {server_id}...")
+            logger.info(f"[Uploader] Sending IMMEDIATE {data_type} for project {server_id} to {url}...")
             resp = requests.post(url, json=payload, headers=headers, timeout=10)
             if resp.status_code == 401:
+                logger.warning(f"[Uploader] Immediate 401 for project {server_id}. Refreshing token...")
                 token = self.auth.handle_unauthorized(proj_meta.server_account_id)
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
-                    requests.post(url, json=payload, headers=headers, timeout=10)
+                    resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            
+            logger.info(f"[Uploader] Immediate result for project {server_id}: status={resp.status_code}")
         except Exception as e:
-            logger.error(f"Immediate send error: {e}")
+            logger.error(f"[Uploader] Immediate send error: {e}")

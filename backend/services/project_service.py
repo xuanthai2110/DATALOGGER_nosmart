@@ -104,8 +104,8 @@ class ProjectService:
     # OUTBOX - Dành cho Telemetry & Uploader
     # ==============================
 
-    def post_to_outbox(self, project_id: int, server_id: int, data: dict):
-        self.realtime_db.post_to_outbox(project_id, server_id, data)
+    def post_to_outbox(self, project_id: int, server_id: int, data: dict, data_type: str = "Project"):
+        self.realtime_db.post_to_outbox(project_id, server_id, data, data_type=data_type)
 
     def get_all_outbox(self) -> List[dict]:
         return self.realtime_db.get_all_outbox()

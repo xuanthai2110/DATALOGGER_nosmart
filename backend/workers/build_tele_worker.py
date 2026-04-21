@@ -91,7 +91,7 @@ class BuildTeleWorker(threading.Thread):
             
             if payload_list:
                 # Lưu vào DB Outbox
-                self.realtime_db.post_to_outbox(project_id, proj_meta.server_id, payload_list[0])
+                self.realtime_db.post_to_outbox(project_id, proj_meta.server_id, payload_list[0], data_type="Project")
                 if all_disconnect:
                     self._disconnect_notified_projects[project_id] = True
                     logger.info(f"BuildTeleWorker: Final all-disconnect payload saved to outbox for project {project_id}")
