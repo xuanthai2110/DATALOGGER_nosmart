@@ -124,6 +124,10 @@ class EVNTelemetryService:
 
         now_str = datetime.now(VN_TZ).isoformat()
 
+        # Backend yêu cầu: Nếu Enable là False/None thì các trường Set phải là None
+        enable_p = evn_state.get("Enable_Set_P", False)
+        enable_q = evn_state.get("Enable_Set_Q", False)
+
         payload = {
             "EVN_connect": self.modbus_server.get_connection_status(),
             "Logger_connect": True,
@@ -140,14 +144,17 @@ class EVNTelemetryService:
             "U_a": round(grid["ua"], 2),
             "U_b": round(grid["ub"], 2),
             "U_c": round(grid["uc"], 2),
-            "Enable_Set_P": evn_state["Enable_Set_P"],
-            "Type_Set_P": type_set_p,
-            "Set_P_pct": evn_state["Set_P_pct"],
-            "Set_P_kW": evn_state["Set_P_kW"],
-            "Enable_Set_Q": evn_state["Enable_Set_Q"],
-            "Type_Set_Q": type_set_q,
-            "Set_Q_pct": evn_state["Set_Q_pct"],
-            "Set_Q_kVAr": evn_state["Set_Q_kVAr"],
+            
+            "Enable_Set_P": enable_p,
+            "Type_Set_P": type_set_p if enable_p else None,
+            "Set_P_pct": evn_state["Set_P_pct"] if enable_p else None,
+            "Set_P_kW": evn_state["Set_P_kW"] if enable_p else None,
+            
+            "Enable_Set_Q": enable_q,
+            "Type_Set_Q": type_set_q if enable_q else None,
+            "Set_Q_pct": evn_state["Set_Q_pct"] if enable_q else None,
+            "Set_Q_kVAr": evn_state["Set_Q_kVAr"] if enable_q else None,
+            
             "Invs_Data": invs_data,
             "created_at": now_str,
         }
