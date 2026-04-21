@@ -84,6 +84,7 @@ PROJECT_MAXP_POWER_WEIGHT_EPS_W = float(os.getenv("PROJECT_MAXP_POWER_WEIGHT_EPS
 EVN_ENABLED = os.getenv("EVN_ENABLED", "False").lower() in ("true", "1", "yes")
 EVN_MODBUS_HOST = os.getenv("EVN_MODBUS_HOST", "0.0.0.0")
 EVN_MODBUS_PORT = int(os.getenv("EVN_MODBUS_PORT", "502"))
+EVN_ALLOWED_IPS = os.getenv("EVN_ALLOWED_IPS", "") # Danh sách IP cách nhau bằng dấu phẩy
 EVN_TELEMETRY_INTERVAL = int(os.getenv("EVN_TELEMETRY_INTERVAL", "300"))  # 5 phút
 
 # ===========================================================

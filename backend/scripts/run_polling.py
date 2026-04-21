@@ -110,7 +110,11 @@ def main():
             # Lấy list slave_id từ projects
             evn_map = meta_db.get_evn_project_map()
             slave_ids = list(evn_map.keys())
-            modbus_server.start(evn_settings['host'], evn_settings['port'], slave_ids)
+            
+            allowed_ips_str = meta_db.get_setting("evn_allowed_ips", settings.EVN_ALLOWED_IPS)
+            allowed_ips_list = [ip.strip() for ip in allowed_ips_str.split(",") if ip.strip()]
+            
+            modbus_server.start(evn_settings['host'], evn_settings['port'], slave_ids, allowed_ips=allowed_ips_list)
             evn_worker.start()
         
         logger.info("System operational (Polling/Logic/BuildTele). Press Ctrl+C to exit.")
