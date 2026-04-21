@@ -109,10 +109,11 @@ class EVNTelemetryService:
         e_yday_per_inv = self.realtime_db.get_yesterday_energy_per_inverter(project_id)
         evn_state = self.modbus_server.get_evn_control_state(slave_id)
 
-        type_set_p = "PERCENT"
-        if evn_state.get("Set_P_kW", 0.0) > 0: type_set_p = "KW"
-        type_set_q = "PERCENT"
-        if evn_state.get("Set_Q_kVAr", 0.0) > 0: type_set_q = "KVAR"
+        # 0: PERCENT, 1: KW/KVAR
+        type_set_p = 0
+        if evn_state.get("Set_P_kW", 0.0) > 0: type_set_p = 1
+        type_set_q = 0
+        if evn_state.get("Set_Q_kVAr", 0.0) > 0: type_set_q = 1
 
         invs_data = []
         for inv in active_invs:
