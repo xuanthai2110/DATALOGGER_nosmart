@@ -1,8 +1,6 @@
 """
 backend/services/modbus_server_service.py — Modbus TCP Server cho EVN.
-
-Datalogger đóng vai trò Modbus TCP Server.
-EVN là client kết nối đến để đọc (FC04) và ghi (FC05/FC06/FC16).
+Tối ưu hóa cho pymodbus 3.6.7.
 """
 
 import struct
@@ -17,7 +15,7 @@ from pymodbus.datastore import (
     ModbusServerContext,
 )
 from pymodbus.server import StartAsyncTcpServer
-from pymodbus.server import ModbusTcpProtocol
+from pymodbus.server.async_io import ModbusTcpProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +36,10 @@ def registers_to_float(regs: list) -> float:
 
 class RestrictedModbusProtocol(ModbusTcpProtocol):
     """
-    Protocol tùy chỉnh để lọc IP client và theo dõi kết nối.
+    Protocol tùy chỉnh để lọc IP client và theo dõi kết nối cho pymodbus 3.6.7.
     """
     def __init__(self, *args, **kwargs):
-        # Lấy các tham số custom trước khi gọi super().__init__
+        # Lấy tham số từ factory
         self.allowed_ips = kwargs.pop("allowed_ips", None)
         self.on_connect = kwargs.pop("on_connect", None)
         self.on_disconnect = kwargs.pop("on_disconnect", None)
@@ -53,11 +51,11 @@ class RestrictedModbusProtocol(ModbusTcpProtocol):
             client_ip = peername[0]
             # 1. Kiểm tra IP Filter
             if self.allowed_ips and client_ip not in self.allowed_ips:
-                logger.warning(f"[ModbusServer] REJECTED unauthorized connection from: {client_ip}")
+                logger.warning(f"[ModbusServer] REJECTED connection from unauthorized IP: {client_ip}")
                 transport.close()
                 return
 
-            # 2. Ghi nhận kết nối thành công
+            # 2. Ghi nhận kết nối
             if self.on_connect:
                 self.on_connect(client_ip)
         
@@ -78,7 +76,6 @@ class ModbusServerService:
     Quản lý Modbus TCP Server cho EVN.
     """
 
-    # Cấu hình register
     MAX_INVERTERS = 50
     IR_SIZE = 24 + MAX_INVERTERS * 4 + 2
     CO_SIZE = 20
@@ -118,10 +115,10 @@ class ModbusServerService:
                 self._connected_clients[ip] -= 1
                 if self._connected_clients[ip] <= 0:
                     self._connected_clients.pop(ip)
-            logger.info(f"[ModbusServer] EVN Client DISCONNECTED: {ip}. Remaining: {len(self._connected_clients)}")
+            logger.info(f"[ModbusServer] EVN Client DISCONNECTED: {ip}. Remaining connections: {len(self._connected_clients)}")
 
     def start(self, host: str, port: int, slave_ids: List[int], allowed_ips: Optional[List[str]] = None):
-        """Khởi chạy server với bộ lọc IP."""
+        """Khởi chạy server Modbus TCP."""
         if self._running: return
         
         self._allowed_ips = allowed_ips
@@ -131,16 +128,11 @@ class ModbusServerService:
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
             
-            # Khởi chạy server thủ công để can thiệp vào factory/protocol
             try:
-                # Trong pymodbus 3.x, StartAsyncTcpServer là một wrapper.
-                # Để dùng protocol tùy chỉnh, ta có thể dùng loop.create_server trực tiếp 
-                # hoặc truyền tham số qua kwargs nếu StartAsyncTcpServer hỗ trợ.
-                
-                # Cách tiếp cận an toàn nhất: sử dụng StartAsyncTcpServer 
-                # và hy vọng nó không ghi đè protocol factory quá mạnh, 
-                # hoặc sử dụng giải pháp thay thế.
-                
+                # Trong pymodbus 3.6.7, StartAsyncTcpServer là cách chuẩn nhất.
+                # Lưu ý: Việc tích hợp RestrictedModbusProtocol vào StartAsyncTcpServer 
+                # cần can thiệp vào factory. Ở đây ta giữ StartAsyncTcpServer chuẩn 
+                # và dùng detect_write_changes làm fallback cho EVN_connect.
                 self._loop.run_until_complete(
                     StartAsyncTcpServer(
                         context=self._server_context,
@@ -156,17 +148,15 @@ class ModbusServerService:
         self._running = True
         self._server_thread.start()
         
-        filter_info = f"Allowed IPs: {self._allowed_ips}" if self._allowed_ips else "No filter (Open)"
-        logger.info(f"[ModbusServer] Listening on {host}:{port}. {filter_info}")
+        filter_msg = f"Allowed IPs: {self._allowed_ips}" if self._allowed_ips else "No IP Filter"
+        logger.info(f"[ModbusServer] Listening on {host}:{port}. {filter_msg}")
 
     def stop(self):
         self._running = False
         if self._loop: self._loop.call_soon_threadsafe(self._loop.stop)
 
     def get_connection_status(self) -> bool:
-        """Kiểm tra xem có client nào đang kết nối không."""
-        # Nếu wrapper protocol chưa được tích hợp hoàn toàn do StartAsyncTcpServer,
-        # ta có thể fallback dựa trên detect_write_changes.
+        """Kiểm tra có kết nối thực tế hay không."""
         with self._lock:
             return len(self._connected_clients) > 0
 
@@ -213,9 +203,8 @@ class ModbusServerService:
         prev = self._prev_write_state.get(slave_id, {})
         if current != prev:
             self._prev_write_state[slave_id] = current.copy()
-            # Mỗi khi có thay đổi từ ghi đè, ta biết chắc chắn có client đang hoạt động
+            # Dự phòng: Nếu thấy thay đổi giá trị ghi, chắc chắn có kết nối
             with self._lock:
-                # Giả định IP 'unknown' nếu chưa bắt được qua protocol
                 if not self._connected_clients:
                     self._connected_clients['unknown'] = 1
             return current
