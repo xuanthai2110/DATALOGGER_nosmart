@@ -30,25 +30,45 @@ class ScheduleService:
         text = value if isinstance(value, str) else str(value)
         return text if len(text) <= limit else text[:limit] + "...<truncated>"
 
+    def _resolve_account_id_from_project_ref(self, project_ref: Optional[int]) -> Optional[int]:
+        if not project_ref:
+            return None
+
+        proj = self.metadata_db.get_project(project_ref)
+        if proj and proj.server_account_id:
+            return proj.server_account_id
+
+        projects = self.metadata_db.get_projects()
+        proj = next((p for p in projects if p.server_id == project_ref), None)
+        if proj and proj.server_account_id:
+            logger.info(
+                "[ScheduleService] Resolved project_ref=%s via server_id -> local project_id=%s for auth",
+                project_ref,
+                proj.id,
+            )
+            return proj.server_account_id
+
+        return None
+
     def _get_headers(self, project_id: Optional[int] = None, schedule_id: Optional[int] = None, project_server_id: Optional[int] = None) -> Optional[dict]:
         account_id = None
         if project_id:
-            proj = self.metadata_db.get_project(project_id)
-            if proj: account_id = proj.server_account_id
+            account_id = self._resolve_account_id_from_project_ref(project_id)
         elif project_server_id:
-            # Look up project by server_id
-            projects = self.metadata_db.get_projects()
-            proj = next((p for p in projects if p.server_id == project_server_id), None)
-            if proj: account_id = proj.server_account_id
+            account_id = self._resolve_account_id_from_project_ref(project_server_id)
         elif schedule_id:
             sched = self.db.get_schedule(schedule_id)
             if sched and sched.project_id:
-                proj = self.metadata_db.get_project(sched.project_id)
-                if proj: account_id = proj.server_account_id
-        
+                account_id = self._resolve_account_id_from_project_ref(sched.project_id)
+
         # Fallback to default account (1) if not found, but ideally it should be explicit
         if not account_id:
-            account_id = 1
+            logger.warning(
+                "[ScheduleService] Could not resolve server account for project_id=%s schedule_id=%s project_server_id=%s. Falling back to account_id=1",
+                project_id,
+                schedule_id,
+                project_server_id,
+            )
             
         token = self.auth.get_access_token(account_id)
         if not token:

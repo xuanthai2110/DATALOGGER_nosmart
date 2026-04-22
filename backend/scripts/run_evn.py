@@ -38,7 +38,10 @@ def main():
             logger.info("EVN Integration is disabled in settings. Exiting.")
             return
 
+        # Cấu hình IP/Port
         host = meta_db.get_setting("evn_modbus_host", settings.EVN_MODBUS_HOST)
+        # Trong container Docker, luôn phải bind vào 0.0.0.0
+        bind_host = "0.0.0.0" if os.path.exists("/.dockerenv") else host
         port = int(meta_db.get_setting("evn_modbus_port", settings.EVN_MODBUS_PORT))
         
         # 4. Lấy danh sách slave_id và IP được phép
