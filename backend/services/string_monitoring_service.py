@@ -12,6 +12,7 @@ class StringMonitoringService:
         self.cache_db = cache_db
         # Lưu trữ tạm trong RAM để xử lý nhanh
         self.morning_baseline: Dict[int, Dict[int, int]] = {}
+        self.baseline_date: Dict[int, Optional[datetime.date]] = {}
         self.zero_current_start_time: Dict[int, Dict[int, float]] = {}
         self.active_faults: Dict[int, set] = {}
         

@@ -541,7 +541,7 @@ HUAWEI_STATE_MAP = {
 
 
 SUNGROW_STATE_MAP = {
-    0:      {'id_sungrow': 0,     'id_unified': 1,  'name': 'Vận hành',              'severity': 'STABLE',     'description': 'Biến tần hoạt động bình thường'},
+    0x000:  {'id_sungrow': 0,     'id_unified': 1,  'name': 'Vận hành',              'severity': 'STABLE',     'description': 'Biến tần hoạt động bình thường'},
     0x7d1:  {'id_sungrow': 2001,  'id_unified': 13, 'name': 'Dò lưới',               'severity': 'STABLE',     'description': 'Đang dò điều kiện lưới'},
     0x7d2:  {'id_sungrow': 2002,  'id_unified': 14, 'name': 'Kiểm tra cách điện',    'severity': 'STABLE',     'description': 'Đang kiểm tra kháng trở cách điện'},
     0x7d3:  {'id_sungrow': 2003,  'id_unified': 15, 'name': 'Tự kiểm tra',           'severity': 'STABLE',     'description': 'Đang tự kiểm tra nội bộ'},
