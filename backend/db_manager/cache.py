@@ -6,6 +6,11 @@ from .base_db import BaseDB
 class CacheDB(BaseDB):
     """Quản lý dữ liệu thay đổi nhanh (RAM-based)."""
     
+    def __init__(self, db_path: str):
+        import threading
+        super().__init__(db_path)
+        self.batch_lock = threading.RLock()
+    
     def _connect(self):
         conn = super()._connect()
         # Tối ưu hóa tối đa cho RAM
@@ -102,9 +107,10 @@ class CacheDB(BaseDB):
             """)
 
     def get_ac_cache(self, inverter_id: int) -> Optional[dict]:
-        with self._connect() as conn:
-            row = conn.execute("SELECT * FROM inverter_ac_cache WHERE inverter_id = ?", (inverter_id,)).fetchone()
-            return dict(row) if row else None
+        with self.batch_lock:
+            with self._connect() as conn:
+                row = conn.execute("SELECT * FROM inverter_ac_cache WHERE inverter_id = ?", (inverter_id,)).fetchone()
+                return dict(row) if row else None
 
     def upsert_inverter_ac(self, inverter_id: int, project_id: int, data: dict):
         from datetime import datetime
@@ -132,19 +138,22 @@ class CacheDB(BaseDB):
                          (e_monthly, delta_e, inverter_id))
 
     def get_all_ac_cache(self) -> List[dict]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM inverter_ac_cache").fetchall()
-            return [dict(r) for r in rows]
+        with self.batch_lock:
+            with self._connect() as conn:
+                rows = conn.execute("SELECT * FROM inverter_ac_cache").fetchall()
+                return [dict(r) for r in rows]
 
     def get_ac_cache_by_project(self, project_id: int) -> List[dict]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM inverter_ac_cache WHERE project_id = ?", (project_id,)).fetchall()
-            return [dict(r) for r in rows]
+        with self.batch_lock:
+            with self._connect() as conn:
+                rows = conn.execute("SELECT * FROM inverter_ac_cache WHERE project_id = ?", (project_id,)).fetchall()
+                return [dict(r) for r in rows]
 
     def get_error_cache(self, inverter_id: int) -> Optional[dict]:
-        with self._connect() as conn:
-            row = conn.execute("SELECT * FROM error_cache WHERE inverter_id = ?", (inverter_id,)).fetchone()
-            return dict(row) if row else None
+        with self.batch_lock:
+            with self._connect() as conn:
+                row = conn.execute("SELECT * FROM error_cache WHERE inverter_id = ?", (inverter_id,)).fetchone()
+                return dict(row) if row else None
             
     def upsert_error(self, inverter_id: int, project_id: int, status_code: int, fault_code: int, status_text: str = None, fault_text: str = None, fault_json: str = None):
         from datetime import datetime
@@ -162,16 +171,18 @@ class CacheDB(BaseDB):
 
     # --- MPPT ---
     def get_all_mppt_cache(self) -> List[dict]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM mppt_cache").fetchall()
-            return [dict(r) for r in rows]
+        with self.batch_lock:
+            with self._connect() as conn:
+                rows = conn.execute("SELECT * FROM mppt_cache").fetchall()
+                return [dict(r) for r in rows]
 
     def get_mppt_cache_by_inverter(self, inverter_id: int) -> List[dict]:
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT * FROM mppt_cache WHERE inverter_id = ? ORDER BY mppt_index ASC", (inverter_id,)
-            ).fetchall()
-            return [dict(r) for r in rows]
+        with self.batch_lock:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT * FROM mppt_cache WHERE inverter_id = ? ORDER BY mppt_index ASC", (inverter_id,)
+                ).fetchall()
+                return [dict(r) for r in rows]
 
     def upsert_mppt(self, inverter_id: int, mppt_index: int, project_id: int, data: dict):
         from datetime import datetime
@@ -194,16 +205,18 @@ class CacheDB(BaseDB):
 
     # --- String ---
     def get_all_string_cache(self) -> List[dict]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM string_cache").fetchall()
-            return [dict(r) for r in rows]
+        with self.batch_lock:
+            with self._connect() as conn:
+                rows = conn.execute("SELECT * FROM string_cache").fetchall()
+                return [dict(r) for r in rows]
 
     def get_string_cache_by_inverter(self, inverter_id: int) -> List[dict]:
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT * FROM string_cache WHERE inverter_id = ? ORDER BY string_id ASC", (inverter_id,)
-            ).fetchall()
-            return [dict(r) for r in rows]
+        with self.batch_lock:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT * FROM string_cache WHERE inverter_id = ? ORDER BY string_id ASC", (inverter_id,)
+                ).fetchall()
+                return [dict(r) for r in rows]
 
     def upsert_string(self, inverter_id: int, string_id: int, project_id: int, mppt_id: int, i_string: float):
         from datetime import datetime
@@ -317,6 +330,23 @@ class CacheDB(BaseDB):
             return dict(row) if row else None
 
     def get_meter_cache_by_project(self, project_id: int) -> List[dict]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM meter_cache WHERE project_id = ?", (project_id,)).fetchall()
-            return [dict(r) for r in rows]
+        with self.batch_lock:
+            with self._connect() as conn:
+                rows = conn.execute("SELECT * FROM meter_cache WHERE project_id = ?", (project_id,)).fetchall()
+                return [dict(r) for r in rows]
+
+    # --- BATCH COMMIT ---
+    def commit_project_batch(self, batch):
+        """Lưu toàn bộ dữ liệu AC, MPPT, String, Error của 1 project trong 1 lần giao dịch an toàn."""
+        with self.batch_lock:
+            for ac_data in batch.ac_data:
+                self.upsert_inverter_ac(ac_data["inverter_id"], batch.project_id, ac_data["data"])
+            
+            for mppt_data in batch.mppt_data:
+                self.upsert_mppt(mppt_data["inverter_id"], mppt_data["mppt_index"], batch.project_id, mppt_data["data"])
+                
+            for string_data in batch.string_data:
+                self.upsert_string(string_data["inverter_id"], string_data["string_id"], batch.project_id, string_data["mppt_id"], string_data["i_string"])
+                
+            for err_data in batch.error_data:
+                self.upsert_error(err_data["inverter_id"], batch.project_id, err_data["status_code"], err_data["fault_code"], err_data.get("status_text"), err_data.get("fault_text"), err_data.get("fault_json"))
