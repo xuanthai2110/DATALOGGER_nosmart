@@ -86,42 +86,47 @@ class StringMonitoringService:
         # =========================================================
         # 3. GIÁM SÁT
         # =========================================================
+        lost_strings = []
+
         for s in strings_data:
             idx = s["string_index"]
             current_i = s.get("I_string", 0)
 
-            # Chỉ theo dõi string có baseline = 1
             if baseline.get(idx) == 1:
 
-                if current_i <= 0.2:
-                    # bắt đầu đếm
+                if current_i <= 0.1:
                     if idx not in self.zero_current_start_time[inverter_id]:
                         self.zero_current_start_time[inverter_id][idx] = current_ts
                     else:
                         elapsed = current_ts - self.zero_current_start_time[inverter_id][idx]
-
                         if elapsed >= 300:
                             if idx not in self.active_faults[inverter_id]:
                                 self.active_faults[inverter_id].add(idx)
-
-                                logger.warning(f"[StringMonitor] Inverter {inverter_id} String {idx} mất dòng >5 phút")
-
-                                new_faults.append({
-                                    "fault_code": 23,
-                                    "fault_description": "String mất dòng (từ có → không)",
-                                    "repair_instruction": f"Kiểm tra string {idx} (MC4, cầu chì, đứt dây).",
-                                    "severity": "WARNING",
-                                    "created_at": polling_time
-                                })
+                                lost_strings.append(idx)   # 👈 gom lại
 
                 else:
-                    # có dòng lại → reset
+                    # reset
                     self.zero_current_start_time[inverter_id].pop(idx, None)
 
                     if idx in self.active_faults[inverter_id]:
                         self.active_faults[inverter_id].remove(idx)
                         logger.info(f"[StringMonitor] Inverter {inverter_id} String {idx} recovered")
 
+
+        # 👉 Sau khi duyệt xong tất cả string
+        if lost_strings:
+            str_list = " ,".join(map(str, lost_strings))
+
+            logger.warning(f"[StringMonitor] Inverter {inverter_id} Strings {str_list} mất dòng >5 phút")
+
+            new_faults.append({
+                "fault_code": 23,
+                "fault_description": "String mất dòng (từ có → không)",
+                "repair_instruction": f"Kiểm tra string {str_list} (MC4, cầu chì, đứt dây).",
+                "severity": "WARNING",
+                "created_at": polling_time
+            })
+    
         return new_faults
 
     def reset_daily(self):
