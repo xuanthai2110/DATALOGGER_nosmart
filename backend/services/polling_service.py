@@ -126,30 +126,58 @@ class PollingService:
                     # --- LOGIC XỬ LÝ MẤT KẾT NỐI (TIMEOUT/DISCONNECT) ---
                     logger.warning(f"Inverter {inv.id} (Slave {inv.slave_id}) failed to respond. Generating zero-payload.")
                     
-                    # 1. Lấy lại sản lượng E gần nhất từ Cache hoặc RealtimeDB
+                    # 1. Lấy dữ liệu cũ từ Cache hoặc RealtimeDB để bảo toàn sản lượng E
                     last_ac = self.cache_db.get_ac_cache(inv.id)
                     e_daily, e_total, e_monthly, delta_e = 0.0, 0.0, 0.0, 0.0
+                    last_ts_str = None
+                    
                     if last_ac:
                         e_daily = last_ac.get("E_daily", 0.0)
                         e_total = last_ac.get("E_total", 0.0)
                         e_monthly = last_ac.get("E_monthly", 0.0)
                         delta_e = last_ac.get("delta_E_monthly", 0.0)
-                    elif self.realtime_db:
+                        last_ts_str = last_ac.get("updated_at")
+                    else:
+                        # Fallback to RealtimeDB if Cache is empty
                         last_real = self.realtime_db.get_latest_inverter_ac_realtime(inv.id)
                         if last_real:
                             e_daily = last_real.E_daily
                             e_total = last_real.E_total
                             e_monthly = last_real.E_monthly
                             delta_e = last_real.delta_E_monthly
+                            last_ts_str = last_real.created_at
 
-                    # 2. Tạo bản tin AC "Zero" (P, U, I = 0)
+                    # --- KIỂM TRA RESET E THEO NGÀY/THÁNG ---
+                    now = datetime.now()
+                    if last_ts_str:
+                        try:
+                            # Xử lý format timestamp (có thể có hoặc không có T)
+                            if "T" not in last_ts_str:
+                                last_ts = datetime.fromisoformat(last_ts_str.replace(" ", "T"))
+                            else:
+                                last_ts = datetime.fromisoformat(last_ts_str)
+                            
+                            # Nếu qua ngày mới -> Reset E_daily
+                            if last_ts.date() < now.date():
+                                logger.info(f"New day detected for disconnected Inverter {inv.id}. Resetting E_daily.")
+                                e_daily = 0.0
+                            
+                            # Nếu qua tháng mới -> Reset E_monthly
+                            if last_ts.year < now.year or last_ts.month < now.month:
+                                logger.info(f"New month detected for disconnected Inverter {inv.id}. Resetting E_monthly.")
+                                e_monthly = 0.0
+                                delta_e = 0.0
+                        except Exception as e:
+                            logger.warning(f"Failed to parse timestamp {last_ts_str} for Inverter {inv.id}: {e}")
+
+                    # 2. Tạo bản tin AC "Zero" (P, U, I = 0) - Sử dụng các key mà CacheDB.upsert_inverter_ac mong đợi
                     clean = {
-                        "P_ac": 0.0, "Q_ac": 0.0, "PF": 0.0, "H": 0.0,
-                        "V_a": 0.0, "V_b": 0.0, "V_c": 0.0,
-                        "I_a": 0.0, "I_b": 0.0, "I_c": 0.0,
-                        "E_daily": e_daily, "E_total": e_total,
-                        "E_monthly": e_monthly, "delta_E_monthly": delta_e,
-                        "IR": 0.0, "Temp_C": 0.0
+                        "p_inv_w": 0.0, "q_inv_var": 0.0, "pf": 0.0, "grid_hz": 0.0,
+                        "v_a": 0.0, "v_b": 0.0, "v_c": 0.0,
+                        "i_a": 0.0, "i_b": 0.0, "i_c": 0.0,
+                        "e_daily": e_daily, "e_total": e_total,
+                        "e_monthly": e_monthly, "delta_E_monthly": delta_e,
+                        "ir": 0.0, "temp_c": 0.0
                     }
                     batch.ac_data.append({"inverter_id": inv.id, "data": clean})
 
