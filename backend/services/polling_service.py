@@ -239,6 +239,7 @@ class PollingService:
             except Exception as e:
                 logger.error(f"Critical error polling inverter {inv.id}: {e}", exc_info=True)
         
+        logger.info(f"Project {project_id}: Polled {len(batch.ac_data)} inverters in this batch.")
         return batch
 
     def poll_meters(self, project_id: int, meters: List[Any]):
