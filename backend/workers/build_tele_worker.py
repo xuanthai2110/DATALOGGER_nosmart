@@ -90,13 +90,19 @@ class BuildTeleWorker(threading.Thread):
             )
             
             if payload_list:
+                payload = payload_list[0]
+                
+                # Logic lọc: Từ 16h chiều đến 7h sáng hôm sau, nếu P_dc <= 0 thì không lưu outbox
+                current_hour = datetime.now().hour
+                p_dc = payload.get("project", {}).get("P_dc", 0)
+                
+                is_night_dusk = (current_hour >= 16 or current_hour < 7)
+                if is_night_dusk and p_dc <= 0:
+                    logger.info(f"BuildTeleWorker: Project {project_id} P_dc is {p_dc} during Night/Dusk ({current_hour}h). Skipping outbox save.")
+                    return
+
                 # Lưu vào DB Outbox
-                self.realtime_db.post_to_outbox(project_id, proj_meta.server_id, payload_list[0], data_type="Project")
-                if all_disconnect:
-                    self._disconnect_notified_projects[project_id] = True
-                    logger.info(f"BuildTeleWorker: Final all-disconnect payload saved to outbox for project {project_id}")
-                else:
-                    logger.info(f"BuildTeleWorker: Payload saved to outbox for project {project_id}")
+                self.realtime_db.post_to_outbox(project_id, proj_meta.server_id, payload, data_type="Project")
                 
                 # Giới hạn 1000 hàng
                 self._enforce_limit()
