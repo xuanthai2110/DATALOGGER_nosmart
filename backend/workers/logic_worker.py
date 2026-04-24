@@ -61,6 +61,7 @@ class LogicWorker(threading.Thread):
         inverter_ids = [ac["inverter_id"] for ac in ac_rows]
         is_sleep = self.telemetry.is_all_inverters_sleep(inverter_ids, self.cache_db)
 
+        any_inv_changed = False
         for ac in ac_rows:
             inv_id = ac["inverter_id"]
             polling_time = ac["updated_at"]
@@ -89,6 +90,8 @@ class LogicWorker(threading.Thread):
             f_code = err_cache["fault_code"] if err_cache else 0
             
             errors, changed = self.fault_logic.process(inv_id, project_id, s_code, f_code, polling_time)
+            if changed:
+                any_inv_changed = True
             
             if changed and not is_sleep:
                 for err_dict in errors:
@@ -106,8 +109,10 @@ class LogicWorker(threading.Thread):
             # 4. Cập nhật Cache với các giá trị vừa tính toán (Monthly/Delta Energy)
             self.cache_db.update_ac_processed(inv_id, e_state["E_monthly"], e_state["current_delta"])
                 
-        # 5. Kích hoạt Build Telemetry ngay lập tức cho project này sau khi xử lý xong lô
-        self._trigger_immediate(project_id)
+        # 5. Kích hoạt Build Telemetry ngay lập tức CHỈ KHI có thay đổi trạng thái/lỗi
+        if any_inv_changed:
+            logger.info(f"LogicWorker: Status/Fault changed for project {project_id}. Triggering immediate build.")
+            self._trigger_immediate(project_id)
 
     def _trigger_immediate(self, project_id: int):
         if self.build_tele_worker:
