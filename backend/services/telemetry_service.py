@@ -24,6 +24,10 @@ class TelemetryService:
         temp_list = []
         
         inverters_json = []
+        # Priority mapping for project severity
+        severity_priority = {"DISCONNECT": 3, "ERROR": 4, "WARNING": 2, "STABLE": 1}
+        project_severity = "STABLE"
+
         for inv in inverters_meta:
             inv_id = inv.id
             
@@ -95,6 +99,11 @@ class TelemetryService:
             if not errors:
                 errors = [self._default_error_item(err_row, ac, payload_created_at)]
             
+            # Track Project Severity (highest among inverters)
+            inv_severity = errors[0].get("severity", "STABLE") if errors else "STABLE"
+            if severity_priority.get(inv_severity, 0) > severity_priority.get(project_severity, 0):
+                project_severity = inv_severity
+
             inv_data = {
                 "serial_number": inv.serial_number,
                 "ac": {
@@ -131,7 +140,7 @@ class TelemetryService:
             "E_daily": round(total_e_daily, 2),
             "E_monthly": round(total_e_monthly, 2),
             "E_total": round(total_e_total, 2),
-            "severity": "STABLE",
+            "severity": project_severity,
             "created_at": payload_created_at
         }
             
