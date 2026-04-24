@@ -13,6 +13,7 @@ class FaultService:
         self.metadata_db = metadata_db
         self.last_status_map: Dict[int, int] = {}
         self.last_fault_code_map: Dict[int, int] = {}
+        self.last_severity_map: Dict[int, str] = {}
         self.active_faults_map: Dict[int, Set[int]] = {}
         self.inverter_brands: Dict[int, str] = {}
 
@@ -65,14 +66,24 @@ class FaultService:
             "description": state_info.get("description", "")
         }
 
-    def process(self, inv_id: int, proj_id: int, status_code: int, fault_code: int, polling_time: str) -> Tuple[list, bool]:
+    def process(self, inv_id: int, proj_id: int, status_code: int, fault_code: int, polling_time: str) -> Tuple[list, bool, str]:
         self.seed_if_needed(inv_id)
         brand = self.inverter_brands[inv_id]
         
         # Change Detection
         has_changed = (inv_id not in self.last_status_map or self.last_status_map[inv_id] != status_code or self.last_fault_code_map[inv_id] != fault_code)
+        
+        last_severity = self.last_severity_map.get(inv_id, "STABLE")
+        
         self.last_status_map[inv_id] = status_code
         self.last_fault_code_map[inv_id] = fault_code
 
         payload = self.get_inverter_status_payload(brand, status_code, fault_code, polling_time)
-        return payload, has_changed
+        
+        current_severity = "STABLE"
+        if payload:
+            current_severity = payload[0].get("severity", "STABLE")
+        
+        self.last_severity_map[inv_id] = current_severity
+        
+        return payload, has_changed, last_severity

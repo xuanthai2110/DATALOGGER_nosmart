@@ -73,6 +73,8 @@ class LogicWorker(threading.Thread):
             mppts = self.cache_db.get_mppt_cache_by_inverter(inv_id)
             strings = self.cache_db.get_string_cache_by_inverter(inv_id)
             
+            inv_p_dc = sum(m.get("p_mppt", m.get("P_mppt", 0)) for m in mppts) if mppts else 0
+            
             hold_zero_max = self.max_service.prepare_for_poll(inv_id, polling_time)
             if hold_zero_max:
                 self.cache_db.reset_mppt_max(inv_id)
@@ -89,12 +91,28 @@ class LogicWorker(threading.Thread):
             s_code = err_cache["status_code"] if err_cache else 0
             f_code = err_cache["fault_code"] if err_cache else 0
             
-            errors, changed = self.fault_logic.process(inv_id, project_id, s_code, f_code, polling_time)
-            if changed:
+            payload, changed, last_severity = self.fault_logic.process(inv_id, project_id, s_code, f_code, polling_time)
+            
+            # Lấy mã trạng thái hợp nhất và severity hiện tại
+            unified_code = payload[0]["fault_code"] if payload else 0
+            current_severity = payload[0]["severity"] if payload else "STABLE"
+            
+            # Quyết định có trigger build telemetry tức thời hay không
+            should_trigger = changed
+            
+            # Điều kiện 1: Bỏ qua trigger nếu là các trạng thái dừng/ngủ/chờ/hở mạch và công suất thấp (< 2kW)
+            if unified_code in [2, 4, 22, 23] and inv_p_dc < 2000:
+                should_trigger = False
+            
+            # Điều kiện 2: Bỏ qua trigger khi phục hồi từ lỗi về Stable
+            if last_severity in ["ERROR", "WARNING", "DISCONNECT"] and current_severity == "STABLE":
+                should_trigger = False
+                
+            if should_trigger:
                 any_inv_changed = True
             
             if changed and not is_sleep:
-                for err_dict in errors:
+                for err_dict in payload:
                     err_rec = InverterErrorCreate(
                         project_id=project_id,
                         inverter_id=inv_id,
