@@ -30,17 +30,17 @@ class MeterChintdtsu666(MeterDriverBase):
         "modbus_addr":  {"address": 45,   "count": 1, "type": "int16", "unit": ""},
         "baudrate_id":  {"address": 46,   "count": 1, "type": "int16", "unit": "0:1200..3:9600"},
 
-        # === NHÓM 2: DỮ LIỆU ĐIỆN (Floating - Scale 1.0) ===
-        "v_ab":         {"address": 8192, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
-        "v_bc":         {"address": 8194, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
-        "v_ca":         {"address": 8196, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
-        "v_a":          {"address": 8198, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
-        "v_b":          {"address": 8200, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
-        "v_c":          {"address": 8202, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
+        # === NHÓM 2: DỮ LIỆU ĐIỆN (Floating - Cần Scale) ===
+        "v_ab":         {"address": 8192, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
+        "v_bc":         {"address": 8194, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
+        "v_ca":         {"address": 8196, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
+        "v_a":          {"address": 8198, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
+        "v_b":          {"address": 8200, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
+        "v_c":          {"address": 8202, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
 
-        "i_a":          {"address": 8204, "count": 2, "type": "float32", "scale": 1.0, "unit": "A"},
-        "i_b":          {"address": 8206, "count": 2, "type": "float32", "scale": 1.0, "unit": "A"},
-        "i_c":          {"address": 8208, "count": 2, "type": "float32", "scale": 1.0, "unit": "A"},
+        "i_a":          {"address": 8204, "count": 2, "type": "float32", "scale": 0.01, "unit": "A"},
+        "i_b":          {"address": 8206, "count": 2, "type": "float32", "scale": 0.01, "unit": "A"},
+        "i_c":          {"address": 8208, "count": 2, "type": "float32", "scale": 0.01, "unit": "A"},
 
         # Công suất (P/Q) dùng scale 0.001 để đổi từ W/var sang kW/kVAr
         "p_total":      {"address": 8210, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
@@ -53,11 +53,11 @@ class MeterChintdtsu666(MeterDriverBase):
         "q_b":          {"address": 8222, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
         "q_c":          {"address": 8224, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
 
-        "pf":           {"address": 8234, "count": 2, "type": "float32", "scale": 1.0, "unit": ""},
-        "pf_a":         {"address": 8236, "count": 2, "type": "float32", "scale": 1.0, "unit": ""},
-        "pf_b":         {"address": 8238, "count": 2, "type": "float32", "scale": 1.0, "unit": ""},
-        "pf_c":         {"address": 8240, "count": 2, "type": "float32", "scale": 1.0, "unit": ""},
-        "f":            {"address": 8260, "count": 2, "type": "float32", "scale": 1.0, "unit": "Hz"},
+        "pf":           {"address": 8234, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
+        "pf_a":         {"address": 8236, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
+        "pf_b":         {"address": 8238, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
+        "pf_c":         {"address": 8240, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
+        "f":            {"address": 8260, "count": 2, "type": "float32", "scale": 0.01, "unit": "Hz"},
 
         # === NHÓM 3: NĂNG LƯỢNG (401EH, 4028H...) ===
         "e_pt_import":  {"address": 16414, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
