@@ -20,14 +20,21 @@ class MeterChintdtsu666(MeterDriverBase):
     # DTSU666 sử dụng FC03 cho các vùng địa chỉ này
     read_function = "holding"
 
-    # Map các thanh ghi theo Manual (Hex -> Dec)
+    # Map toàn bộ thanh ghi theo Manual (Hex -> Dec)
     register_map: Dict[str, Dict[str, Any]] = {
-        # --- Điện áp Dây (Line Voltage) ---
+        # === NHÓM 1: THÔNG SỐ CÀI ĐẶT (0000H - 002EH) ===
+        "soft_version": {"address": 0,    "count": 1, "type": "int16", "unit": ""},
+        "prog_code":    {"address": 1,    "count": 1, "type": "int16", "unit": ""},
+        "net_type":     {"address": 3,    "count": 1, "type": "int16", "unit": "0:4W, 1:3W"},
+        "ct_rate":      {"address": 6,    "count": 1, "type": "int16", "unit": "CT"},
+        "vt_rate":      {"address": 7,    "count": 1, "type": "int16", "scale": 0.1, "unit": "VT"},
+        "baudrate_id":  {"address": 45,   "count": 1, "type": "int16", "unit": "0:1200..3:9600"},
+        "modbus_addr":  {"address": 46,   "count": 1, "type": "int16", "unit": ""},
+
+        # === NHÓM 2: DỮ LIỆU ĐIỆN (2000H - 2044H) ===
         "v_ab":         {"address": 8192, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
         "v_bc":         {"address": 8194, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
         "v_ca":         {"address": 8196, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
-
-        # --- Điện áp Pha (Phase Voltage) ---
         "v_a":          {"address": 8198, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
         "v_b":          {"address": 8200, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
         "v_c":          {"address": 8202, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
@@ -49,14 +56,13 @@ class MeterChintdtsu666(MeterDriverBase):
         "q_b":          {"address": 8222, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
         "q_c":          {"address": 8224, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
 
-        # --- Hệ số công suất (PF) & Tần số (F) ---
         "pf":           {"address": 8234, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
         "pf_a":         {"address": 8236, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
         "pf_b":         {"address": 8238, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
         "pf_c":         {"address": 8240, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
         "f":            {"address": 8260, "count": 2, "type": "float32", "scale": 0.01, "unit": "Hz"},
 
-        # --- Năng lượng (Energy) - Base 0x3000 + Offset từ Manual ---
+        # === NHÓM 3: DỮ LIỆU NĂNG LƯỢNG (101EH - 1030H) ===
         "e_pt_import":  {"address": 16414, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
         "e_pa_import":  {"address": 16416, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
         "e_pb_import":  {"address": 16418, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
@@ -69,7 +75,6 @@ class MeterChintdtsu666(MeterDriverBase):
         "e_pc_export":  {"address": 16430, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
         "e_pt_net_rev": {"address": 16432, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
         
-        # 4 Góc phần tư cho năng lượng phản kháng
         "q1":           {"address": 16434, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
         "q2":           {"address": 16436, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
         "q3":           {"address": 16438, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
