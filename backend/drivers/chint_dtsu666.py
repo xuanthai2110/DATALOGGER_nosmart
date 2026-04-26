@@ -20,65 +20,54 @@ class MeterChintdtsu666(MeterDriverBase):
     # DTSU666 sử dụng FC03 cho các vùng địa chỉ này
     read_function = "holding"
 
-    # Map toàn bộ thanh ghi theo Manual (Hex -> Dec)
+    # Map toàn bộ thanh ghi theo Manual Table 3 (Hex -> Dec)
     register_map: Dict[str, Dict[str, Any]] = {
-        # === NHÓM 1: THÔNG SỐ CÀI ĐẶT (0000H - 002EH) ===
+        # === NHÓM 1: THÔNG SỐ CÀI ĐẶT ===
         "soft_version": {"address": 0,    "count": 1, "type": "int16", "unit": ""},
-        "prog_code":    {"address": 1,    "count": 1, "type": "int16", "unit": ""},
-        "net_type":     {"address": 3,    "count": 1, "type": "int16", "unit": "0:4W, 1:3W"},
+        "net_type":     {"address": 3,    "count": 1, "type": "int16", "unit": "0:3P4W, 1:3P3W"},
         "ct_rate":      {"address": 6,    "count": 1, "type": "int16", "unit": "CT"},
         "vt_rate":      {"address": 7,    "count": 1, "type": "int16", "scale": 0.1, "unit": "VT"},
-        "baudrate_id":  {"address": 45,   "count": 1, "type": "int16", "unit": "0:1200..3:9600"},
-        "modbus_addr":  {"address": 46,   "count": 1, "type": "int16", "unit": ""},
+        "modbus_addr":  {"address": 45,   "count": 1, "type": "int16", "unit": ""},
+        "baudrate_id":  {"address": 46,   "count": 1, "type": "int16", "unit": "0:1200..3:9600"},
 
-        # === NHÓM 2: DỮ LIỆU ĐIỆN (2000H - 2044H) ===
-        "v_ab":         {"address": 8192, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
-        "v_bc":         {"address": 8194, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
-        "v_ca":         {"address": 8196, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
-        "v_a":          {"address": 8198, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
-        "v_b":          {"address": 8200, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
-        "v_c":          {"address": 8202, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
+        # === NHÓM 2: DỮ LIỆU ĐIỆN (Floating - Scale 1.0) ===
+        "v_ab":         {"address": 8192, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
+        "v_bc":         {"address": 8194, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
+        "v_ca":         {"address": 8196, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
+        "v_a":          {"address": 8198, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
+        "v_b":          {"address": 8200, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
+        "v_c":          {"address": 8202, "count": 2, "type": "float32", "scale": 1.0, "unit": "V"},
 
-        # --- Dòng điện (I) ---
-        "i_a":          {"address": 8204, "count": 2, "type": "float32", "scale": 0.001, "unit": "A"},
-        "i_b":          {"address": 8206, "count": 2, "type": "float32", "scale": 0.001, "unit": "A"},
-        "i_c":          {"address": 8208, "count": 2, "type": "float32", "scale": 0.001, "unit": "A"},
+        "i_a":          {"address": 8204, "count": 2, "type": "float32", "scale": 1.0, "unit": "A"},
+        "i_b":          {"address": 8206, "count": 2, "type": "float32", "scale": 1.0, "unit": "A"},
+        "i_c":          {"address": 8208, "count": 2, "type": "float32", "scale": 1.0, "unit": "A"},
 
-        # --- Công suất tác dụng (P) ---
-        "p_total":      {"address": 8210, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
-        "p_a":          {"address": 8212, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
-        "p_b":          {"address": 8214, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
-        "p_c":          {"address": 8216, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
+        # Công suất (P/Q) dùng scale 0.001 để đổi từ W/var sang kW/kVAr
+        "p_total":      {"address": 8210, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
+        "p_a":          {"address": 8212, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
+        "p_b":          {"address": 8214, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
+        "p_c":          {"address": 8216, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
 
-        # --- Công suất phản kháng (Q) ---
-        "q_total":      {"address": 8218, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
-        "q_a":          {"address": 8220, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
-        "q_b":          {"address": 8222, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
-        "q_c":          {"address": 8224, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
+        "q_total":      {"address": 8218, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
+        "q_a":          {"address": 8220, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
+        "q_b":          {"address": 8222, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
+        "q_c":          {"address": 8224, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
 
-        "pf":           {"address": 8234, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
-        "pf_a":         {"address": 8236, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
-        "pf_b":         {"address": 8238, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
-        "pf_c":         {"address": 8240, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
-        "f":            {"address": 8260, "count": 2, "type": "float32", "scale": 0.01, "unit": "Hz"},
+        "pf":           {"address": 8234, "count": 2, "type": "float32", "scale": 1.0, "unit": ""},
+        "pf_a":         {"address": 8236, "count": 2, "type": "float32", "scale": 1.0, "unit": ""},
+        "pf_b":         {"address": 8238, "count": 2, "type": "float32", "scale": 1.0, "unit": ""},
+        "pf_c":         {"address": 8240, "count": 2, "type": "float32", "scale": 1.0, "unit": ""},
+        "f":            {"address": 8260, "count": 2, "type": "float32", "scale": 1.0, "unit": "Hz"},
 
-        # === NHÓM 3: DỮ LIỆU NĂNG LƯỢNG (101EH - 1030H) ===
+        # === NHÓM 3: NĂNG LƯỢNG (401EH, 4028H...) ===
         "e_pt_import":  {"address": 16414, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pa_import":  {"address": 16416, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pb_import":  {"address": 16418, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pc_import":  {"address": 16420, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pt_net_fwd": {"address": 16422, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-
         "e_pt_export":  {"address": 16424, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pa_export":  {"address": 16426, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pb_export":  {"address": 16428, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pc_export":  {"address": 16430, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pt_net_rev": {"address": 16432, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
         
+        # Năng lượng phản kháng theo góc phần tư (Table 3)
         "q1":           {"address": 16434, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
-        "q2":           {"address": 16436, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
-        "q3":           {"address": 16438, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
-        "q4":           {"address": 16440, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
+        "q2":           {"address": 16444, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
+        "q3":           {"address": 16454, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
+        "q4":           {"address": 16464, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
     }
 
     def read_all(self) -> Optional[Dict[str, float]]:
