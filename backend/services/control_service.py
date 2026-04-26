@@ -726,7 +726,8 @@ class ControlService:
                 project_id=project_id,
                 scope="PROJECT",
                 mode="LIMIT_PERCENT" if mode == "PERCENT" else "MAXP",
-                setpoint=value,
+                limit_percent=value if mode == "PERCENT" else None,
+                limit_watts=value * 1000.0 if mode == "KW" else None,
                 serial_number=None,
             )
 
