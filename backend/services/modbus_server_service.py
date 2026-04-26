@@ -246,12 +246,12 @@ class ModbusServerService:
             result["Enable_Set_P"] = bool(coils[0]) if len(coils) > 0 else False
             result["Enable_Set_Q"] = bool(coils[1]) if len(coils) > 1 else False
 
-            hr = ctx.getValues(3, 13, 8)
-            if len(hr) >= 8:
-                result["Set_P_pct"]   = round(registers_to_float(hr[0:2]), 2)
-                result["Set_P_kW"]    = round(registers_to_float(hr[2:4]), 2)
-                result["Set_Q_pct"]   = round(registers_to_float(hr[4:6]), 2)
-                result["Set_Q_kVAr"]  = round(registers_to_float(hr[6:8]), 2)
+            hr = ctx.getValues(3, 13, 4)
+            if len(hr) >= 4:
+                result["Set_P_pct"]   = float(hr[0])
+                result["Set_P_kW"]    = float(hr[1])
+                result["Set_Q_pct"]   = float(hr[2])
+                result["Set_Q_kVAr"]  = float(hr[3])
         return result
 
     def detect_write_changes(self, slave_id: int) -> Optional[dict]:
