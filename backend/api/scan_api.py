@@ -230,7 +230,7 @@ def _get_transport(comm: dict):
     else:
         from backend.communication.modbus_rtu import ModbusRTU
         t = ModbusRTU(
-            port=comm["com_port"],
+            port=comm["com_port"].strip(),
             baudrate=comm.get("baudrate", 9600),
             bytesize=comm.get("databits", 8),
             parity=comm.get("parity", "N"),

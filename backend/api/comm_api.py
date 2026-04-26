@@ -55,7 +55,10 @@ def create_comm_config(
 ):
     """Tạo cấu hình kết nối mới."""
     try:
-        # We use dict for body to allow flex then convert to CommConfig
+        # Sanitize strings
+        if "host" in body and body["host"]: body["host"] = body["host"].strip()
+        if "com_port" in body and body["com_port"]: body["com_port"] = body["com_port"].strip()
+
         comm = CommConfig(**body)
         config_id = svc.post_comm(comm)
         return svc.get_comm_id(config_id)
@@ -74,6 +77,10 @@ def patch_comm(
 ):
     """Cập nhật từng phần cấu hình kết nối."""
     try:
+        # Sanitize strings
+        if "host" in body and body["host"]: body["host"] = body["host"].strip()
+        if "com_port" in body and body["com_port"]: body["com_port"] = body["com_port"].strip()
+
         svc.patch_comm(config_id, body)
         config = svc.get_comm_id(config_id)
         if not config:
