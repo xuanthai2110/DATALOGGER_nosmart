@@ -10,7 +10,7 @@ from backend.drivers.meter_base import MeterDriverBase
 logger = logging.getLogger(__name__)
 
 
-class MeterChintDtsu666(MeterDriverBase):
+class MeterChintdtsu666(MeterDriverBase):
     """
     Driver cho Chint DTSU666 (3 pha).
     Sử dụng Function Code 03 (Holding Registers).
