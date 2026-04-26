@@ -378,28 +378,14 @@ class MetadataDB(BaseDB):
     def post_comm(self, data: CommConfig) -> int:
         data_dict = asdict(data)
         with self._connect() as conn:
-            # Check if any config exists (assume ID=1 for the main config)
-            row = conn.execute("SELECT id FROM comm_config LIMIT 1").fetchone()
-            if row:
-                config_id = row["id"]
-                fields = []
-                values = []
-                for k, v in data_dict.items():
-                    if k != "id" and v is not None:
-                        fields.append(f"{k} = ?")
-                        values.append(v)
-                values.append(config_id)
-                conn.execute(f"UPDATE comm_config SET {', '.join(fields)} WHERE id=?", tuple(values))
-                return config_id
-            else:
-                cursor = conn.execute("""
-                    INSERT INTO comm_config (
-                        driver, comm_type, host, port, com_port, baudrate, databits, parity, stopbits, timeout, slave_id_start, slave_id_end
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (data_dict.get("driver"), data_dict.get("comm_type"), data_dict.get("host"), data_dict.get("port"),
-                      data_dict.get("com_port"), data_dict.get("baudrate"), data_dict.get("databits"), data_dict.get("parity"),
-                      data_dict.get("stopbits"), data_dict.get("timeout"), data_dict.get("slave_id_start"), data_dict.get("slave_id_end")))
-                return cursor.lastrowid
+            cursor = conn.execute("""
+                INSERT INTO comm_config (
+                    driver, comm_type, host, port, com_port, baudrate, databits, parity, stopbits, timeout, slave_id_start, slave_id_end
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (data_dict.get("driver"), data_dict.get("comm_type"), data_dict.get("host"), data_dict.get("port"),
+                  data_dict.get("com_port"), data_dict.get("baudrate"), data_dict.get("databits"), data_dict.get("parity"),
+                  data_dict.get("stopbits"), data_dict.get("timeout"), data_dict.get("slave_id_start"), data_dict.get("slave_id_end")))
+            return cursor.lastrowid
 
     def patch_comm(self, config_id: int, updates: dict):
         with self._connect() as conn:

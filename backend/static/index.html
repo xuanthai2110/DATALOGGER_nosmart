@@ -259,32 +259,34 @@
                                             value="192.168.1.10"></div>
                                     <div class="input-group"><label>Port</label><input type="number" id="comm-port"
                                             value="502"></div>
-                                </div>
-                            </div>
-                            <div id="fields-rtu" class="hidden">
-                                <div class="form-row">
-                                    <div class="input-group"><label>COM Port</label><input type="text" id="comm-com"
-                                            value="/dev/ttyUSB0"></div>
+                                        <div class="input-group">
+                                        <label>COM Port</label>
+                                        <div style="display:flex; gap:5px;">
+                                            <input type="text" id="comm-com" list="available-ports" value="/dev/ttyUSB0">
+                                            <datalist id="available-ports"></datalist>
+                                            <button class="action-btn" onclick="loadAvailablePorts()" title="Tải lại danh sách cổng"><i class="fas fa-sync"></i></button>
+                                        </div>
+                                    </div>
                                     <div class="input-group"><label>Baudrate</label><input type="number" id="comm-baud"
-                                            value="9600"></div>
+                                             value="9600"></div>
                                 </div>
                                 <div class="form-row">
                                     <div class="input-group"><label>Databits</label><input type="number" id="comm-data"
-                                            value="8"></div>
+                                             value="8"></div>
                                     <div class="input-group"><label>Parity</label><select id="comm-parity">
-                                            <option value="N">None</option>
-                                            <option value="E">Even</option>
-                                            <option value="O">Odd</option>
-                                        </select></div>
+                                             <option value="N">None</option>
+                                             <option value="E">Even</option>
+                                             <option value="O">Odd</option>
+                                         </select></div>
                                 </div>
                                 <div class="input-group"><label>Stopbits</label><input type="number" id="comm-stop"
-                                        value="1"></div>
+                                         value="1"></div>
                             </div>
                             <div class="form-row">
                                 <div class="input-group"><label>Slave ID Start</label><input type="number"
-                                        id="comm-start" value="1"></div>
+                                         id="comm-start" value="1"></div>
                                 <div class="input-group"><label>Slave ID End</label><input type="number" id="comm-end"
-                                        value="10"></div>
+                                         value="10"></div>
                             </div>
                             <div id="scan-results" class="hidden glass" style="margin-bottom:16px; padding:16px;">
                                 <div
@@ -303,7 +305,7 @@
                             </div>
                             <div class="form-row" style="margin-bottom:12px;">
                                 <button class="btn btn-primary" onclick="startScan()" id="btn-scan"><i
-                                        class="fas fa-search"></i> QUÉT THIẾT BỊ</button>
+                                         class="fas fa-search"></i> QUÉT THIẾT BỊ</button>
                                 <button class="btn btn-success" onclick="saveComm()" id="btn-save-comm">LƯU TRUYỀN
                                     THÔNG</button>
                             </div>
@@ -365,7 +367,7 @@
 
                             <div class="form-row">
                                 <div class="input-group"><label>Công suất (kW) *</label><input type="number" step="0.1"
-                                        id="inv-cap"></div>
+                                         id="inv-cap"></div>
                                 <div class="input-group"><label>Số pha</label><input type="number" id="inv-phase"></div>
                             </div>
 
@@ -431,8 +433,28 @@
                         <h3 style="font-size:14px; margin-bottom:10px;">Scan Meter Tự Động</h3>
                         <div class="form-row">
                             <div class="input-group"><label>Truyền thông</label><select id="meter-scan-comm-select"></select></div>
-                            <button class="btn btn-primary" onclick="startMeterScan()" id="btn-scan-meter" style="align-self: flex-end; margin-bottom: 15px;"><i class="fas fa-search"></i> QUÉT METER</button>
                         </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Thương hiệu</label>
+                                <select id="meter-scan-brand">
+                                    <option value="Chint">Chint</option>
+                                    <option value="Acrel">Acrel</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Model</label>
+                                <select id="meter-scan-model">
+                                    <option value="DTSU666">DTSU666</option>
+                                    <option value="DTSD1352">DTSD1352</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group"><label>Slave Start</label><input type="number" id="meter-scan-start" value="1"></div>
+                            <div class="input-group"><label>Slave End</label><input type="number" id="meter-scan-end" value="20"></div>
+                        </div>
+                        <button class="btn btn-primary" onclick="startMeterScan()" id="btn-scan-meter" style="width:100%; margin-bottom: 15px;"><i class="fas fa-search"></i> QUÉT METER</button>
                         
                         <div id="meter-scan-results" class="hidden glass" style="margin-bottom:16px; padding:16px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
