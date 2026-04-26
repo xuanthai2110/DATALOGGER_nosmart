@@ -74,12 +74,14 @@ class EVNWorker(threading.Thread):
                     self._update_registers(slave_id, project)
 
                 # --- 2. Detect WRITE changes → Ghi lệnh vào DB ---
+                trigger_telemetry = False
                 for slave_id, project in evn_map.items():
-                    self._handle_write_changes(slave_id, project)
+                    if self._handle_write_changes(slave_id, project):
+                        trigger_telemetry = True
 
-                # --- 3. Gửi telemetry định kỳ ---
+                # --- 3. Gửi telemetry định kỳ hoặc khi có trigger ---
                 now = time.time()
-                if (now - self._last_telemetry_time) >= settings.EVN_TELEMETRY_INTERVAL:
+                if trigger_telemetry or (now - self._last_telemetry_time) >= settings.EVN_TELEMETRY_INTERVAL:
                     for slave_id, project in evn_map.items():
                         if project.server_id:
                             self.evn_telemetry.send_to_cloud(
@@ -134,12 +136,12 @@ class EVNWorker(threading.Thread):
         except Exception as e:
             logger.error("[EVNWorker] Update registers error slave=%s: %s", slave_id, e)
 
-    def _handle_write_changes(self, slave_id: int, project):
+    def _handle_write_changes(self, slave_id: int, project) -> bool:
         """Phát hiện khi EVN ghi lệnh WRITE và xử lý theo từng thanh ghi (FC 0x06)."""
         try:
             result = self.modbus_server.detect_write_changes(slave_id)
             if not result:
-                return
+                return False
             
             changes, changed_keys = result
             logger.info("[EVNWorker] Detected changes on slave=%s: %s", slave_id, changed_keys)
@@ -198,6 +200,8 @@ class EVNWorker(threading.Thread):
 
             self._evn_p_active[slave_id] = curr_p
             self._evn_q_active[slave_id] = curr_q
+            return True
 
         except Exception as e:
             logger.error("[EVNWorker] Write change handling error slave=%s: %s", slave_id, e)
+            return False
