@@ -43,15 +43,15 @@ class MeterChintdtsu666(MeterDriverBase):
         "i_c":          {"address": 8208, "count": 2, "type": "float32", "scale": 0.001, "unit": "A"},
 
         # Công suất (P/Q) dùng scale 0.001 để đổi từ W/var sang kW/kVAr
-        "p_total":      {"address": 8210, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
-        "p_a":          {"address": 8212, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
-        "p_b":          {"address": 8214, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
-        "p_c":          {"address": 8216, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
+        "p_total":      {"address": 8210, "count": 2, "type": "float32", "scale": 0.1, "unit": "W"},
+        "p_a":          {"address": 8212, "count": 2, "type": "float32", "scale": 0.1, "unit": "W"},
+        "p_b":          {"address": 8214, "count": 2, "type": "float32", "scale": 0.1, "unit": "W"},
+        "p_c":          {"address": 8216, "count": 2, "type": "float32", "scale": 0.1, "unit": "W"},
 
-        "q_total":      {"address": 8218, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
-        "q_a":          {"address": 8220, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
-        "q_b":          {"address": 8222, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
-        "q_c":          {"address": 8224, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
+        "q_total":      {"address": 8218, "count": 2, "type": "float32", "scale": 0.1, "unit": "VAr"},
+        "q_a":          {"address": 8220, "count": 2, "type": "float32", "scale": 0.1, "unit": "VAr"},
+        "q_b":          {"address": 8222, "count": 2, "type": "float32", "scale": 0.1, "unit": "VAr"},
+        "q_c":          {"address": 8224, "count": 2, "type": "float32", "scale": 0.1, "unit": "VAr"},
 
         "pf":           {"address": 8234, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
         "pf_a":         {"address": 8236, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
@@ -71,7 +71,6 @@ class MeterChintdtsu666(MeterDriverBase):
         "e_pb_export":  {"address": 4140, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
         "e_pc_export":  {"address": 4142, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
         "e_pt_net_rev": {"address": 4144, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-
     }
 
     def read_all(self) -> Optional[Dict[str, float]]:
