@@ -254,15 +254,20 @@ class ModbusServerService:
                 result["Set_Q_kVAr"]  = float(hr[6])  # Địa chỉ 19
         return result
 
-    def detect_write_changes(self, slave_id: int) -> Optional[dict]:
-        """Phát hiện khi EVN ghi lệnh mới. Trả về dict nếu có thay đổi."""
+    def detect_write_changes(self, slave_id: int) -> Optional[tuple]:
+        """Phát hiện thay đổi. Trả về (current_state, changed_keys)."""
         current = self.get_evn_control_state(slave_id)
         prev = self._prev_write_state.get(slave_id, {})
-        if current != prev:
-            self._prev_write_state[slave_id] = current.copy()
-            # Nếu EVN đã ghi giá trị → chắc chắn đang có kết nối
-            with self._lock:
-                if not self._connected_clients:
-                    self._connected_clients["evn_client"] = 1
-            return current
-        return None
+        
+        if current == prev:
+            return None
+
+        changed_keys = [k for k, v in current.items() if v != prev.get(k)]
+        self._prev_write_state[slave_id] = current.copy()
+
+        # Update connection status
+        with self._lock:
+            if not self._connected_clients:
+                self._connected_clients["evn_client"] = 1
+                
+        return current, changed_keys
