@@ -38,16 +38,16 @@ class MeterChintdtsu666(MeterDriverBase):
         "i_c":          {"address": 8208, "count": 2, "type": "float32", "scale": 0.001, "unit": "A"},
 
         # --- Công suất tác dụng (P) ---
-        "p_total":      {"address": 8210, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
-        "p_a":          {"address": 8212, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
-        "p_b":          {"address": 8214, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
-        "p_c":          {"address": 8216, "count": 2, "type": "float32", "scale": 0.001, "unit": "kW"},
+        "p_total":      {"address": 8210, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
+        "p_a":          {"address": 8212, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
+        "p_b":          {"address": 8214, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
+        "p_c":          {"address": 8216, "count": 2, "type": "float32", "scale": 0.1, "unit": "kW"},
 
         # --- Công suất phản kháng (Q) ---
-        "q_total":      {"address": 8218, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
-        "q_a":          {"address": 8220, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
-        "q_b":          {"address": 8222, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
-        "q_c":          {"address": 8224, "count": 2, "type": "float32", "scale": 0.001, "unit": "kVAr"},
+        "q_total":      {"address": 8218, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
+        "q_a":          {"address": 8220, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
+        "q_b":          {"address": 8222, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
+        "q_c":          {"address": 8224, "count": 2, "type": "float32", "scale": 0.1, "unit": "kVAr"},
 
         # --- Hệ số công suất (PF) & Tần số (F) ---
         "pf":           {"address": 8234, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
@@ -58,9 +58,18 @@ class MeterChintdtsu666(MeterDriverBase):
 
         # --- Năng lượng (Energy) - Base 0x3000 + Offset từ Manual ---
         "e_pt_import":  {"address": 16414, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        "e_pa_import":  {"address": 16416, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        "e_pb_import":  {"address": 16418, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        "e_pc_import":  {"address": 16420, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        "e_pt_net_fwd": {"address": 16422, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+
         "e_pt_export":  {"address": 16424, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        "e_pa_export":  {"address": 16426, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        "e_pb_export":  {"address": 16428, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        "e_pc_export":  {"address": 16430, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        "e_pt_net_rev": {"address": 16432, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
         
-        # 4 Góc phần tư cho năng lượng phản kháng (nếu model này hỗ trợ ở vùng địa chỉ khác)
+        # 4 Góc phần tư cho năng lượng phản kháng
         "q1":           {"address": 16434, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
         "q2":           {"address": 16436, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
         "q3":           {"address": 16438, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVArh"},
