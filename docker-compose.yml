@@ -28,7 +28,6 @@ services:
       - .env
     devices:
       - "/dev/ttyUSB0:/dev/ttyUSB0"
-      - "/dev/ttyUSB1:/dev/ttyUSB1"
     volumes:
       - ./backend/db_manager/data:/app/backend/db_manager/data
       - /dev/shm:/dev/shm
