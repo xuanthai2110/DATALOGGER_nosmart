@@ -121,7 +121,13 @@ class PollingService:
                 # Lưu vào CacheDB (RAM)
                 self.cache_db.upsert_inverter_ac(inv.id, project_id, clean)
                 
+<<<<<<< HEAD
                 # MPPT & String Cache
+=======
+                # self.cache_db.clear_inverter_mppt_string_cache(inv.id)
+
+                # MPPT & String Cache (Không xoá cache cũ để SQL MAX() hoạt động chính xác)
+>>>>>>> e7a17452141a9a012b8c761ec418da575c342f89
                 for i in range(1, inv.mppt_count + 1):
                     v_mppt = clean.get(f"mppt_{i}_voltage", 0.0)
                     i_mppt = clean.get(f"mppt_{i}_current", 0.0)
