@@ -55,8 +55,10 @@ class LogicWorker(threading.Thread):
     def _process(self, project_id: int):
         """Xử lý logic (Energy, Max Tracking, Faults) cho toàn bộ Inverter trong 1 Project vừa quét xong."""
         ac_rows = self.cache_db.get_ac_cache_by_project(project_id)
-        if not ac_rows: 
-            return
+        # Xác định khung giờ ban đêm (16:00 - 07:00) theo yêu cầu
+        current_time_dt = datetime.now()
+        current_hour = current_time_dt.hour
+        is_night_period = (current_hour >= 16 or current_hour < 7)
 
         inverter_ids = [ac["inverter_id"] for ac in ac_rows]
         is_sleep = self.telemetry.is_all_inverters_sleep(inverter_ids, self.cache_db)
@@ -97,21 +99,32 @@ class LogicWorker(threading.Thread):
             unified_code = payload[0]["fault_code"] if payload else 0
             current_severity = payload[0]["severity"] if payload else "STABLE"
             
+            # --- ĐIỀU CHỈNH LOGIC BAN ĐÊM (16:00 - 07:00) ---
+            # Chỉ trong khoảng 16:00 đến 07:00, severity của các mã trạng thái này mới là STABLE
+            stable_night_codes = [1, 2, 3, 4, 9, 12, 14, 15, 19, 22]
+            if is_night_period and unified_code in stable_night_codes:
+                current_severity = "STABLE"
+
             # Quyết định có trigger build telemetry tức thời hay không
             should_trigger = changed
             
-            # Điều kiện 1: Bỏ qua trigger nếu là các trạng thái dừng/ngủ/chờ/hở mạch và công suất thấp (< 2kW)
-            if unified_code in [2, 4, 22, 23] and inv_p_dc < 2000:
+            # Nếu ban đêm thì không trigger bất kỳ trạng thái hoặc lỗi nào ngay lập tức
+            if is_night_period:
                 should_trigger = False
-            
-            # Điều kiện 2: Bỏ qua trigger khi phục hồi từ lỗi về Stable
-            if last_severity in ["ERROR", "WARNING", "DISCONNECT"] and current_severity == "STABLE":
-                should_trigger = False
+            else:
+                # Điều kiện 1: Bỏ qua trigger nếu là các trạng thái dừng/ngủ/chờ/hở mạch và công suất thấp (< 2kW)
+                if unified_code in [2, 4, 22, 23] and inv_p_dc < 2000:
+                    should_trigger = False
+                
+                # Điều kiện 2: Bỏ qua trigger khi phục hồi từ lỗi về Stable
+                if last_severity in ["ERROR", "WARNING", "DISCONNECT"] and current_severity == "STABLE":
+                    should_trigger = False
                 
             if should_trigger:
                 any_inv_changed = True
             
-            if changed and not is_sleep:
+            # Chỉ ghi log lỗi vào database nếu KHÔNG phải ban đêm
+            if changed and not is_sleep and not is_night_period:
                 for err_dict in payload:
                     err_rec = InverterErrorCreate(
                         project_id=project_id,
