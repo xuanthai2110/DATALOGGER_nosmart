@@ -92,11 +92,16 @@ def background_meter_scan(comm: dict):
     transport = None
     try:
         from backend.services.polling_service import PollingService
-        from backend.db_manager import MetadataDB, RealtimeDB
-        # We need a temporary polling service for scanning
-        db = MetadataDB(app_config.METADATA_DB)
-        rdb = RealtimeDB(app_config.REALTIME_DB)
-        ps = PollingService(db, rdb)
+        from backend.db_manager import MetadataDB, RealtimeDB, CacheDB
+        from backend.services.project_service import ProjectService
+        
+        # Cần một polling service tạm thời để thực hiện quét thiết bị
+        m_db = MetadataDB(app_config.METADATA_DB)
+        r_db = RealtimeDB(app_config.REALTIME_DB)
+        c_db = CacheDB(app_config.CACHE_DB)
+        p_svc = ProjectService(m_db, r_db)
+        
+        ps = PollingService(p_svc, c_db, r_db)
         
         transport = _get_transport(comm)
         
@@ -225,7 +230,7 @@ def _get_transport(comm: dict):
     else:
         from backend.communication.modbus_rtu import ModbusRTU
         t = ModbusRTU(
-            port=comm["com_port"],
+            port=comm["com_port"].strip(),
             baudrate=comm.get("baudrate", 9600),
             bytesize=comm.get("databits", 8),
             parity=comm.get("parity", "N"),

@@ -224,3 +224,32 @@ class ScheduleService:
         except Exception as e:
             logger.error(f"[ScheduleService] Patch remote schedule {schedule_id} -> {status} error: {e}")
             return False
+
+    def patch_remote_fields(self, schedule_id: int, payload: dict) -> bool:
+        headers = self._get_headers(schedule_id=schedule_id)
+        if not headers:
+            return False
+
+        url = self._remote_schedule_url(schedule_id)
+        logger.info("[ScheduleService] PATCH fields %s payload=%s", url, payload)
+        try:
+            response = requests.patch(url, json=payload, headers=headers, timeout=10)
+            logger.info(
+                "[ScheduleService] PATCH fields %s -> status=%s body=%s",
+                url,
+                response.status_code,
+                self._short_body(response.text),
+            )
+            if response.status_code not in (200, 201):
+                logger.error(
+                    "[ScheduleService] Patch remote schedule fields %s failed (status=%s): %s",
+                    schedule_id,
+                    response.status_code,
+                    response.text,
+                )
+                return False
+            logger.info(f"[ScheduleService] Patched remote schedule fields {schedule_id} successfully")
+            return True
+        except Exception as e:
+            logger.error(f"[ScheduleService] Patch remote schedule fields {schedule_id} error: {e}")
+            return False

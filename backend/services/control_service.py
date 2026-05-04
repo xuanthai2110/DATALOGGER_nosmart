@@ -615,21 +615,22 @@ class ControlService:
                 return False
 
             # --- Kiểm tra EVN Priority Lock ---
+            local_project_id = project_item["project"].id
             mode = getattr(schedule, 'mode', '')
             is_p_control = mode in ('MAXP', 'LIMIT_PERCENT')
             is_q_control = mode in ('LIMIT_Q_PERCENT', 'LIMIT_Q_KVAR')
 
-            if is_p_control and self.is_evn_locked_p(schedule.project_id):
+            if is_p_control and self.is_evn_locked_p(local_project_id):
                 logger.warning(
-                    "[ControlService] BLOCKED schedule %s (mode=%s) for project %s — EVN is controlling P axis.",
-                    schedule.id, mode, schedule.project_id,
+                    "[ControlService] BLOCKED schedule %s (mode=%s) for project %s (local_id=%s) — EVN is controlling P axis.",
+                    schedule.id, mode, schedule.project_id, local_project_id,
                 )
                 return False
 
-            if is_q_control and self.is_evn_locked_q(schedule.project_id):
+            if is_q_control and self.is_evn_locked_q(local_project_id):
                 logger.warning(
-                    "[ControlService] BLOCKED schedule %s (mode=%s) for project %s — EVN is controlling Q axis.",
-                    schedule.id, mode, schedule.project_id,
+                    "[ControlService] BLOCKED schedule %s (mode=%s) for project %s (local_id=%s) — EVN is controlling Q axis.",
+                    schedule.id, mode, schedule.project_id, local_project_id,
                 )
                 return False
 
@@ -661,21 +662,22 @@ class ControlService:
                 return False
 
             # --- Kiểm tra EVN Priority Lock khi reset ---
+            local_project_id = project_item["project"].id
             mode = getattr(schedule, 'mode', '')
             is_p_control = mode in ('MAXP', 'LIMIT_PERCENT')
             is_q_control = mode in ('LIMIT_Q_PERCENT', 'LIMIT_Q_KVAR')
 
-            if is_p_control and self.is_evn_locked_p(schedule.project_id):
+            if is_p_control and self.is_evn_locked_p(local_project_id):
                 logger.warning(
-                    "[ControlService] BLOCKED reset schedule %s for project %s — EVN is controlling P axis.",
-                    schedule.id, schedule.project_id,
+                    "[ControlService] BLOCKED reset schedule %s for project %s (local_id=%s) — EVN is controlling P axis.",
+                    schedule.id, schedule.project_id, local_project_id,
                 )
                 return False
 
-            if is_q_control and self.is_evn_locked_q(schedule.project_id):
+            if is_q_control and self.is_evn_locked_q(local_project_id):
                 logger.warning(
-                    "[ControlService] BLOCKED reset schedule %s for project %s — EVN is controlling Q axis.",
-                    schedule.id, schedule.project_id,
+                    "[ControlService] BLOCKED reset schedule %s for project %s (local_id=%s) — EVN is controlling Q axis.",
+                    schedule.id, schedule.project_id, local_project_id,
                 )
                 return False
 
@@ -724,7 +726,8 @@ class ControlService:
                 project_id=project_id,
                 scope="PROJECT",
                 mode="LIMIT_PERCENT" if mode == "PERCENT" else "MAXP",
-                setpoint=value,
+                limit_percent=value if mode == "PERCENT" else None,
+                limit_watts=value * 1000.0 if mode == "KW" else None,
                 serial_number=None,
             )
 

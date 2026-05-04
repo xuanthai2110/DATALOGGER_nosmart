@@ -64,6 +64,15 @@ class ScheduleWorker(threading.Thread):
                                     self.schedule_service.update_status(s.id, "RUNNING", sync_remote=True)
                                 else:
                                     self.schedule_service.update_status(s.id, "FAILED", sync_remote=True)
+                            elif s.status == "STOPPED":
+                                logger.info("[ScheduleWorker] Schedule %s is STOPPED. Resetting limits and updating end_at.", s.id)
+                                self.control_service.reset(s)
+                                now_iso = datetime.now().astimezone().isoformat()
+                                # Cập nhật end_at lên server
+                                self.schedule_service.patch_remote_fields(s.id, {"end_at": now_iso})
+                                # Cập nhật end_at ở local, giữ nguyên status STOPPED
+                                from backend.models.schedule import ControlScheduleUpdate
+                                self.schedule_service.update(s.id, ControlScheduleUpdate(end_at=now_iso))
                         elif now > end_time:
                             if s.status == "RUNNING":
                                 success = self.control_service.reset(s)

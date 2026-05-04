@@ -87,6 +87,7 @@ async function loadSettings() {
         renderMetersByProject();
         renderScanResults();
         renderMeterScanResults();
+        loadAvailablePorts();
 
     } catch (err) {
         console.error("ERROR in loadSettings:", err);
@@ -598,18 +599,38 @@ async function deleteMeter(id) {
 }
 
 // === METER SCANNING ===
+async function loadAvailablePorts() {
+    const datalist = document.getElementById('available-ports');
+    if (!datalist) return;
+    
+    try {
+        const ports = await apiCall('/comm/available-ports');
+        if (ports) {
+            datalist.innerHTML = ports.map(p => `<option value="${p.device}">${p.description}</option>`).join('');
+            console.log("DEBUG: Loaded available ports:", ports);
+        }
+    } catch (e) {
+        console.error("Error loading available ports:", e);
+    }
+}
+
 async function startMeterScan() {
     const commId = document.getElementById('meter-scan-comm-select').value;
     if (!commId) return alert("Vui lòng chọn cấu hình truyền thông!");
     
+    const brand = document.getElementById('meter-scan-brand').value;
+    const model = document.getElementById('meter-scan-model').value;
+    const slaveStart = parseInt(document.getElementById('meter-scan-start').value) || 1;
+    const slaveEnd = parseInt(document.getElementById('meter-scan-end').value) || 20;
+
     const comm = settingsComms.find(c => String(c.id) === String(commId));
     const body = {
         comm: {
             ...comm,
-            brand: "Chint", // Mặc định hoặc cho chọn
-            model: "DTSU666",
-            slave_id_start: 1,
-            slave_id_end: 20
+            brand: brand,
+            model: model,
+            slave_id_start: slaveStart,
+            slave_id_end: slaveEnd
         }
     };
 

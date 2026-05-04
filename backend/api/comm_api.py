@@ -55,7 +55,10 @@ def create_comm_config(
 ):
     """Tạo cấu hình kết nối mới."""
     try:
-        # We use dict for body to allow flex then convert to CommConfig
+        # Sanitize strings
+        if "host" in body and body["host"]: body["host"] = body["host"].strip()
+        if "com_port" in body and body["com_port"]: body["com_port"] = body["com_port"].strip()
+
         comm = CommConfig(**body)
         config_id = svc.post_comm(comm)
         return svc.get_comm_id(config_id)
@@ -74,6 +77,10 @@ def patch_comm(
 ):
     """Cập nhật từng phần cấu hình kết nối."""
     try:
+        # Sanitize strings
+        if "host" in body and body["host"]: body["host"] = body["host"].strip()
+        if "com_port" in body and body["com_port"]: body["com_port"] = body["com_port"].strip()
+
         svc.patch_comm(config_id, body)
         config = svc.get_comm_id(config_id)
         if not config:
@@ -103,4 +110,13 @@ def delete_comm(config_id: int, svc: CommService = Depends(get_comm_service)):
         return {"ok": True, "message": "Deleted successfully"}
     except Exception as e:
         logger.error(f"delete_comm_config error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/available-ports")
+def get_available_ports(svc: CommService = Depends(get_comm_service)):
+    """Lấy danh sách các cổng serial vật lý trên máy."""
+    try:
+        return svc.get_available_ports()
+    except Exception as e:
+        logger.error(f"get_available_ports error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

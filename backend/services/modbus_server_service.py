@@ -246,23 +246,28 @@ class ModbusServerService:
             result["Enable_Set_P"] = bool(coils[0]) if len(coils) > 0 else False
             result["Enable_Set_Q"] = bool(coils[1]) if len(coils) > 1 else False
 
-            hr = ctx.getValues(3, 13, 8)
-            if len(hr) >= 8:
-                result["Set_P_pct"]   = round(registers_to_float(hr[0:2]), 2)
-                result["Set_P_kW"]    = round(registers_to_float(hr[2:4]), 2)
-                result["Set_Q_pct"]   = round(registers_to_float(hr[4:6]), 2)
-                result["Set_Q_kVAr"]  = round(registers_to_float(hr[6:8]), 2)
+            hr = ctx.getValues(3, 13, 7)
+            if len(hr) >= 7:
+                result["Set_P_pct"]   = float(hr[0])  # Địa chỉ 13
+                result["Set_P_kW"]    = float(hr[2])  # Địa chỉ 15
+                result["Set_Q_pct"]   = float(hr[4])  # Địa chỉ 17
+                result["Set_Q_kVAr"]  = float(hr[6])  # Địa chỉ 19
         return result
 
-    def detect_write_changes(self, slave_id: int) -> Optional[dict]:
-        """Phát hiện khi EVN ghi lệnh mới. Trả về dict nếu có thay đổi."""
+    def detect_write_changes(self, slave_id: int) -> Optional[tuple]:
+        """Phát hiện thay đổi. Trả về (current_state, changed_keys)."""
         current = self.get_evn_control_state(slave_id)
         prev = self._prev_write_state.get(slave_id, {})
-        if current != prev:
-            self._prev_write_state[slave_id] = current.copy()
-            # Nếu EVN đã ghi giá trị → chắc chắn đang có kết nối
-            with self._lock:
-                if not self._connected_clients:
-                    self._connected_clients["evn_client"] = 1
-            return current
-        return None
+        
+        if current == prev:
+            return None
+
+        changed_keys = [k for k, v in current.items() if v != prev.get(k)]
+        self._prev_write_state[slave_id] = current.copy()
+
+        # Update connection status
+        with self._lock:
+            if not self._connected_clients:
+                self._connected_clients["evn_client"] = 1
+                
+        return current, changed_keys

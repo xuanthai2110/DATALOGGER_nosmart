@@ -57,8 +57,8 @@ def main():
 
         # 5. Khởi chạy Modbus Server
         modbus_server = ModbusServerService()
-        logger.info(f"Starting Modbus Server at {host}:{port} | Allowed IPs: {allowed_ips_list or 'ALL'}")
-        modbus_server.start(host, port, slave_ids, allowed_ips=allowed_ips_list)
+        logger.info(f"Starting Modbus Server at {bind_host}:{port} (External access via {host}) | Allowed IPs: {allowed_ips_list or 'ALL'}")
+        modbus_server.start(bind_host, port, slave_ids, allowed_ips=allowed_ips_list)
 
         # 6. Khởi chạy EVNWorker
         # Lưu ý: control_service=None vì điều khiển được thực hiện qua DB (evn_control_commands)

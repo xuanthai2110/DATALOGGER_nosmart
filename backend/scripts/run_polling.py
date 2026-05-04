@@ -45,8 +45,18 @@ def main():
         
         # 3. Worker Layer
         build_tele_worker = BuildTeleWorker(cache_db, project_svc, realtime_db, settings.SNAPSHOT_INTERVAL)
-        poll_worker = PollingWorker(project_svc, cache_db, settings.POLL_INTERVAL)
+        
+        # LogicWorker cần được khởi tạo trước PollingWorker để PollingWorker có thể gửi tín hiệu trigger
         logic_worker = LogicWorker(cache_db, project_svc, realtime_db, fault_service, build_tele_worker)
+        
+        poll_worker = PollingWorker(
+            project_svc=project_svc, 
+            cache_db=cache_db, 
+            realtime_db=realtime_db, 
+            logic_worker=logic_worker, 
+            interval=settings.POLL_INTERVAL
+        )
+        
         persist_worker = PersistenceWorker(
             cache_db, realtime_db,
             logic_worker.energy_service,

@@ -22,6 +22,7 @@ class BuildTeleWorker(threading.Thread):
         self._trigger_queue = queue.Queue()
         self.max_outbox_rows = 1000
         self._disconnect_notified_projects = {}
+        self._last_19h_build_date = None
 
     def stop(self):
         self._stop_event.set()
@@ -47,6 +48,17 @@ class BuildTeleWorker(threading.Thread):
                     pass
 
                 now = time.time()
+                dt_now = datetime.now()
+                
+                # Logic gửi bản tin cuối ngày lúc 19:00
+                if dt_now.hour == 19 and dt_now.minute == 0 and self._last_19h_build_date != dt_now.date():
+                    logger.info("BuildTeleWorker: Triggering daily final telemetry at 19:00")
+                    self._last_19h_build_date = dt_now.date()
+                    projects = self.project_svc.get_projects()
+                    for p in projects:
+                        if p.server_id:
+                            self.trigger_now(p.id)
+
                 # Kiểm tra xem đã đến kỳ chạy định kỳ chưa (5 phút)
                 is_periodic = (now - last_periodic_run) >= self.interval
                 
@@ -90,13 +102,23 @@ class BuildTeleWorker(threading.Thread):
             )
             
             if payload_list:
+                payload = payload_list[0]
+                
+                # Logic lọc: Từ 16h chiều đến 7h sáng hôm sau, nếu P_dc <= 0 thì không lưu outbox
+                # Ngoại lệ: Đúng 19h (7h tối) luôn gửi bản tin cuối ngày
+                current_time = datetime.now()
+                current_hour = current_time.hour
+                p_dc = payload.get("project", {}).get("P_dc", 0)
+                
+                is_night_dusk = (current_hour >= 16 or current_hour < 7)
+                is_exactly_7pm = (current_hour == 19 and 0 <= current_time.minute < 5)
+                
+                if is_night_dusk and p_dc <= 0 and not is_exactly_7pm:
+                    logger.info(f"BuildTeleWorker: Project {project_id} P_dc is {p_dc} during Night/Dusk ({current_hour}h). Skipping outbox save.")
+                    return
+
                 # Lưu vào DB Outbox
-                self.realtime_db.post_to_outbox(project_id, proj_meta.server_id, payload_list[0], data_type="Project")
-                if all_disconnect:
-                    self._disconnect_notified_projects[project_id] = True
-                    logger.info(f"BuildTeleWorker: Final all-disconnect payload saved to outbox for project {project_id}")
-                else:
-                    logger.info(f"BuildTeleWorker: Payload saved to outbox for project {project_id}")
+                self.realtime_db.post_to_outbox(project_id, proj_meta.server_id, payload, data_type="Project")
                 
                 # Giới hạn 1000 hàng
                 self._enforce_limit()

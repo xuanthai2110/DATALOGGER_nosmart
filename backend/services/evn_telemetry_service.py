@@ -111,35 +111,50 @@ class EVNTelemetryService:
         e_yday_per_inv = self.realtime_db.get_yesterday_energy_per_inverter(project_id)
         evn_state = self.modbus_server.get_evn_control_state(slave_id)
 
-        # 0: PERCENT, 1: KW/KVAR
-        type_set_p = 0
-        if evn_state.get("Set_P_kW", 0.0) > 0: type_set_p = 1
-        type_set_q = 0
-        if evn_state.get("Set_Q_kVAr", 0.0) > 0: type_set_q = 1
+        # --- Xác định trạng thái điều khiển P ---
+        enable_p = evn_state.get("Enable_Set_P", False)
+        type_set_p = None
+        set_p_pct = None
+        set_p_kw = None
+
+        if enable_p:
+            if evn_state.get("Set_P_kW", 0.0) > 0:
+                type_set_p = 1
+                set_p_kw = evn_state["Set_P_kW"]
+            else:
+                type_set_p = 0
+                set_p_pct = evn_state["Set_P_pct"]
+
+        # --- Xác định trạng thái điều khiển Q ---
+        enable_q = evn_state.get("Enable_Set_Q", False)
+        type_set_q = None
+        set_q_pct = None
+        set_q_kvar = None
+
+        if enable_q:
+            if evn_state.get("Set_Q_kVAr", 0.0) > 0:
+                type_set_q = 1
+                set_q_kvar = evn_state["Set_Q_kVAr"]
+            else:
+                type_set_q = 0
+                set_q_pct = evn_state["Set_Q_pct"]
 
         invs_data = []
         for inv in active_invs:
             ac = self.cache_db.get_ac_cache(inv.id)
             p_inv = float(ac.get("P_ac") or 0.0) if ac else 0.0
-            # Chia 1000 cho công suất từng inverter
             p_inv_kw = round(p_inv / 1000.0, 3)
             e_yd = e_yday_per_inv.get(inv.id, 0.0)
             invs_data.append([p_inv_kw, round(e_yd, 2)])
 
         now_str = datetime.now(VN_TZ).isoformat()
 
-        # Backend yêu cầu: Nếu Enable là False/None thì các trường Set phải là None
-        enable_p = evn_state.get("Enable_Set_P", False)
-        enable_q = evn_state.get("Enable_Set_Q", False)
-
         payload = {
             "EVN_connect": self.modbus_server.get_connection_status(),
             "Logger_connect": True,
-            # Chia 1000 cho các thông số công suất tổng
             "P_out": round(grid["p_out"] / 1000.0, 3),
             "Q_out": round(grid["q_out"] / 1000.0, 3),
             "P_inv_out": round(p_inv_out / 1000.0, 3),
-            
             "E_daily": round(e_daily_total, 2),
             "E_yday": round(e_yday, 2),
             "F": round(grid["f"], 2),
@@ -152,14 +167,14 @@ class EVNTelemetryService:
             "U_c": round(grid["uc"], 2),
             
             "Enable_Set_P": enable_p,
-            "Type_Set_P": type_set_p if enable_p else None,
-            "Set_P_pct": evn_state["Set_P_pct"] if enable_p else None,
-            "Set_P_kW": evn_state["Set_P_kW"] if enable_p else None,
+            "Type_Set_P": type_set_p,
+            "Set_P_pct": set_p_pct,
+            "Set_P_kW": set_p_kw,
             
             "Enable_Set_Q": enable_q,
-            "Type_Set_Q": type_set_q if enable_q else None,
-            "Set_Q_pct": evn_state["Set_Q_pct"] if enable_q else None,
-            "Set_Q_kVAr": evn_state["Set_Q_kVAr"] if enable_q else None,
+            "Type_Set_Q": type_set_q,
+            "Set_Q_pct": set_q_pct,
+            "Set_Q_kVAr": set_q_kvar,
             
             "Invs_Data": invs_data,
             "created_at": now_str,

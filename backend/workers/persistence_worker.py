@@ -59,10 +59,11 @@ class PersistenceWorker(threading.Thread):
 
         logger.info("Persistence Worker: Saving snapshot to disk...")
         
-        # 1. Fetch all cache data
-        ac_rows = self.cache_db.get_all_ac_cache()
-        mppt_rows = self.cache_db.get_all_mppt_cache()
-        string_rows = self.cache_db.get_all_string_cache()
+        # 1. Fetch all cache data (wrapped in batch_lock for consistency)
+        with self.cache_db.batch_lock:
+            ac_rows = self.cache_db.get_all_ac_cache()
+            mppt_rows = self.cache_db.get_all_mppt_cache()
+            string_rows = self.cache_db.get_all_string_cache()
         
         if not ac_rows:
             logger.info("Persistence Worker: No AC data in cache. Skipping snapshot.")

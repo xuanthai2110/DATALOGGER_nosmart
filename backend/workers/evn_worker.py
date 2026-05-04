@@ -74,12 +74,14 @@ class EVNWorker(threading.Thread):
                     self._update_registers(slave_id, project)
 
                 # --- 2. Detect WRITE changes → Ghi lệnh vào DB ---
+                trigger_telemetry = False
                 for slave_id, project in evn_map.items():
-                    self._handle_write_changes(slave_id, project)
+                    if self._handle_write_changes(slave_id, project):
+                        trigger_telemetry = True
 
-                # --- 3. Gửi telemetry định kỳ ---
+                # --- 3. Gửi telemetry định kỳ hoặc khi có trigger ---
                 now = time.time()
-                if (now - self._last_telemetry_time) >= settings.EVN_TELEMETRY_INTERVAL:
+                if trigger_telemetry or (now - self._last_telemetry_time) >= settings.EVN_TELEMETRY_INTERVAL:
                     for slave_id, project in evn_map.items():
                         if project.server_id:
                             self.evn_telemetry.send_to_cloud(
@@ -134,20 +136,15 @@ class EVNWorker(threading.Thread):
         except Exception as e:
             logger.error("[EVNWorker] Update registers error slave=%s: %s", slave_id, e)
 
-    def _handle_write_changes(self, slave_id: int, project):
-        """
-        Phát hiện khi EVN ghi lệnh WRITE.
-        Ghi lệnh vào evn_control_commands (RealtimeDB) để container Polling thực hiện.
-        """
+    def _handle_write_changes(self, slave_id: int, project) -> bool:
+        """Phát hiện khi EVN ghi lệnh WRITE và xử lý theo từng thanh ghi (FC 0x06)."""
         try:
-            changes = self.modbus_server.detect_write_changes(slave_id)
-            if changes is None:
-                return
-
-            logger.info(
-                "[EVNWorker] Detected EVN write change on slave=%s: %s",
-                slave_id, changes,
-            )
+            result = self.modbus_server.detect_write_changes(slave_id)
+            if not result:
+                return False
+            
+            changes, changed_keys = result
+            logger.info("[EVNWorker] Detected changes on slave=%s: %s", slave_id, changed_keys)
 
             prev_p = self._evn_p_active.get(slave_id, False)
             prev_q = self._evn_q_active.get(slave_id, False)
@@ -156,43 +153,45 @@ class EVNWorker(threading.Thread):
 
             # --- P Control ---
             if curr_p:
-                set_p_kw  = changes.get("Set_P_kW", 0.0)
-                set_p_pct = changes.get("Set_P_pct", 0.0)
-
-                # Khóa trục P: chặn Server/MQTT điều khiển P
                 if not prev_p:
                     self.realtime_db.push_evn_command(project.id, "P", "LOCK_P", 0.0)
                     logger.info("[EVNWorker] Queued EVN LOCK_P for project %s", project.id)
 
-                if set_p_kw > 0:
-                    self.realtime_db.push_evn_command(project.id, "P", "KW", set_p_kw)
-                    logger.info("[EVNWorker] Queued EVN P command: KW=%.2f for project %s", set_p_kw, project.id)
-                elif set_p_pct > 0:
-                    self.realtime_db.push_evn_command(project.id, "P", "PERCENT", set_p_pct)
-                    logger.info("[EVNWorker] Queued EVN P command: PCT=%.2f%% for project %s", set_p_pct, project.id)
+                # Ưu tiên lệnh theo thanh ghi vừa được ghi xuống (FC 0x06)
+                if "Set_P_pct" in changed_keys:
+                    val = changes["Set_P_pct"]
+                    self.realtime_db.push_evn_command(project.id, "P", "PERCENT", val)
+                    logger.info("[EVNWorker] Queued EVN P command: PERCENT=%.2f%%", val)
+                elif "Set_P_kW" in changed_keys:
+                    val = changes["Set_P_kW"]
+                    self.realtime_db.push_evn_command(project.id, "P", "KW", val)
+                    logger.info("[EVNWorker] Queued EVN P command: KW=%.2f", val)
+                elif "Enable_Set_P" in changed_keys:
+                    # Nếu bật Enable mà chưa ghi giá trị, có thể thực hiện theo giá trị hiện có
+                    if changes["Set_P_kW"] > 0:
+                        self.realtime_db.push_evn_command(project.id, "P", "KW", changes["Set_P_kW"])
+                    else:
+                        self.realtime_db.push_evn_command(project.id, "P", "PERCENT", changes["Set_P_pct"])
 
             elif prev_p and not curr_p:
-                # EVN tắt P control → reset 100% và mở khóa
                 self.realtime_db.push_evn_command(project.id, "P", "RESET", 0.0)
                 self.realtime_db.push_evn_command(project.id, "P", "UNLOCK_P", 0.0)
                 logger.info("[EVNWorker] Queued EVN P RESET + UNLOCK_P for project %s", project.id)
 
             # --- Q Control ---
             if curr_q:
-                set_q_kvar = changes.get("Set_Q_kVAr", 0.0)
-                set_q_pct  = changes.get("Set_Q_pct", 0.0)
-
-                # Khóa trục Q: chặn Server/MQTT điều khiển Q
                 if not prev_q:
                     self.realtime_db.push_evn_command(project.id, "Q", "LOCK_Q", 0.0)
                     logger.info("[EVNWorker] Queued EVN LOCK_Q for project %s", project.id)
 
-                if set_q_kvar > 0:
-                    self.realtime_db.push_evn_command(project.id, "Q", "KVAR", set_q_kvar)
-                    logger.info("[EVNWorker] Queued EVN Q command: kVAr=%.2f for project %s", set_q_kvar, project.id)
-                elif set_q_pct > 0:
-                    self.realtime_db.push_evn_command(project.id, "Q", "PERCENT", set_q_pct)
-                    logger.info("[EVNWorker] Queued EVN Q command: PCT=%.2f%% for project %s", set_q_pct, project.id)
+                if "Set_Q_pct" in changed_keys:
+                    val = changes["Set_Q_pct"]
+                    self.realtime_db.push_evn_command(project.id, "Q", "PERCENT", val)
+                    logger.info("[EVNWorker] Queued EVN Q command: PERCENT=%.2f%%", val)
+                elif "Set_Q_kVAr" in changed_keys:
+                    val = changes["Set_Q_kVAr"]
+                    self.realtime_db.push_evn_command(project.id, "Q", "KVAR", val)
+                    logger.info("[EVNWorker] Queued EVN Q command: kVAr=%.2f", val)
 
             elif prev_q and not curr_q:
                 self.realtime_db.push_evn_command(project.id, "Q", "RESET", 0.0)
@@ -201,6 +200,8 @@ class EVNWorker(threading.Thread):
 
             self._evn_p_active[slave_id] = curr_p
             self._evn_q_active[slave_id] = curr_q
+            return True
 
         except Exception as e:
             logger.error("[EVNWorker] Write change handling error slave=%s: %s", slave_id, e)
+            return False
