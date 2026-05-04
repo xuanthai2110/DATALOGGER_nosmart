@@ -138,6 +138,29 @@ class RealtimeDB(BaseDB):
                 if "denta_E_monthly" in cols_ac:
                     conn.execute("UPDATE inverter_ac_realtime SET delta_E_monthly = denta_E_monthly")
 
+            # Meter Realtime — Lưu lịch sử dữ liệu Meter
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS meter_realtime (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER,
+                meter_id INTEGER,
+                P_total REAL, P_a REAL, P_b REAL, P_c REAL,
+                Q_total REAL, Q_a REAL, Q_b REAL, Q_c REAL,
+                S_total REAL, S_a REAL, S_b REAL, S_c REAL,
+                V_a REAL, V_b REAL, V_c REAL, V_phase_avg REAL,
+                V_ab REAL, V_bc REAL, V_ca REAL, V_line_avg REAL,
+                I_a REAL, I_b REAL, I_c REAL, I_avg REAL,
+                PF REAL, PF_a REAL, PF_b REAL, PF_c REAL,
+                F REAL,
+                exp_st_today REAL, exp_pt_today REAL, exp_qt_today REAL,
+                imp_st_today REAL, imp_pt_today REAL, imp_qt_today REAL,
+                e_pt_import REAL, e_pt_export REAL,
+                e_qt_import REAL, e_qt_export REAL,
+                e_st_import REAL, e_st_export REAL,
+                created_at TEXT
+            );
+            """)
+
 
     # --- Outbox API ---
     def post_to_outbox(self, project_id: int, server_id: int, data: dict, data_type: str = "Project"):
@@ -307,6 +330,57 @@ class RealtimeDB(BaseDB):
         with self._connect() as conn:
             conn.executemany("INSERT INTO string_realtime (project_id, inverter_id, mppt_id, string_id, I_string, max_I, created_at) VALUES (?,?,?,?,?,?,?)", values)
 
+    # --- Meter Realtime API ---
+    def post_meter_realtime(self, project_id: int, meter_id: int, data: dict):
+        """Lưu snapshot dữ liệu Meter vào lịch sử (disk)."""
+        from datetime import datetime
+        now_str = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO meter_realtime (
+                    project_id, meter_id,
+                    P_total, P_a, P_b, P_c,
+                    Q_total, Q_a, Q_b, Q_c,
+                    S_total, S_a, S_b, S_c,
+                    V_a, V_b, V_c, V_phase_avg,
+                    V_ab, V_bc, V_ca, V_line_avg,
+                    I_a, I_b, I_c, I_avg,
+                    PF, PF_a, PF_b, PF_c,
+                    F,
+                    exp_st_today, exp_pt_today, exp_qt_today,
+                    imp_st_today, imp_pt_today, imp_qt_today,
+                    e_pt_import, e_pt_export,
+                    e_qt_import, e_qt_export,
+                    e_st_import, e_st_export,
+                    created_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                project_id, meter_id,
+                data.get("P_total"), data.get("P_a"), data.get("P_b"), data.get("P_c"),
+                data.get("Q_total"), data.get("Q_a"), data.get("Q_b"), data.get("Q_c"),
+                data.get("S_total"), data.get("S_a"), data.get("S_b"), data.get("S_c"),
+                data.get("V_a"), data.get("V_b"), data.get("V_c"), data.get("V_phase_avg"),
+                data.get("V_ab"), data.get("V_bc"), data.get("V_ca"), data.get("V_line_avg"),
+                data.get("I_a"), data.get("I_b"), data.get("I_c"), data.get("I_avg"),
+                data.get("PF"), data.get("PF_a"), data.get("PF_b"), data.get("PF_c"),
+                data.get("F"),
+                data.get("exp_st_today"), data.get("exp_pt_today"), data.get("exp_qt_today"),
+                data.get("imp_st_today"), data.get("imp_pt_today"), data.get("imp_qt_today"),
+                data.get("e_pt_import"), data.get("e_pt_export"),
+                data.get("e_qt_import"), data.get("e_qt_export"),
+                data.get("e_st_import"), data.get("e_st_export"),
+                now_str,
+            ))
+
+    def get_latest_meter_realtime(self, meter_id: int) -> dict:
+        """Lấy bản ghi meter realtime mới nhất."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM meter_realtime WHERE meter_id = ? ORDER BY created_at DESC LIMIT 1",
+                (meter_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
     # --- Project Realtime API ---
     def post_project_realtime(self, data: ProjectRealtimeCreate):
         d = asdict(data)
@@ -439,7 +513,8 @@ class RealtimeDB(BaseDB):
             "inverter_ac_realtime", 
             "inverter_errors", 
             "mppt_realtime", 
-            "string_realtime"
+            "string_realtime",
+            "meter_realtime"
         ]
         
         try:
