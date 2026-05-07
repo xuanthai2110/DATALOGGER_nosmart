@@ -30,6 +30,9 @@ class PollingService:
         self.transports = {}
         self._transport_lock = threading.Lock()
         
+        # Bộ đếm lỗi kết nối cho từng Inverter (6 lần mới báo lỗi truyền thông)
+        self._inv_fail_counts: Dict[int, int] = {}
+        
         # Caching logic
         self._config_cache = []
         self._last_refresh = 0
@@ -187,23 +190,53 @@ class PollingService:
                         for s_idx in [2*i-1, 2*i]:
                             batch.string_data.append({"inverter_id": inv.id, "string_id": s_idx, "mppt_id": i, "i_string": 0.0})
 
-                    # 4. Gán lỗi mất kết nối (Mã 9: LỖI TRUYỀN THÔNG)
-                    status_code = 9 
-                    fault_code = 1501
-                    errors_payload = [{
-                        "fault_code": 1501,
-                        "fault_description": "LỖI TRUYỀN THÔNG",
-                        "repair_instruction": "Kiểm tra cáp RS485/Ethernet và địa chỉ Slave ID",
-                        "severity": "DISCONNECT",
-                        "created_at": batch.timestamp
-                    }]
-                    batch.error_data.append({
-                        "inverter_id": inv.id, "status_code": status_code, "fault_code": fault_code,
-                        "status_text": "LỖI TRUYỀN THÔNG", "fault_json": json.dumps(errors_payload, ensure_ascii=False)
-                    })
+                    # 4. Gán lỗi mất kết nối (Chỉ báo lỗi sau 6 lần thất bại liên tiếp)
+                    self._inv_fail_counts[inv.id] = self._inv_fail_counts.get(inv.id, 0) + 1
+                    
+                    if self._inv_fail_counts[inv.id] >= 15:
+                        logger.error(f"Inverter {inv.id} failed 15 times. Reporting COMMUNICATION_FAULT.")
+                        status_code = 9 
+                        fault_code = 1501
+                        # Reset biến đếm sau khi báo lỗi theo yêu cầu
+                        self._inv_fail_counts[inv.id] = 0
+                        
+                        errors_payload = [{
+                            "fault_code": 1501,
+                            "fault_description": "LỖI TRUYỀN THÔNG",
+                            "repair_instruction": "Kiểm tra cáp RS485/Ethernet và địa chỉ Slave ID",
+                            "severity": "DISCONNECT",
+                            "created_at": batch.timestamp
+                        }]
+                        batch.error_data.append({
+                            "inverter_id": inv.id, "status_code": status_code, "fault_code": fault_code,
+                            "status_text": "LỖI TRUYỀN THÔNG", "fault_json": json.dumps(errors_payload, ensure_ascii=False)
+                        })
+                    else:
+                        # Nếu chưa đủ 6 lần, lấy trạng thái cũ từ cache để tránh báo lỗi ảo
+                        status_code = 0
+                        fault_code = 0
+                        status_text = "UNKNOWN"
+                        fault_json = "[]"
+                        
+                        if last_ac:
+                            # Thử lấy trạng thái lỗi cuối cùng từ cache
+                            last_err = self.cache_db.get_error_cache(inv.id)
+                            if last_err:
+                                status_code = last_err.get("status_code", 0)
+                                fault_code = last_err.get("fault_code", 0)
+                                status_text = last_err.get("status_text", "UNKNOWN")
+                                fault_json = last_err.get("fault_json", "[]")
+                        
+                        batch.error_data.append({
+                            "inverter_id": inv.id, "status_code": status_code, "fault_code": fault_code,
+                            "status_text": status_text, "fault_json": fault_json
+                        })
                     continue
 
                 # --- LOGIC XỬ LÝ KHI CÓ DỮ LIỆU THÀNH CÔNG ---
+                # Reset bộ đếm lỗi khi có dữ liệu thành công
+                self._inv_fail_counts[inv.id] = 0
+                
                 clean = self.normalization.normalize(raw_data)
                 batch.ac_data.append({"inverter_id": inv.id, "data": clean})
                 
