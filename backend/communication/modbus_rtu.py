@@ -1,3 +1,5 @@
+import time
+import random
 import logging
 
 from pymodbus.client import ModbusSerialClient
@@ -18,10 +20,12 @@ class ModbusRTU:
         stopbits: int = 1,
         bytesize: int = 8,
         timeout: float = 1.0,
-        retries: int = 1,
+        retries: int = 3,
+        multi_master: bool = False,
     ):
         self.port = port
         self.retries = retries
+        self.multi_master = multi_master
         self.arbiter = ModbusBusArbiter(f"rtu://{port}")
 
         self.client = ModbusSerialClient(
@@ -51,6 +55,42 @@ class ModbusRTU:
         except Exception as e:
             logger.error(f"[RTU] Close error: {e}")
 
+    def _wait_for_bus_free(self, timeout=2.0, silence_time=0.06):
+        """Đợi cho đến khi đường truyền RS485 im lặng (Listen Before Talk)."""
+        if not self.multi_master or not hasattr(self.client, "socket") or not self.client.socket:
+            return
+
+        # Tối ưu hóa: Nếu kiểm tra lần đầu thấy bus trống, chỉ đợi 5ms để xác nhận rồi đi tiếp
+        try:
+            if self.client.socket.in_waiting == 0:
+                time.sleep(0.005)
+                if self.client.socket.in_waiting == 0:
+                    return
+        except Exception:
+            return
+
+        logger.info(f"[RTU] Bus busy on {self.port}, waiting for silence...")
+        start_wait = time.time()
+        last_activity = time.time()
+
+        while time.time() - start_wait < timeout:
+            try:
+                if self.client.socket.in_waiting > 0:
+                    # Có dữ liệu trên bus, coi như bận
+                    self.client.socket.reset_input_buffer()
+                    last_activity = time.time()
+                else:
+                    # Kiểm tra xem bus đã im lặng đủ lâu chưa
+                    if time.time() - last_activity >= silence_time:
+                        logger.debug(f"[RTU] Bus is now free on {self.port}")
+                        return
+            except Exception:
+                break
+
+            time.sleep(0.01)
+        
+        logger.warning(f"[RTU] Bus wait timeout ({timeout}s) on {self.port}, proceeding anyway.")
+
     def _retry(self, func, *args, **kwargs):
         last_error = None
 
@@ -58,6 +98,16 @@ class ModbusRTU:
         try:
             for attempt in range(1, self.retries + 1):
                 try:
+                    # 1. Chờ bus rảnh trước khi gửi (LBT)
+                    self._wait_for_bus_free()
+
+                    # 2. Xóa buffer trước khi gửi để tránh dữ liệu rác từ master kia
+                    if hasattr(self.client, "socket") and self.client.socket:
+                        try:
+                            self.client.socket.reset_input_buffer()
+                        except Exception:
+                            pass
+
                     response = func(*args, **kwargs)
 
                     if isinstance(response, ModbusIOException):
@@ -65,8 +115,16 @@ class ModbusRTU:
                         logger.warning(
                             f"[RTU] Attempt {attempt}/{self.retries} failed: {response}"
                         )
+                        # 3. Random backoff khi lỗi (chỉ dùng khi multi-master)
+                        if self.multi_master:
+                            backoff = random.uniform(0.1, 0.4)
+                            logger.info(f"[RTU] Multi-master collision suspected. Backing off for {backoff:.2f}s...")
+                            time.sleep(backoff)
                         continue
 
+                    if attempt > 1:
+                        logger.info(f"[RTU] Success on attempt {attempt} for slave {kwargs.get('slave', kwargs.get('unit', '?'))}")
+                    
                     return response
 
                 except Exception as e:
@@ -74,6 +132,10 @@ class ModbusRTU:
                     logger.warning(
                         f"[RTU] Attempt {attempt}/{self.retries} exception: {e}"
                     )
+                    if self.multi_master:
+                        backoff = random.uniform(0.1, 0.4)
+                        logger.info(f"[RTU] Exception occurred. Backing off for {backoff:.2f}s...")
+                        time.sleep(backoff)
         finally:
             self.arbiter.release()
 

@@ -49,7 +49,12 @@ class PollingService:
             else:
                 key = "RTU"
                 if key not in self.transports:
-                    t = ModbusRTU(port=settings.MODBUS_PORT, baudrate=settings.MODBUS_BAUDRATE)
+                    t = ModbusRTU(
+                        port=settings.MODBUS_PORT, 
+                        baudrate=settings.MODBUS_BAUDRATE,
+                        retries=settings.RETRIES,
+                        multi_master=settings.MODBUS_MULTI_MASTER
+                    )
                     t.connect()
                     self.transports[key] = t
                 return self.transports[key]

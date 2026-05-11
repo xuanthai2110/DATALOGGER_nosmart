@@ -74,6 +74,7 @@ TIMEOUT         = float(os.getenv("TIMEOUT", "1.0"))
 SLAVE_ID_START  = int(os.getenv("SLAVE_ID_START", "1"))
 SLAVE_ID_END    = int(os.getenv("SLAVE_ID_END", "30"))
 RETRIES         = int(os.getenv("RETRIES", "1"))
+MODBUS_MULTI_MASTER = os.getenv("MODBUS_MULTI_MASTER", "False").lower() in ("true", "1", "yes")
 
 # PROJECT scope MAXP: per-inverter loop (no SmartLogger)
 PROJECT_MAXP_CONTROL_INTERVAL_SEC = int(os.getenv("PROJECT_MAXP_CONTROL_INTERVAL_SEC", "10"))
