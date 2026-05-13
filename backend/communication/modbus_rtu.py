@@ -55,7 +55,7 @@ class ModbusRTU:
         except Exception as e:
             logger.error(f"[RTU] Close error: {e}")
 
-    def _wait_for_bus_free(self, timeout=2.0, silence_time=0.06):
+    def _wait_for_bus_free(self, timeout=2.0, silence_time=0.04):
         """Đợi cho đến khi đường truyền RS485 im lặng (Listen Before Talk)."""
         if not self.multi_master or not hasattr(self.client, "socket") or not self.client.socket:
             return
