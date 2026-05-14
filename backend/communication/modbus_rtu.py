@@ -55,7 +55,7 @@ class ModbusRTU:
         except Exception as e:
             logger.error(f"[RTU] Close error: {e}")
 
-    def _wait_for_bus_free(self, timeout=2.0, silence_time=0.04):
+    def _wait_for_bus_free(self, timeout=3.0, silence_time=0.2):
         """Đợi cho đến khi đường truyền RS485 im lặng (Listen Before Talk)."""
         if not self.multi_master or not hasattr(self.client, "socket") or not self.client.socket:
             return
@@ -63,7 +63,7 @@ class ModbusRTU:
         # Tối ưu hóa: Nếu kiểm tra lần đầu thấy bus trống, chỉ đợi 5ms để xác nhận rồi đi tiếp
         try:
             if self.client.socket.in_waiting == 0:
-                time.sleep(0.005)
+                time.sleep(0.05)
                 if self.client.socket.in_waiting == 0:
                     return
         except Exception:
@@ -117,7 +117,7 @@ class ModbusRTU:
                         )
                         # 3. Random backoff khi lỗi (chỉ dùng khi multi-master)
                         if self.multi_master:
-                            backoff = random.uniform(0.1, 0.4)
+                            backoff = random.uniform(0.5, 1.5)
                             logger.info(f"[RTU] Multi-master collision suspected. Backing off for {backoff:.2f}s...")
                             time.sleep(backoff)
                         continue
@@ -133,7 +133,7 @@ class ModbusRTU:
                         f"[RTU] Attempt {attempt}/{self.retries} exception: {e}"
                     )
                     if self.multi_master:
-                        backoff = random.uniform(0.1, 0.4)
+                        backoff = random.uniform(0.5, 1.5)
                         logger.info(f"[RTU] Exception occurred. Backing off for {backoff:.2f}s...")
                         time.sleep(backoff)
         finally:
