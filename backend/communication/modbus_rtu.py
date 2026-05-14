@@ -20,7 +20,7 @@ class ModbusRTU:
         stopbits: int = 1,
         bytesize: int = 8,
         timeout: float = 1.0,
-        retries: int = 3,
+        retries: int = 10,
         multi_master: bool = False,
     ):
         self.port = port
