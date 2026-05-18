@@ -26,6 +26,11 @@ class ModbusRTU:
         self.port = port
         self.retries = retries
         self.multi_master = multi_master
+        
+        # Tăng cường độ lỳ lợm cho mạng nhiều Inverter
+        if self.multi_master:
+            self.retries = max(self.retries, 15)
+            
         self.arbiter = ModbusBusArbiter(f"rtu://{port}")
 
         self.client = ModbusSerialClient(
@@ -117,7 +122,7 @@ class ModbusRTU:
                         )
                         # 3. Random backoff khi lỗi (chỉ dùng khi multi-master)
                         if self.multi_master:
-                            backoff = random.uniform(0.05, 0.2)
+                            backoff = random.uniform(0.1, 0.4)
                             logger.info(f"[RTU] Multi-master collision suspected. Backing off for {backoff:.2f}s...")
                             time.sleep(backoff)
                         continue
@@ -133,7 +138,7 @@ class ModbusRTU:
                         f"[RTU] Attempt {attempt}/{self.retries} exception: {e}"
                     )
                     if self.multi_master:
-                        backoff = random.uniform(0.05, 0.2)
+                        backoff = random.uniform(0.1, 0.4)
                         logger.info(f"[RTU] Exception occurred. Backing off for {backoff:.2f}s...")
                         time.sleep(backoff)
         finally:
