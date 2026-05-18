@@ -32,7 +32,7 @@ class ModbusRTU:
             self.retries = max(self.retries, 15)
             
         self.arbiter = ModbusBusArbiter(f"rtu://{port}")
-        self.last_own_activity = 0  # Lưu vết thời gian ta đọc thành công gần nhất
+        self.last_master_activity = 0 # Lưu vết thời điểm cuối cùng Master hãng hoạt động
 
         self.client = ModbusSerialClient(
             port=port,
@@ -61,19 +61,61 @@ class ModbusRTU:
         except Exception as e:
             logger.error(f"[RTU] Close error: {e}")
 
+    def _wait_for_master_to_finish(self):
+        """Đợi cho đến khi Master hãng truyền xong hoàn toàn (im lặng 100ms) để cập nhật mốc thời gian."""
+        last_byte_time = time.time()
+        while time.time() - last_byte_time < 0.100: # 100ms im lặng liên tục
+            try:
+                if self.client.socket.in_waiting > 0:
+                    self.client.socket.reset_input_buffer()
+                    last_byte_time = time.time()
+            except Exception:
+                break
+            time.sleep(0.005)
+        self.last_master_activity = time.time()
+        logger.info("[RTU] Master finished transaction. Safe 5-second window started.")
+
     def _wait_for_bus_free(self, timeout=3.0, silence_time=0.040):
         """Đợi cho đến khi đường truyền RS485 im lặng (Listen Before Talk)."""
         if not self.multi_master or not hasattr(self.client, "socket") or not self.client.socket:
             return
 
+        # CHIẾN THUẬT ĐỒNG BỘ NÉ TRÁNH (DANGER ZONE AVOIDANCE)
+        # Chu kỳ của Master hãng là đúng 5 giây. 
+        # Nếu đã quá 3 giây kể từ lần cuối Master hoạt động, ta đã đi vào VÙNG NGUY HIỂM.
+        # Ta phải NHƯỜNG đường, đợi Master bắn lệnh xong rồi bám đuôi ngay sau nó.
+        time_since_master = time.time() - getattr(self, 'last_master_activity', 0)
+        
+        if time_since_master > 3.0:
+            logger.info(f"[RTU] Near Master's 5s boundary ({time_since_master:.1f}s elapsed). Waiting for Master to poll first...")
+            start_wait = time.time()
+            master_detected = False
+            while time.time() - start_wait < 6.0: # Đợi tối đa 6s (chu kỳ Master là 5s)
+                try:
+                    if self.client.socket.in_waiting > 0:
+                        master_detected = True
+                        break
+                except Exception:
+                    break
+                time.sleep(0.01)
+            
+            if master_detected:
+                self._wait_for_master_to_finish()
+            else:
+                # Nếu không thấy Master hoạt động (Master offline hoặc ta là duy nhất)
+                # Giả lập mốc thời gian để không bị block ở các lệnh tiếp theo
+                self.last_master_activity = time.time()
+                logger.info("[RTU] No active Master detected. Proceeding.")
+
+        # LBT tiêu chuẩn: Đợi 40ms im lặng
         start_wait = time.time()
         last_activity = time.time()
 
         while time.time() - start_wait < timeout:
             try:
                 if self.client.socket.in_waiting > 0:
-                    # Có dữ liệu trên bus, reset timer và xóa buffer rác
-                    self.client.socket.reset_input_buffer()
+                    # Phát hiện Master hãng chen ngang, đợi nó truyền xong rồi reset timer
+                    self._wait_for_master_to_finish()
                     last_activity = time.time()
                 else:
                     # Kiểm tra xem bus đã im lặng đủ 40ms chưa
