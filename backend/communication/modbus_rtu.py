@@ -116,10 +116,10 @@ class ModbusRTU:
                             f"[RTU] Attempt {attempt}/{self.retries} failed: {response}"
                         )
                         # 3. Random backoff khi lỗi (chỉ dùng khi multi-master)
-                    if self.multi_master:
-                        backoff = random.uniform(0.05, 0.2)
-                        logger.info(f"[RTU] Multi-master collision suspected. Backing off for {backoff:.2f}s...")
-                        time.sleep(backoff)
+                        if self.multi_master:
+                            backoff = random.uniform(0.05, 0.2)
+                            logger.info(f"[RTU] Multi-master collision suspected. Backing off for {backoff:.2f}s...")
+                            time.sleep(backoff)
                         continue
 
                     if attempt > 1:
