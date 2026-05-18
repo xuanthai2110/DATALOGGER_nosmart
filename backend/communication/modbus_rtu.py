@@ -32,6 +32,7 @@ class ModbusRTU:
             self.retries = max(self.retries, 15)
             
         self.arbiter = ModbusBusArbiter(f"rtu://{port}")
+        self.last_own_activity = 0  # Lưu vết thời gian ta đọc thành công gần nhất
 
         self.client = ModbusSerialClient(
             port=port,
@@ -60,16 +61,27 @@ class ModbusRTU:
         except Exception as e:
             logger.error(f"[RTU] Close error: {e}")
 
-    def _wait_for_bus_free(self, timeout=3.0, silence_time=0.035):
+    def _wait_for_bus_free(self, timeout=6.0, base_silence=0.5):
         """Đợi cho đến khi đường truyền RS485 im lặng (Listen Before Talk)."""
         if not self.multi_master or not hasattr(self.client, "socket") or not self.client.socket:
             return
 
-        # BẮT BUỘC ĐO LƯỜNG THỰC TẾ - KHÔNG ĐƯỢC CHẠY "QUICK CHECK"
+        # CHIẾN THUẬT RÌNH MỒI (BURST POLLING)
+        # Nếu ta vừa đọc thành công cách đây < 300ms -> Ta đang nắm quyền đường truyền.
+        # Rút ngắn thời gian chờ xuống 10ms để xả đạn (quét) cực nhanh toàn bộ Inverter.
+        if time.time() - getattr(self, 'last_own_activity', 0) < 0.3:
+            silence_time = 0.01
+            current_timeout = 1.0
+        else:
+            # Nếu không nắm quyền, ta phải RÌNH.
+            # Đợi Master hãng quét xong 8 máy và đi ngủ (im lặng > 500ms).
+            silence_time = base_silence
+            current_timeout = timeout
+
         start_wait = time.time()
         last_activity = time.time()
 
-        while time.time() - start_wait < timeout:
+        while time.time() - start_wait < current_timeout:
             try:
                 if self.client.socket.in_waiting > 0:
                     # Có dữ liệu trên bus, coi như bận
@@ -83,9 +95,9 @@ class ModbusRTU:
             except Exception:
                 break
 
-            time.sleep(0.002) # Đo chính xác độ trễ cấp mili-giây
+            time.sleep(0.005) # Nhạy bén nhưng không ăn quá nhiều CPU
         
-        logger.warning(f"[RTU] Bus wait timeout ({timeout}s) on {self.port}, proceeding anyway.")
+        logger.debug(f"[RTU] Bus wait timeout, proceeding anyway.")
 
     def _retry(self, func, *args, **kwargs):
         last_error = None
@@ -121,6 +133,8 @@ class ModbusRTU:
                     if attempt > 1:
                         logger.info(f"[RTU] Success on attempt {attempt} for slave {kwargs.get('slave', kwargs.get('unit', '?'))}")
                     
+                    # THÀNH CÔNG: Kích hoạt/Gia hạn Burst Mode để lệnh tiếp theo được ưu tiên
+                    self.last_own_activity = time.time()
                     return response
 
                 except Exception as e:
