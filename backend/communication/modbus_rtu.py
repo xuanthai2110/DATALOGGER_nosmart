@@ -60,21 +60,12 @@ class ModbusRTU:
         except Exception as e:
             logger.error(f"[RTU] Close error: {e}")
 
-    def _wait_for_bus_free(self, timeout=3.0, silence_time=0.005):
+    def _wait_for_bus_free(self, timeout=3.0, silence_time=0.035):
         """Đợi cho đến khi đường truyền RS485 im lặng (Listen Before Talk)."""
         if not self.multi_master or not hasattr(self.client, "socket") or not self.client.socket:
             return
 
-        # Tối ưu hóa: Nếu kiểm tra lần đầu thấy bus trống, chỉ đợi 5ms để xác nhận rồi đi tiếp
-        try:
-            if self.client.socket.in_waiting == 0:
-                time.sleep(0.001)
-                if self.client.socket.in_waiting == 0:
-                    return
-        except Exception:
-            return
-
-        logger.info(f"[RTU] Bus busy on {self.port}, waiting for silence...")
+        # BẮT BUỘC ĐO LƯỜNG THỰC TẾ - KHÔNG ĐƯỢC CHẠY "QUICK CHECK"
         start_wait = time.time()
         last_activity = time.time()
 
@@ -92,7 +83,7 @@ class ModbusRTU:
             except Exception:
                 break
 
-            time.sleep(0.01)
+            time.sleep(0.002) # Đo chính xác độ trễ cấp mili-giây
         
         logger.warning(f"[RTU] Bus wait timeout ({timeout}s) on {self.port}, proceeding anyway.")
 
