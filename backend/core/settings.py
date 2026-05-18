@@ -45,7 +45,7 @@ else:
 # ===========================================================
 # API
 # ===========================================================
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.hivision.vn/")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.hivision.vn").rstrip("/")
 DEV_MODE     = os.getenv("DEV_MODE", "True").lower() in ("true", "1", "yes")
 API_USERNAME = os.getenv("API_USERNAME", "")
 API_PASSWORD = os.getenv("API_PASSWORD", "")
