@@ -33,6 +33,7 @@ class ModbusRTU:
             
         self.arbiter = ModbusBusArbiter(f"rtu://{port}")
         self.last_master_activity = 0 # Lưu vết thời điểm cuối cùng Master hãng hoạt động
+        self.last_our_activity = 0    # Lưu vết thời điểm cuối cùng Datalogger của ta hoạt động
 
         self.client = ModbusSerialClient(
             port=port,
@@ -75,57 +76,40 @@ class ModbusRTU:
         self.last_master_activity = time.time()
         logger.info("[RTU] Master finished transaction. Safe 5-second window started.")
 
-    def _wait_for_bus_free(self, timeout=3.0, silence_time=0.040):
+    def _wait_for_bus_free(self, timeout=3.0):
         """Đợi cho đến khi đường truyền RS485 im lặng (Listen Before Talk)."""
         if not self.multi_master or not hasattr(self.client, "socket") or not self.client.socket:
             return
 
-        # CHIẾN THUẬT ĐỒNG BỘ NÉ TRÁNH (DANGER ZONE AVOIDANCE)
-        # Chu kỳ của Master hãng là đúng 5 giây. 
-        # Nếu đã quá 3 giây kể từ lần cuối Master hoạt động, ta đã đi vào VÙNG NGUY HIỂM.
-        # Ta phải NHƯỜNG đường, đợi Master bắn lệnh xong rồi bám đuôi ngay sau nó.
-        time_since_master = time.time() - getattr(self, 'last_master_activity', 0)
+        # Xác định khoảng thời gian im lặng yêu cầu (Dynamic Silence Wait)
+        time_since_our_activity = time.time() - getattr(self, 'last_our_activity', 0)
         
-        if time_since_master > 3.0:
-            logger.info(f"[RTU] Near Master's 5s boundary ({time_since_master:.1f}s elapsed). Waiting for Master to poll first...")
-            start_wait = time.time()
-            master_detected = False
-            while time.time() - start_wait < 6.0: # Đợi tối đa 6s (chu kỳ Master là 5s)
-                try:
-                    if self.client.socket.in_waiting > 0:
-                        master_detected = True
-                        break
-                except Exception:
-                    break
-                time.sleep(0.01)
-            
-            if master_detected:
-                self._wait_for_master_to_finish()
-            else:
-                # Nếu không thấy Master hoạt động (Master offline hoặc ta là duy nhất)
-                # Giả lập mốc thời gian để không bị block ở các lệnh tiếp theo
-                self.last_master_activity = time.time()
-                logger.info("[RTU] No active Master detected. Proceeding.")
+        # Nếu đã nghỉ hơn 0.5s (ví dụ bắt đầu cycle mới), cần im lặng 300ms
+        if time_since_our_activity > 0.5:
+            required_silence = 0.300
+        else:
+            required_silence = 0.100
 
-        # LBT tiêu chuẩn: Đợi 40ms im lặng
         start_wait = time.time()
         last_activity = time.time()
 
         while time.time() - start_wait < timeout:
             try:
                 if self.client.socket.in_waiting > 0:
-                    # Phát hiện Master hãng chen ngang, đợi nó truyền xong rồi reset timer
+                    # Phát hiện Master hãng chen ngang, đợi nó truyền xong
                     self._wait_for_master_to_finish()
+                    # Sau khi Master hãng nói xong, ta BẮT BUỘC phải đợi thêm 300ms im lặng
+                    required_silence = 0.300
                     last_activity = time.time()
                 else:
-                    # Kiểm tra xem bus đã im lặng đủ 40ms chưa
-                    if time.time() - last_activity >= silence_time:
+                    # Kiểm tra xem bus đã im lặng đủ required_silence chưa
+                    if time.time() - last_activity >= required_silence:
                         return
             except Exception as e:
                 logger.error(f"[RTU] LBT Exception: {e}")
                 break
 
-            time.sleep(0.002) # Quét nhạy bén cấp mili-giây
+            time.sleep(0.005) # Quét nhạy bén cấp mili-giây
         
         logger.warning(f"[RTU] Bus wait timeout ({timeout}s), proceeding anyway.")
 
@@ -147,6 +131,7 @@ class ModbusRTU:
                             pass
 
                     response = func(*args, **kwargs)
+                    self.last_our_activity = time.time()
 
                     if isinstance(response, ModbusIOException):
                         last_error = response
@@ -166,6 +151,7 @@ class ModbusRTU:
                     return response
 
                 except Exception as e:
+                    self.last_our_activity = time.time()
                     last_error = e
                     logger.warning(
                         f"[RTU] Attempt {attempt}/{self.retries} exception: {e}"
