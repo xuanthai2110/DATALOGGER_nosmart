@@ -63,9 +63,9 @@ class ModbusRTU:
             logger.error(f"[RTU] Close error: {e}")
 
     def _wait_for_master_to_finish(self):
-        """Đợi cho đến khi Master hãng truyền xong hoàn toàn (im lặng 100ms) để cập nhật mốc thời gian."""
+        """Đợi cho đến khi Master hãng truyền xong hoàn toàn (im lặng 300ms) để cập nhật mốc thời gian."""
         last_byte_time = time.time()
-        while time.time() - last_byte_time < 0.100: # 100ms im lặng liên tục
+        while time.time() - last_byte_time < 0.300: # 300ms im lặng liên tục
             try:
                 if self.client.socket.in_waiting > 0:
                     self.client.socket.reset_input_buffer()
@@ -74,42 +74,60 @@ class ModbusRTU:
                 break
             time.sleep(0.005)
         self.last_master_activity = time.time()
-        logger.info("[RTU] Master finished transaction. Safe 5-second window started.")
+        logger.info("[RTU] Master finished transaction. Safe 3.5-second window started.")
 
-    def _wait_for_bus_free(self, timeout=3.0):
-        """Đợi cho đến khi đường truyền RS485 im lặng (Listen Before Talk)."""
+    def _wait_for_bus_free(self, timeout=8.0):
+        """Đợi cho đến khi đường truyền RS485 im lặng, kết hợp Vùng Cấm (Danger Zone) và LBT."""
         if not self.multi_master or not hasattr(self.client, "socket") or not self.client.socket:
             return
 
-        # Xác định khoảng thời gian im lặng yêu cầu (Dynamic Silence Wait)
-        time_since_our_activity = time.time() - getattr(self, 'last_our_activity', 0)
+        master_cycle = 5.0
+        safe_window = 3.5 
+        required_silence = 0.100 # 100ms im lặng tuyệt đối giữa các lệnh trong Safe Window
         
-        # Nếu đã nghỉ hơn 0.5s (ví dụ bắt đầu cycle mới), cần im lặng 300ms
-        if time_since_our_activity > 0.5:
-            required_silence = 0.300
-        else:
-            required_silence = 0.100
-
         start_wait = time.time()
-        last_activity = time.time()
 
         while time.time() - start_wait < timeout:
-            try:
-                if self.client.socket.in_waiting > 0:
-                    # Phát hiện Master hãng chen ngang, đợi nó truyền xong
-                    self._wait_for_master_to_finish()
-                    # Sau khi Master hãng nói xong, ta BẮT BUỘC phải đợi thêm 300ms im lặng
-                    required_silence = 0.300
-                    last_activity = time.time()
-                else:
-                    # Kiểm tra xem bus đã im lặng đủ required_silence chưa
-                    if time.time() - last_activity >= required_silence:
-                        return
-            except Exception as e:
-                logger.error(f"[RTU] LBT Exception: {e}")
-                break
+            time_since_master = time.time() - getattr(self, 'last_master_activity', 0)
+            
+            # 1. KIỂM TRA VÙNG CẤM (DANGER ZONE)
+            if time_since_master > safe_window:
+                logger.debug(f"[RTU] DANGER ZONE ({time_since_master:.1f}s elapsed). Waiting for Master...")
+                # Lắng nghe cho đến khi có sóng của Master
+                while time.time() - start_wait < timeout:
+                    try:
+                        if self.client.socket.in_waiting > 0:
+                            self._wait_for_master_to_finish()
+                            break # Thoát khỏi Danger Zone, qua phần LBT
+                    except Exception:
+                        pass
+                    time.sleep(0.01)
+                
+                # Nếu hết timeout chờ Master (Master offline)
+                if time.time() - getattr(self, 'last_master_activity', 0) > safe_window:
+                    self.last_master_activity = time.time()
+                    logger.info("[RTU] Master offline. Fake sync initiated.")
+                continue # Bắt đầu lại vòng lặp với time_since_master đã reset
 
-            time.sleep(0.005) # Quét nhạy bén cấp mili-giây
+            # 2. VÙNG AN TOÀN - THỰC HIỆN LBT
+            last_activity = time.time()
+            lbt_success = False
+            while time.time() - start_wait < timeout:
+                try:
+                    if self.client.socket.in_waiting > 0:
+                        self._wait_for_master_to_finish()
+                        break # Master chen ngang, phải quay lại check Danger Zone
+                    else:
+                        if time.time() - last_activity >= required_silence:
+                            lbt_success = True
+                            break
+                except Exception as e:
+                    logger.error(f"[RTU] LBT Exception: {e}")
+                    break
+                time.sleep(0.005)
+            
+            if lbt_success:
+                return # Đủ điều kiện phát sóng
         
         logger.warning(f"[RTU] Bus wait timeout ({timeout}s), proceeding anyway.")
 
