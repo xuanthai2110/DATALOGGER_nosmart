@@ -282,7 +282,7 @@ def background_scan(comm: dict):
                 scan_state.progress = slave_id
 
             success = False
-            for attempt in range(2):
+            for attempt in range(1):
                 try:
                     driver = DriverClass(transport, slave_id=slave_id)
                     info = driver.read_info()
@@ -334,7 +334,7 @@ def background_scan(comm: dict):
                     logger.debug(f"[Scan] No inverter at slave {slave_id} (Attempt {attempt+1}): {e}")
                 
                 if not success and attempt == 0:
-                    time.sleep(0.5)
+                    time.sleep(0.3)
 
     except Exception as e:
         logger.error(f"[Scan] Critical error: {e}", exc_info=True)
