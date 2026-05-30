@@ -66,24 +66,46 @@ class FaultService:
             "description": state_info.get("description", "")
         }
 
-    def process(self, inv_id: int, proj_id: int, status_code: int, fault_code: int, polling_time: str) -> Tuple[list, bool, str]:
+    def process(self, inv_id: int, proj_id: int, status_code: int, fault_code: int, polling_time: str, fault_json: str = None) -> Tuple[list, bool, str]:
         self.seed_if_needed(inv_id)
         brand = self.inverter_brands[inv_id]
         
-        # Change Detection
-        has_changed = (inv_id not in self.last_status_map or self.last_status_map[inv_id] != status_code or self.last_fault_code_map[inv_id] != fault_code)
+        # Parse payload từ fault_json nếu có, nếu không thì tự sinh từ status_code/fault_code
+        payload = []
+        if fault_json:
+            try:
+                import json
+                payload = json.loads(fault_json)
+            except Exception as e:
+                logger.error(f"Failed to parse fault_json in FaultService.process for inverter {inv_id}: {e}")
+                
+        if not payload:
+            payload = self.get_inverter_status_payload(brand, status_code, fault_code, polling_time)
+            
+        # Lấy tập hợp các mã lỗi hiện tại để so sánh sự thay đổi
+        current_codes = {item.get("fault_code") for item in payload if item.get("fault_code") is not None}
+        
+        # Phát hiện thay đổi dựa trên tập hợp mã lỗi
+        last_codes = self.active_faults_map.get(inv_id, set())
+        has_changed = (inv_id not in self.last_status_map or last_codes != current_codes)
         
         last_severity = self.last_severity_map.get(inv_id, "STABLE")
         
         self.last_status_map[inv_id] = status_code
         self.last_fault_code_map[inv_id] = fault_code
-
-        payload = self.get_inverter_status_payload(brand, status_code, fault_code, polling_time)
+        self.active_faults_map[inv_id] = current_codes
         
         current_severity = "STABLE"
         if payload:
-            current_severity = payload[0].get("severity", "STABLE")
-        
+            # Lấy mức độ nghiêm trọng cao nhất trong các lỗi hiện tại
+            severity_priority = {"DISCONNECT": 4, "ERROR": 3, "WARNING": 2, "STABLE": 1}
+            max_sev = "STABLE"
+            for item in payload:
+                sev = item.get("severity", "STABLE")
+                if severity_priority.get(sev, 0) > severity_priority.get(max_sev, 0):
+                    max_sev = sev
+            current_severity = max_sev
+            
         self.last_severity_map[inv_id] = current_severity
         
         return payload, has_changed, last_severity

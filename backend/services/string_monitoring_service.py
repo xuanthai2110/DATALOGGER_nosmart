@@ -90,10 +90,12 @@ class StringMonitoringService:
             # Cập nhật giá trị dòng điện vào bộ nhớ cho lần quét sau
             self.last_currents[inverter_id][idx] = current_i
 
-        # 👉 Tổng hợp và trả về bản tin lỗi nếu có string mới bị mất dòng
-        if lost_strings:
-            str_list = ", ".join(map(str, sorted(lost_strings)))
-            logger.warning(f"[StringMonitor] Inverter {inverter_id} Strings {str_list} mất dòng đột ngột >5 phút")
+        # 👉 Tổng hợp và trả về bản tin lỗi cho toàn bộ các string đang bị mất dòng
+        active_lost = self.active_faults.get(inverter_id, set())
+        if active_lost:
+            str_list = ", ".join(map(str, sorted(list(active_lost))))
+            if lost_strings:
+                logger.warning(f"[StringMonitor] Inverter {inverter_id} Strings {str_list} mất dòng đột ngột >5 phút")
 
             new_faults.append({
                 "fault_code": 23,

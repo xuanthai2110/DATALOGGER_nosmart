@@ -93,8 +93,9 @@ class LogicWorker(threading.Thread):
             err_cache = self.cache_db.get_error_cache(inv_id)
             s_code = err_cache["status_code"] if err_cache else 0
             f_code = err_cache["fault_code"] if err_cache else 0
+            f_json = err_cache["fault_json"] if err_cache else None
             
-            payload, changed, last_severity = self.fault_logic.process(inv_id, project_id, s_code, f_code, polling_time)
+            payload, changed, last_severity = self.fault_logic.process(inv_id, project_id, s_code, f_code, polling_time, f_json)
             
             # Lấy mã trạng thái hợp nhất và severity hiện tại
             unified_code = payload[0]["fault_code"] if payload else 0
