@@ -271,6 +271,17 @@ class PollingService:
                 if string_faults:
                     errors_payload.extend(string_faults)
 
+                # Lọc lỗi theo yêu cầu:
+                # 1. Nếu có lỗi 23 (String mất dòng đột ngột), loại bỏ mã lỗi 1 ("ĐANG VẬN HÀNH") ra khỏi payload
+                has_fault_23 = any(item.get("fault_code") == 23 for item in errors_payload)
+                if has_fault_23:
+                    errors_payload = [item for item in errors_payload if item.get("fault_code") != 1]
+                else:
+                    # 2. Nếu không có lỗi 23 nhưng có lỗi thực sự khác, lọc bỏ trạng thái STABLE (ví dụ: ĐANG VẬN HÀNH)
+                    has_real_fault = any(item.get("severity") in ("WARNING", "ERROR", "DISCONNECT") for item in errors_payload)
+                    if has_real_fault:
+                        errors_payload = [item for item in errors_payload if item.get("severity") != "STABLE"]
+
                 state_snapshot = self.fault_service.get_state_snapshot(inv.brand, status_code)
                 batch.error_data.append({
                     "inverter_id": inv.id, "status_code": status_code, "fault_code": fault_code,
