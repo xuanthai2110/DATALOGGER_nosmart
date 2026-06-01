@@ -49,7 +49,12 @@ class PollingService:
             else:
                 key = "RTU"
                 if key not in self.transports:
-                    t = ModbusRTU(port=settings.MODBUS_PORT, baudrate=settings.MODBUS_BAUDRATE)
+                    t = ModbusRTU(
+                        port=settings.MODBUS_PORT, 
+                        baudrate=settings.MODBUS_BAUDRATE,
+                        retries=settings.RETRIES,
+                        multi_master=settings.MODBUS_MULTI_MASTER
+                    )
                     t.connect()
                     self.transports[key] = t
                 return self.transports[key]
@@ -240,20 +245,12 @@ class PollingService:
                 clean = self.normalization.normalize(raw_data)
                 batch.ac_data.append({"inverter_id": inv.id, "data": clean})
                 
-<<<<<<< HEAD
                 # Lưu vào CacheDB (RAM)
                 self.cache_db.upsert_inverter_ac(inv.id, project_id, clean)
                 
-<<<<<<< HEAD
-                # MPPT & String Cache
-=======
                 # self.cache_db.clear_inverter_mppt_string_cache(inv.id)
 
                 # MPPT & String Cache (Không xoá cache cũ để SQL MAX() hoạt động chính xác)
->>>>>>> e7a17452141a9a012b8c761ec418da575c342f89
-=======
-                # MPPT & String
->>>>>>> test
                 for i in range(1, inv.mppt_count + 1):
                     v_mppt = clean.get(f"mppt_{i}_voltage", 0.0)
                     i_mppt = clean.get(f"mppt_{i}_current", 0.0)
@@ -275,6 +272,17 @@ class PollingService:
                 string_faults = self.string_monitor.process_strings(inv.id, current_strings_data, batch.timestamp)
                 if string_faults:
                     errors_payload.extend(string_faults)
+
+                # Lọc lỗi theo yêu cầu:
+                # 1. Nếu có lỗi 23 (String mất dòng đột ngột), loại bỏ mã lỗi 1 ("ĐANG VẬN HÀNH") ra khỏi payload
+                has_fault_23 = any(item.get("fault_code") == 23 for item in errors_payload)
+                if has_fault_23:
+                    errors_payload = [item for item in errors_payload if item.get("fault_code") != 1]
+                else:
+                    # 2. Nếu không có lỗi 23 nhưng có lỗi thực sự khác, lọc bỏ trạng thái STABLE (ví dụ: ĐANG VẬN HÀNH)
+                    has_real_fault = any(item.get("severity") in ("WARNING", "ERROR", "DISCONNECT") for item in errors_payload)
+                    if has_real_fault:
+                        errors_payload = [item for item in errors_payload if item.get("severity") != "STABLE"]
 
                 state_snapshot = self.fault_service.get_state_snapshot(inv.brand, status_code)
                 batch.error_data.append({
