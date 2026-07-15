@@ -297,6 +297,10 @@ class PollingService:
                     try:
                         last_ts = datetime.fromisoformat(last_ac["updated_at"].replace(" ", "T"))
                         new_ts = datetime.fromisoformat(batch.timestamp.replace(" ", "T"))
+                        if last_ts.tzinfo is not None:
+                            last_ts = last_ts.astimezone().replace(tzinfo=None)
+                        if new_ts.tzinfo is not None:
+                            new_ts = new_ts.astimezone().replace(tzinfo=None)
                         if new_ts <= last_ts:
                             logger.warning(f"[PollingService] Time drift detected for inverter {inv.id}: new timestamp {batch.timestamp} <= last timestamp {last_ac['updated_at']}. Skipping this sample.")
                             continue
