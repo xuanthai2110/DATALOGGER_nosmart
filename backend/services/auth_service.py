@@ -7,7 +7,7 @@ import requests
 from backend.core import settings as _cfg
 from backend.models.server_account import ServerAccountUpdate
 
-API_BASE_URL = _cfg.API_BASE_URL
+API_BASE_URL = _cfg.API_BASE_URL.rstrip('/')
 
 logger = logging.getLogger(__name__)
 

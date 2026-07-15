@@ -37,27 +37,63 @@ class PollingService:
         self._config_cache = []
         self._last_refresh = 0
 
-    def _get_transport(self, brand: str):
+    def _get_transport(self, comm_id: Optional[int]):
+        if not comm_id:
+            comm_id = 1
+            
         with self._transport_lock:
-            if "Huawei" in brand:
-                key = f"TCP_{settings.MODBUS_TCP_HOST}"
-                if key not in self.transports:
-                    t = ModbusTCP(host=settings.MODBUS_TCP_HOST, port=settings.MODBUS_TCP_PORT)
-                    t.connect()
-                    self.transports[key] = t
-                return self.transports[key]
-            else:
-                key = "RTU"
-                if key not in self.transports:
+            if comm_id in self.transports:
+                return self.transports[comm_id]
+
+            # Truy vấn cấu hình truyền thông từ DB
+            config = self.project_svc.metadata_db.get_comm_id(comm_id)
+            if not config:
+                logger.error(f"[PollingService] Communication config ID {comm_id} not found in database. Fallback to ID 1.")
+                config = self.project_svc.metadata_db.get_comm_id(1)
+                if not config:
+                    # Nếu DB hoàn toàn rỗng hoặc lỗi, fallback về cấu hình mặc định trong code
+                    logger.critical("[PollingService] Database comm_config table is completely empty!")
                     t = ModbusRTU(
-                        port=settings.MODBUS_PORT, 
+                        port=settings.MODBUS_PORT,
                         baudrate=settings.MODBUS_BAUDRATE,
                         retries=settings.RETRIES,
                         multi_master=settings.MODBUS_MULTI_MASTER
                     )
                     t.connect()
-                    self.transports[key] = t
-                return self.transports[key]
+                    self.transports[comm_id] = t
+                    return t
+
+            # Tạo kết nối dựa vào config
+            if config.comm_type == "TCP":
+                host = config.host or "127.0.0.1"
+                port = config.port or 502
+                timeout = config.timeout or 1.0
+                t = ModbusTCP(host=host, port=port, timeout=timeout)
+                t.connect()
+                self.transports[comm_id] = t
+                logger.info(f"[PollingService] Connected ModbusTCP for comm_id={comm_id} ({host}:{port})")
+                return t
+            else:
+                com_port = config.com_port or "/dev/ttyUSB0"
+                baudrate = config.baudrate or 9600
+                databits = config.databits or 8
+                parity = config.parity or "N"
+                stopbits = config.stopbits or 1
+                timeout = config.timeout or 1.0
+                t = ModbusRTU(
+                    port=com_port.strip(),
+                    baudrate=baudrate,
+                    bytesize=databits,
+                    parity=parity,
+                    stopbits=stopbits,
+                    timeout=timeout,
+                    retries=settings.RETRIES,
+                    multi_master=bool(getattr(config, 'multi_master', settings.MODBUS_MULTI_MASTER))
+                )
+                t.connect()
+                self.transports[comm_id] = t
+                logger.info(f"[PollingService] Connected ModbusRTU for comm_id={comm_id} ({com_port} @ {baudrate})")
+                return t
 
     def get_polling_config(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Lấy cấu hình polling (Projects & Inverters) từ RAM Cache hoặc Database"""
@@ -115,11 +151,23 @@ class PollingService:
         else:
             active_inverters = inverters
         
-        batch = ProjectPollBatch(project_id=project_id, timestamp=datetime.now().isoformat())
+        batch = ProjectPollBatch(project_id=project_id, timestamp=datetime.now().astimezone().isoformat())
         
         for inv in active_inverters:
+            # Kiểm tra xem cổng truyền thông của inverter có đang bị quét tự động không
+            is_scanning = self.project_svc.metadata_db.get_setting(f"scanning_comm_{inv.comm_id}", "false") == "true"
+            if is_scanning:
+                logger.info(f"[PollingService] Inverter {inv.id} (comm_id={inv.comm_id}) is busy due to scanning. Skipping polling for this device.")
+                continue
+
+            # Kiểm tra xem cổng truyền thông có được cấu hình là Master hay không
+            comm_config = self.project_svc.metadata_db.get_comm_id(inv.comm_id)
+            if comm_config and not getattr(comm_config, 'is_master', True):
+                logger.info(f"[PollingService] Inverter {inv.id} is on a Slave comm port (comm_id={inv.comm_id}). Skipping polling.")
+                continue
+
             try:
-                transport = self._get_transport(inv.brand)
+                transport = self._get_transport(inv.comm_id)
                 driver = self._get_driver(inv.brand, transport, inv.slave_id, inv.model)
                 
                 raw_data = None
@@ -242,7 +290,20 @@ class PollingService:
                 # Reset bộ đếm lỗi khi có dữ liệu thành công
                 self._inv_fail_counts[inv.id] = 0
                 
-                clean = self.normalization.normalize(raw_data)
+                last_ac = self.cache_db.get_ac_cache(inv.id)
+                
+                # Kiểm tra lệch múi giờ (Time Drift)
+                if last_ac and last_ac.get("updated_at"):
+                    try:
+                        last_ts = datetime.fromisoformat(last_ac["updated_at"].replace(" ", "T"))
+                        new_ts = datetime.fromisoformat(batch.timestamp.replace(" ", "T"))
+                        if new_ts <= last_ts:
+                            logger.warning(f"[PollingService] Time drift detected for inverter {inv.id}: new timestamp {batch.timestamp} <= last timestamp {last_ac['updated_at']}. Skipping this sample.")
+                            continue
+                    except Exception as e:
+                        logger.warning(f"[PollingService] Error checking time drift for inverter {inv.id}: {e}")
+
+                clean = self.normalization.normalize(raw_data, last_data=last_ac, device_id=inv.id)
                 batch.ac_data.append({"inverter_id": inv.id, "data": clean})
                 
                 # Lưu vào CacheDB (RAM)
@@ -263,8 +324,96 @@ class PollingService:
                 # Error Logic
                 status_code = raw_data.get("state_id", 0)
                 fault_code = raw_data.get("fault_code", 0)
-                errors_payload = self.fault_service.get_inverter_status_payload(inv.brand, status_code, fault_code, batch.timestamp)
                 
+                if inv.brand.upper() == "SOLIS":
+                    errors_payload = []
+                    state_snapshot = self.fault_service.get_state_snapshot(inv.brand, status_code)
+                    errors_payload.append({
+                        "fault_code": state_snapshot["code"],
+                        "fault_description": state_snapshot["name"],
+                        "repair_instruction": state_snapshot["description"],
+                        "severity": state_snapshot["severity"],
+                        "created_at": batch.timestamp
+                    })
+                    
+                    from backend.services.fault_mappings import FAULT_MAPS, UNIFIED_FAULTS
+                    fault_regs = ["fault_code_1", "fault_code_2", "fault_code_3", "fault_code_4", "fault_code_5"]
+                    solis_map = FAULT_MAPS.get("SOLIS", {})
+                    
+                    for idx, reg_key in enumerate(fault_regs):
+                        reg_val = raw_data.get(reg_key, 0)
+                        if reg_val > 0:
+                            for bit in range(16):
+                                if (reg_val & (1 << bit)) > 0:
+                                    fault_id = (3067 + idx) * 100 + bit
+                                    fault_info = solis_map.get(fault_id)
+                                    if fault_info:
+                                        unified_code = fault_info["id_unified"]
+                                        raw_inst = fault_info.get("repair_instruction", "")
+                                        errors_payload.append({
+                                            "fault_code": unified_code,
+                                            "fault_description": UNIFIED_FAULTS.get(unified_code, fault_info["name"]),
+                                            "repair_instruction": self.fault_service.format_repair_instruction(inv.brand, fault_id, raw_inst),
+                                            "severity": fault_info["severity"],
+                                            "created_at": batch.timestamp
+                                        })
+                elif inv.brand.upper() == "GOODWE":
+                    errors_payload = []
+                    state_snapshot = self.fault_service.get_state_snapshot(inv.brand, status_code)
+                    errors_payload.append({
+                        "fault_code": state_snapshot["code"],
+                        "fault_description": state_snapshot["name"],
+                        "repair_instruction": state_snapshot["description"],
+                        "severity": state_snapshot["severity"],
+                        "created_at": batch.timestamp
+                    })
+                    
+                    from backend.services.fault_mappings import FAULT_MAPS, UNIFIED_FAULTS
+                    goodwe_map = FAULT_MAPS.get("GOODWE", {})
+                    if fault_code > 0:
+                        for bit in range(32):
+                            if (fault_code & (1 << bit)) > 0:
+                                fault_id = 1 << bit
+                                fault_info = goodwe_map.get(fault_id)
+                                if fault_info:
+                                    unified_code = fault_info["id_unified"]
+                                    raw_inst = fault_info.get("repair_instruction", "")
+                                    errors_payload.append({
+                                        "fault_code": unified_code,
+                                        "fault_description": UNIFIED_FAULTS.get(unified_code, fault_info["name"]),
+                                        "repair_instruction": self.fault_service.format_repair_instruction(inv.brand, fault_id, raw_inst),
+                                        "severity": fault_info["severity"],
+                                        "created_at": batch.timestamp
+                                    })
+                elif inv.brand.upper() == "HUAWEI":
+                    errors_payload = []
+                    state_snapshot = self.fault_service.get_state_snapshot(inv.brand, status_code)
+                    errors_payload.append({
+                        "fault_code": state_snapshot["code"],
+                        "fault_description": state_snapshot["name"],
+                        "repair_instruction": state_snapshot["description"],
+                        "severity": state_snapshot["severity"],
+                        "created_at": batch.timestamp
+                    })
+                    
+                    from backend.services.fault_mappings import FAULT_MAPS, UNIFIED_FAULTS
+                    huawei_map = FAULT_MAPS.get("HUAWEI", {})
+                    active_faults = raw_data.get("active_faults", [])
+                    
+                    for raw_fault in active_faults:
+                        fault_info = huawei_map.get(raw_fault)
+                        if fault_info:
+                            unified_code = fault_info["id_unified"]
+                            raw_inst = fault_info.get("repair_instruction", "")
+                            errors_payload.append({
+                                "fault_code": unified_code,
+                                "fault_description": UNIFIED_FAULTS.get(unified_code, fault_info["name"]),
+                                "repair_instruction": self.fault_service.format_repair_instruction(inv.brand, raw_fault, raw_inst),
+                                "severity": fault_info["severity"],
+                                "created_at": batch.timestamp
+                            })
+                else:
+                    errors_payload = self.fault_service.get_inverter_status_payload(inv.brand, status_code, fault_code, batch.timestamp)
                 # Check String Open Circuit
                 current_strings_data = [{"string_index": s["string_id"], "I_string": s["i_string"]} for s in batch.string_data if s["inverter_id"] == inv.id]
                 string_faults = self.string_monitor.process_strings(inv.id, current_strings_data, batch.timestamp)
@@ -297,9 +446,21 @@ class PollingService:
     def poll_meters(self, project_id: int, meters: List[Any]):
         """Đọc dữ liệu từ Meter (điểm đấu nối lưới) và lưu vào CacheDB."""
         for m in meters:
+            # Kiểm tra xem cổng truyền thông của meter có đang bị quét tự động không
+            is_scanning = self.project_svc.metadata_db.get_setting(f"scanning_comm_{m.comm_id}", "false") == "true"
+            if is_scanning:
+                logger.info(f"[PollingService] Meter {m.id} (comm_id={m.comm_id}) is busy due to scanning. Skipping polling for this device.")
+                continue
+
+            # Kiểm tra xem cổng truyền thông có được cấu hình là Master hay không
+            comm_config = self.project_svc.metadata_db.get_comm_id(m.comm_id)
+            if comm_config and not getattr(comm_config, 'is_master', True):
+                logger.info(f"[PollingService] Meter {m.id} is on a Slave comm port (comm_id={m.comm_id}). Skipping polling.")
+                continue
+
             try:
                 # Meter thường dùng RTU
-                transport = self._get_transport(m.brand)
+                transport = self._get_transport(m.comm_id)
                 driver = self._get_meter_driver(m.brand, transport, m.slave_id, m.model)
                 if not driver:
                     continue

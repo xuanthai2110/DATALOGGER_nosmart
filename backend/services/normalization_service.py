@@ -55,7 +55,7 @@ VALID_RANGE: dict[str, tuple[float, float]] = {
 
     # Stat
     "temp_c":   (-40.0,  100.0),
-    "ir":       (0.0,    10000.0),  # kΩ
+    "ir":       (0.0,    1000000.0),  # kΩ
     "e_daily":  (0.0,    10000.0),  # kWh
     "e_monthly": (0.0,   1000000.0), # kWh
     "e_total":  (0.0,    1e9),      # kWh
@@ -109,9 +109,11 @@ class NormalizationService:
         strict=False -> gán None và log cảnh báo (mặc định).
         """
         self.strict = strict
+        # Bộ đếm số lần giảm e_total liên tiếp để nhận diện Reset/Thay thế thiết bị
+        self._reset_counters: dict[str, int] = {}
 
     # ----------------------------------------------------------
-    def normalize(self, data: dict) -> dict:
+    def normalize(self, data: dict, last_data: dict = None, device_id: Any = "default") -> dict:
         """
         Chuẩn hoá toàn bộ dict dữ liệu từ driver.
         Trả về dict mới đã được làm sạch.
@@ -119,6 +121,79 @@ class NormalizationService:
         result = {}
         for key, raw_value in data.items():
             result[key] = self._process_field(key, raw_value)
+
+        # 1. Lọc trôi điểm không ban đêm (Zero-drift Filter) - Không cần dữ liệu lịch sử
+        p_dc = result.get("p_dc_w")
+        p_ac = result.get("p_inv_w")
+        ir = result.get("ir")
+        
+        is_night = (ir == 0.0) if ir is not None else False
+        if not is_night and p_dc is not None:
+            is_night = p_dc <= 10.0
+        if not is_night and p_ac is not None:
+            is_night = p_ac <= 20.0
+            
+        if is_night:
+            if "p_inv_w" in result: result["p_inv_w"] = 0.0
+            if "p_dc_w" in result: result["p_dc_w"] = 0.0
+            for i in range(1, 11):
+                if f"mppt_{i}_current" in result: result[f"mppt_{i}_current"] = 0.0
+            for i in range(1, 21):
+                if f"string_{i}_current" in result: result[f"string_{i}_current"] = 0.0
+            for phase in ["a", "b", "c"]:
+                if f"i_{phase}" in result: result[f"i_{phase}"] = 0.0
+
+        # Nếu không có dữ liệu lịch sử (last_data), trả về kết quả
+        if not last_data:
+            return result
+
+        # 2. Lọc đơn điệu cho e_total (Tổng sản lượng điện)
+        last_e_total = last_data.get("e_total") or last_data.get("E_total")
+        new_e_total = result.get("e_total")
+        
+        if last_e_total is not None and new_e_total is not None:
+            last_e_total_val = float(last_e_total)
+            if new_e_total < last_e_total_val:
+                # Nếu giá trị mới rất nhỏ (< 10 kWh), có thể là reset inverter/thay máy mới
+                if new_e_total < 10.0:
+                    counter_key = f"{device_id}_e_total_reset"
+                    self._reset_counters[counter_key] = self._reset_counters.get(counter_key, 0) + 1
+                    # Nếu duy trì mức cực nhỏ này liên tiếp 5 lần -> Chấp nhận reset thiết bị
+                    if self._reset_counters[counter_key] >= 5:
+                        logger.info(f"[Norm] Device {device_id} e_total reset detected & accepted: {new_e_total} kWh")
+                        self._reset_counters[counter_key] = 0
+                    else:
+                        # Tạm thời giữ nguyên giá trị cũ để chờ xác nhận ổn định
+                        result["e_total"] = last_e_total_val
+                else:
+                    logger.warning(f"[Norm] e_total decreased from {last_e_total_val} to {new_e_total}. Keeping last value.")
+                    result["e_total"] = last_e_total_val
+            else:
+                # Reset bộ đếm nếu giá trị hoạt động bình thường trở lại
+                self._reset_counters[f"{device_id}_e_total_reset"] = 0
+                
+        # Lọc đơn điệu cho e_daily (Sản lượng ngày)
+        last_e_daily = last_data.get("e_daily") or last_data.get("E_daily")
+        new_e_daily = result.get("e_daily")
+        if last_e_daily is not None and new_e_daily is not None:
+            last_e_daily_val = float(last_e_daily)
+            # Chỉ lọc khi chưa qua ngày mới (giá trị cũ lớn hơn 0 và giá trị mới bị sụt giảm bất thường)
+            if 0.0 < new_e_daily < last_e_daily_val:
+                logger.warning(f"[Norm] e_daily decreased from {last_e_daily_val} to {new_e_daily}. Keeping last value.")
+                result["e_daily"] = last_e_daily_val
+
+        # Lọc nhiễu nhảy vọt điện áp lưới (Voltage Spike Filter)
+        for phase in ["a", "b", "c"]:
+            key = f"v_{phase}"
+            last_v = last_data.get(key) or last_data.get(key.capitalize())
+            new_v = result.get(key)
+            if last_v is not None and new_v is not None:
+                last_v_val = float(last_v)
+                # Nếu lệch quá 50V và không phải là trường hợp mất lưới hoàn toàn (về 0V) hoặc bắt đầu khởi động từ 0V
+                if abs(new_v - last_v_val) > 50.0 and new_v > 10.0 and last_v_val > 10.0:
+                    logger.warning(f"[Norm] Voltage spike detected on {key}: {last_v_val} -> {new_v}. Keeping last value.")
+                    result[key] = last_v_val
+
         return result
 
     # ----------------------------------------------------------

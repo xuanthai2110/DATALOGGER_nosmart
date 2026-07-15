@@ -144,6 +144,11 @@ class RealtimeDB(BaseDB):
         from datetime import datetime
         now_str = datetime.now().isoformat()
         with self._connect() as conn:
+            if data_type == "Project":
+                conn.execute(
+                    "DELETE FROM uploader_outbox WHERE project_id = ? AND data_type = 'Project'",
+                    (project_id,)
+                )
             conn.execute("INSERT INTO uploader_outbox (project_id, server_id, data_type, data_json, created_at) VALUES (?, ?, ?, ?, ?)",
                          (project_id, server_id, data_type, json.dumps(data), now_str))
 

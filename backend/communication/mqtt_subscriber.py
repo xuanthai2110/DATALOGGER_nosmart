@@ -31,13 +31,21 @@ class MqttSubscriber:
         self.username = username
         self.password = password
         self.project_server_ids_provider = project_server_ids_provider
-        self.client = mqtt.Client()
+        try:
+            from paho.mqtt.enums import CallbackAPIVersion
+            self.client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION1)
+        except ImportError:
+            self.client = mqtt.Client()
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+        self.realtime_clients = {}
 
     def _get_subscription_topics(self):
         if self.project_id_filter is not None:
-            return [f"controls/projects/{self.project_id_filter}/schedules/#"]
+            return [
+                f"controls/projects/{self.project_id_filter}/schedules/#",
+                f"telemetry/realtime/enable/{self.project_id_filter}"
+            ]
 
         if not self.project_server_ids_provider:
             return []
@@ -62,21 +70,30 @@ class MqttSubscriber:
                 continue
             seen.add(normalized)
             topics.append(f"controls/projects/{normalized}/schedules/#")
+            topics.append(f"telemetry/realtime/enable/{normalized}")
         return topics
 
     def connect(self):
         try:
             if self.username:
                 self.client.username_pw_set(self.username, self.password)
+            logger.info(f"[MQTT] Connecting to {self.broker}:{self.port}...")
             self.client.connect(self.broker, self.port, 60)
             self.client.loop_start()
-            logger.info(f"[MQTT] Connected to {self.broker}:{self.port}")
+            logger.info(f"[MQTT] Loop started successfully for {self.broker}:{self.port}")
         except Exception as e:
-            logger.error(f"[MQTT] Connection failed: {e}")
+            logger.error(f"[MQTT] Connection setup failed to {self.broker}:{self.port}: {e}", exc_info=True)
 
     def disconnect(self):
         self.client.loop_stop()
         self.client.disconnect()
+
+    def publish(self, topic: str, payload: dict):
+        try:
+            self.client.publish(topic, json.dumps(payload), qos=0)
+            logger.info(f"[MQTT] Published realtime payload to {topic}")
+        except Exception as e:
+            logger.error(f"[MQTT] Publish failed to {topic}: {e}")
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -93,6 +110,61 @@ class MqttSubscriber:
 
     def on_message(self, client, userdata, msg):
         try:
+            topic = msg.topic
+            logger.info(f"[MQTT] Received message on topic: {topic}")
+            
+            if topic.startswith("telemetry/realtime/enable/"):
+                logger.info(f"[MQTT] Processing realtime enable/disable message for topic: {topic}")
+                try:
+                    server_id = int(topic.split("/")[-1])
+                    logger.info(f"[MQTT] Extracted server_id: {server_id}")
+                except ValueError:
+                    logger.warning(f"[MQTT] Invalid server_id in topic: {topic}")
+                    return
+                
+                try:
+                    payload_decoded = msg.payload.decode("utf-8")
+                    logger.info(f"[MQTT] Payload raw content: {payload_decoded}")
+                    payload = json.loads(payload_decoded)
+                    status = payload.get("status")
+                    client_id = payload.get("client_id")
+                    logger.info(f"[MQTT] Parsed status: {status}, client_id: {client_id}")
+                    
+                    if status not in ("enable", "disable"):
+                        logger.warning(f"[MQTT] Invalid status in payload: {status}")
+                        return
+                    
+                    # Tìm project local theo server_id
+                    projects = self.schedule_service.metadata_db.get_projects()
+                    logger.info(f"[MQTT] List of projects in local DB: {[(p.id, p.server_id, p.telemetry_mode) for p in projects]}")
+                    
+                    project = next(
+                        (p for p in projects if p.server_id is not None and str(p.server_id) == str(server_id)), 
+                        None
+                    )
+                    if not project:
+                        logger.warning(f"[MQTT] Project with server_id {server_id} not found in local DB.")
+                        return
+                    
+                    # Cập nhật map realtime_clients
+                    if server_id not in self.realtime_clients:
+                        self.realtime_clients[server_id] = set()
+                    
+                    if status == "enable":
+                        if client_id is not None:
+                            self.realtime_clients[server_id].add(client_id)
+                    else:
+                        if client_id is not None:
+                            self.realtime_clients[server_id].discard(client_id)
+                        else:
+                            self.realtime_clients[server_id].clear()
+                    
+                    logger.info(f"[MQTT] Current active client_ids for server_id {server_id}: {list(self.realtime_clients[server_id])}")
+                    
+                except Exception as e:
+                    logger.error(f"[MQTT] Error handling realtime enable payload: {e}", exc_info=True)
+                return
+
             payload = json.loads(msg.payload.decode("utf-8"))
             event = payload.get("event")
             schedule_data = payload.get("schedule") or {}

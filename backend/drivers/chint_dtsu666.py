@@ -20,15 +20,14 @@ class MeterChintdtsu666(MeterDriverBase):
     # DTSU666 sử dụng FC03 cho các vùng địa chỉ này
     read_function = "holding"
 
-    # Map toàn bộ thanh ghi theo Manual Table 3 (Hex -> Dec)
     register_map: Dict[str, Dict[str, Any]] = {
         # === NHÓM 1: THÔNG SỐ CÀI ĐẶT ===
         "soft_version": {"address": 0,    "count": 1, "type": "int16", "unit": ""},
         "net_type":     {"address": 3,    "count": 1, "type": "int16", "unit": "0:3P4W, 1:3P3W"},
         "ct_rate":      {"address": 6,    "count": 1, "type": "int16", "unit": "CT"},
         "vt_rate":      {"address": 7,    "count": 1, "type": "int16", "scale": 0.1, "unit": "VT"},
-        "modbus_addr":  {"address": 46,   "count": 1, "type": "int16", "unit": ""},
-        "baudrate_id":  {"address": 45,   "count": 1, "type": "int16", "unit": "0:1200..3:9600"},
+        "modbus_addr":  {"address": 45,   "count": 1, "type": "int16", "unit": ""},
+        "baudrate_id":  {"address": 46,   "count": 1, "type": "int16", "unit": "0:1200..3:9600"},
 
         # === NHÓM 2: DỮ LIỆU ĐIỆN (Floating - Cần Scale) ===
         "v_ab":         {"address": 8192, "count": 2, "type": "float32", "scale": 0.1, "unit": "V"},
@@ -42,7 +41,7 @@ class MeterChintdtsu666(MeterDriverBase):
         "i_b":          {"address": 8206, "count": 2, "type": "float32", "scale": 0.001, "unit": "A"},
         "i_c":          {"address": 8208, "count": 2, "type": "float32", "scale": 0.001, "unit": "A"},
 
-        # Công suất (P/Q) dùng scale 0.001 để đổi từ W/var sang kW/kVAr
+        # Công suất (P/Q) dùng scale 0.1 theo đơn vị W/var
         "p_total":      {"address": 8210, "count": 2, "type": "float32", "scale": 0.1, "unit": "W"},
         "p_a":          {"address": 8212, "count": 2, "type": "float32", "scale": 0.1, "unit": "W"},
         "p_b":          {"address": 8214, "count": 2, "type": "float32", "scale": 0.1, "unit": "W"},
@@ -59,18 +58,13 @@ class MeterChintdtsu666(MeterDriverBase):
         "pf_c":         {"address": 8240, "count": 2, "type": "float32", "scale": 0.001, "unit": ""},
         "f":            {"address": 8260, "count": 2, "type": "float32", "scale": 0.01, "unit": "Hz"},
 
-        # === NHÓM 3: DỮ LIỆU NĂNG LƯỢNG (101EH - 1030H) ===
-        "e_pt_import":  {"address": 4126, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pa_import":  {"address": 4128, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pb_import":  {"address": 4130, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pc_import":  {"address": 4132, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pt_net_fwd": {"address": 4134, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-
-        "e_pt_export":  {"address": 4136, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pa_export":  {"address": 4138, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pb_export":  {"address": 4140, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pc_export":  {"address": 4142, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
-        "e_pt_net_rev": {"address": 4144, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"},
+        # === NHÓM 3: DỮ LIỆU NĂNG LƯỢNG (401EH - 4050H) ===
+        "e_pt_import":  {"address": 16414, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"}, # ImpEp (current positive active total)
+        "e_pt_export":  {"address": 16424, "count": 2, "type": "float32", "scale": 1.0, "unit": "kWh"}, # ExpEp (current negative active total)
+        "q1":           {"address": 16434, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVarh"}, # Q1Eq
+        "q2":           {"address": 16444, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVarh"}, # Q2Eq
+        "q3":           {"address": 16454, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVarh"}, # Q3Eq
+        "q4":           {"address": 16464, "count": 2, "type": "float32", "scale": 1.0, "unit": "kVarh"}, # Q4Eq
     }
 
     def read_all(self) -> Optional[Dict[str, float]]:

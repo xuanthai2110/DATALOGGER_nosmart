@@ -17,6 +17,13 @@ class PollingWorker(threading.Thread):
         self.interval = interval
         self.daemon = True
         self._stop_event = threading.Event()
+        
+        # Đặt lại trạng thái bận của các cổng truyền thông khi khởi động dịch vụ Polling
+        try:
+            for i in range(1, 6):
+                project_svc.metadata_db.set_setting(f"scanning_comm_{i}", "false")
+        except Exception as e:
+            logger.error(f"Failed to reset scanning status for comm ports: {e}")
 
     def stop(self):
         self._stop_event.set()

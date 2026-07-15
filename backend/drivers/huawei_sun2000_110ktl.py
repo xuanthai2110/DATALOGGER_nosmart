@@ -326,8 +326,24 @@ class Huaweisun2000110ktl(BaseDriver):
         """
         Đọc trạng thái và lỗi thô từ inverter Huawei:
         - Thanh ghi 32089 (Device Status)
-        - Thanh ghi 32090 (Fault Code)
+        - Thanh ghi 32008-32010 (Alarm Bitmasks 1, 2, 3)
         """
+        ALARM_1_BITS = {
+            0: 2001, 1: 2002, 2: 2011, 3: 2012, 4: 2013, 5: 2021, 6: 2031, 
+            7: 2032, 8: 2033, 9: 2034, 10: 2035, 11: 2036, 12: 2037, 13: 2038, 
+            14: 2039, 15: 2040
+        }
+        ALARM_2_BITS = {
+            0: 2051, 1: 2061, 2: 2062, 3: 2063, 4: 2064, 5: 2065, 6: 2066, 
+            7: 61440, 8: 2067, 9: 2068, 10: 2070, 11: 2071, 12: 2072, 13: 2075, 
+            14: 2077, 15: 2080
+        }
+        ALARM_3_BITS = {
+            0: 2081, 1: 2085, 2: 2014, 3: 2086, 4: 2069, 5: 2082, 6: 2015, 
+            7: 2087, 8: 2088, 9: 2089, 10: 2090, 11: 2091, 12: 2092, 13: 2003, 
+            14: 2093, 15: 2094
+        }
+
         # 1. Đọc Device Status (32089)
         res_state = self.transport.read_holding_registers(
             address=32089,
@@ -338,19 +354,39 @@ class Huaweisun2000110ktl(BaseDriver):
         if not res_state.isError():
             state_id = res_state.registers[0]
 
-        # 2. Đọc Fault (32090)
+        # 2. Đọc Alarms (32008 - 32010)
         res_fault = self.transport.read_holding_registers(
-            address=32090,
-            count=1,
+            address=32008,
+            count=3,
             slave=self.slave_id
         )
         fault_code = 0
+        active_faults = []
         if not res_fault.isError():
-            fault_code = res_fault.registers[0]
+            alarm_1, alarm_2, alarm_3 = res_fault.registers
+            
+            # Quét Alarm 1
+            for bit, alarm_id in ALARM_1_BITS.items():
+                if (alarm_1 >> bit) & 1:
+                    active_faults.append(alarm_id)
+            
+            # Quét Alarm 2
+            for bit, alarm_id in ALARM_2_BITS.items():
+                if (alarm_2 >> bit) & 1:
+                    active_faults.append(alarm_id)
+            
+            # Quét Alarm 3
+            for bit, alarm_id in ALARM_3_BITS.items():
+                if (alarm_3 >> bit) & 1:
+                    active_faults.append(alarm_id)
+                    
+            if active_faults:
+                fault_code = active_faults[0]
 
         return {
             "state_id": state_id,
-            "fault_code": fault_code
+            "fault_code": fault_code,
+            "active_faults": active_faults
         }
 
 

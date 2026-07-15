@@ -62,12 +62,10 @@ class Sungrowsg110cx(BaseDriver):
                 }
                 for i in range(1, 19)
             ],
-            # Chua co map thanh ghi stat day du trong repo cho Sungrow.
-            # Giu nhom nay de driver co cung giao dien voi Huawei.
             "stat": [
                 {"name": "temp_c", "address": 5007, "length": 1, "type": "sint16", "scale": 0.1},
                 {"name": "e_daily", "address": 5002, "length": 1, "type": "uint16", "scale": 0.1},
-                {"name": "e_total", "address": 5003, "length": 2, "type": "uint32", "scale": 1.0},
+                {"name": "e_total", "address": 5143, "length": 2, "type": "uint32", "scale": 0.1},
                 {"name": "ir", "address": 5070, "length": 1, "type": "uint16", "scale": 1.0},
             ],
             "control": [

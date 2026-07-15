@@ -101,14 +101,18 @@ async function saveAccount() {
 }
 
 async function deleteAccount(id) {
-    if (!confirm("Bạn có chắc chắn muốn xóa tài khoản này? (Chỉ xóa được nếu không có dự án nào đang liên kết)")) return;
-    
-    const res = await apiCall(`/server-accounts/${id}`, 'DELETE');
-    if (res && res.ok) {
-        loadAccounts();
-    } else {
-        alert(res?.error || "Không thể xóa tài khoản. Vui lòng kiểm tra lại (có thể đang có dự án sử dụng).");
-    }
+    showConfirmModal(
+        "Xác nhận xóa tài khoản", 
+        "Bạn có chắc chắn muốn xóa tài khoản này? (Chỉ xóa được nếu không có dự án nào đang liên kết)", 
+        async () => {
+            const res = await apiCall(`/server-accounts/${id}`, 'DELETE');
+            if (res && res.ok) {
+                loadAccounts();
+            } else {
+                alert(res?.error || "Không thể xóa tài khoản. Vui lòng kiểm tra lại (có thể đang có dự án sử dụng).");
+            }
+        }
+    );
 }
 
 // Hook vào initApp hoặc showView

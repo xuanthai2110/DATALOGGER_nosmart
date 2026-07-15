@@ -34,7 +34,7 @@ class BuildTeleWorker(threading.Thread):
     def run(self):
         logger.info(f"BuildTeleWorker started (Interval: {self.interval}s)")
         
-        last_periodic_run = 0
+        last_periodic_run = time.time()
         
         while not self._stop_event.is_set():
             try:
@@ -83,6 +83,10 @@ class BuildTeleWorker(threading.Thread):
             if not proj_meta or not proj_meta.server_id:
                 return
 
+            if getattr(proj_meta, "telemetry_mode", "Realtime") == "Offline":
+                logger.info(f"BuildTeleWorker: Project {project_id} is in Offline mode. Skipping outbox build.")
+                return
+
             invs = self.project_svc.get_inverters_by_project(project_id)
             active_invs = [inv for inv in invs if getattr(inv, "is_active", True)]
             inverter_ids = [inv.id for inv in active_invs]
@@ -96,6 +100,9 @@ class BuildTeleWorker(threading.Thread):
             if not all_disconnect and disconnect_notified:
                 self._disconnect_notified_projects.pop(project_id, None)
                 logger.info(f"BuildTeleWorker: Project {project_id} exited all DISCONNECT state. Resuming normal telemetry.")
+
+            if all_disconnect:
+                self._disconnect_notified_projects[project_id] = True
 
             payload_list = self.telemetry.build_payload_from_cache(
                 project_id, proj_meta.server_id, active_invs, self.cache_db

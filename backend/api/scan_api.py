@@ -4,6 +4,7 @@ Refactored to support background scanning and cancellation.
 """
 from fastapi import APIRouter, Body, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
+from typing import Optional
 from backend.services.setup_service import SetupService
 from dataclasses import asdict
 from backend.models.inverter import InverterCreate
@@ -26,18 +27,58 @@ def _get_driver_filename(brand: str, model: str) -> str:
     clean_model = model.lower().replace("-", "_").replace(".", "_")
     return f"{brand.lower()}_{clean_model}.py"
 
+def _find_comm_id(comm: dict) -> Optional[int]:
+    from typing import Optional
+    comm_id = comm.get("id")
+    if comm_id:
+        return int(comm_id)
+    try:
+        from backend.db_manager import MetadataDB
+        db = MetadataDB(app_config.METADATA_DB)
+        comms = db.get_comm_config()
+        for c in comms:
+            if c.comm_type == comm.get("comm_type"):
+                if c.comm_type == "TCP":
+                    if c.host == comm.get("host") and int(c.port) == int(comm.get("port", 502)):
+                        return c.id
+                else:
+                    if c.com_port and comm.get("com_port") and c.com_port.strip() == comm.get("com_port").strip():
+                        return c.id
+    except Exception as e:
+        logger.error(f"[Scan] Fallback comm lookup failed: {e}")
+    return None
+
 def normalize_type_code(tc):
-    if tc is None: return None
-    if isinstance(tc, int): return tc
+    if tc is None:
+        return set()
+    if isinstance(tc, int):
+        return {tc}
+    if isinstance(tc, set):
+        return tc
+    if isinstance(tc, list):
+        res = set()
+        for x in tc:
+            res.update(normalize_type_code(x))
+        return res
     if isinstance(tc, str):
         tc = tc.strip()
+        if "," in tc:
+            res = set()
+            for part in tc.split(","):
+                res.update(normalize_type_code(part.strip()))
+            return res
         if tc.lower().startswith("0x"):
-            try: return int(tc, 16)
-            except: pass
+            try:
+                return {int(tc, 16)}
+            except:
+                pass
         else:
-            try: return int(tc)
-            except: pass
-    return tc
+            try:
+                return {int(tc)}
+            except:
+                pass
+        return {tc}
+    return {tc}
 
 @router.get("/models")
 def get_models():
@@ -51,11 +92,12 @@ def get_models():
 
         return {
             "Sungrow": sorted(list(set(valid_sungrow))),
-            "Huawei": sorted(list(set(valid_huawei)))
+            "Huawei": sorted(list(set(valid_huawei))),
+            "GoodWe": ["GW80KMT"]
         }
     except Exception as e:
         logger.error(f"[scan/models] Error: {e}")
-        return {"Sungrow": [], "Huawei": []}
+        return {"Sungrow": [], "Huawei": [], "GoodWe": []}
 
 # Global state for scanning
 class ScanState:
@@ -80,6 +122,15 @@ def background_meter_scan(comm: dict):
     model = comm.get("model")
     slave_start = int(comm.get("slave_id_start", 1))
     slave_end = int(comm.get("slave_id_end", 30))
+    comm_id = _find_comm_id(comm)
+    
+    if comm_id:
+        try:
+            from backend.db_manager import MetadataDB
+            db = MetadataDB(app_config.METADATA_DB)
+            db.set_setting(f"scanning_comm_{comm_id}", "true")
+        except Exception as e:
+            logger.error(f"[MeterScan] Failed to set scanning status for comm {comm_id}: {e}")
     
     with meter_scan_state.lock:
         meter_scan_state.is_running = True
@@ -138,6 +189,13 @@ def background_meter_scan(comm: dict):
         if transport: transport.close()
         with meter_scan_state.lock:
             meter_scan_state.is_running = False
+        if comm_id:
+            try:
+                from backend.db_manager import MetadataDB
+                db = MetadataDB(app_config.METADATA_DB)
+                db.set_setting(f"scanning_comm_{comm_id}", "false")
+            except Exception as e:
+                logger.error(f"[MeterScan] Failed to clear scanning status for comm {comm_id}: {e}")
 
 @router.get("/meters/models")
 def get_meter_models():
@@ -248,6 +306,15 @@ def background_scan(comm: dict):
     model_selected = comm.get("model")
     slave_start = int(comm.get("slave_id_start", 1))
     slave_end = int(comm.get("slave_id_end", 30))
+    comm_id = _find_comm_id(comm)
+    
+    if comm_id:
+        try:
+            from backend.db_manager import MetadataDB
+            db = MetadataDB(app_config.METADATA_DB)
+            db.set_setting(f"scanning_comm_{comm_id}", "true")
+        except Exception as e:
+            logger.error(f"[Scan] Failed to set scanning status for comm {comm_id}: {e}")
     
     # Retrieve detect info if specified
     detect_info = None
@@ -291,10 +358,10 @@ def background_scan(comm: dict):
                         
                         # If detect info exists, match type_code before appending
                         if detect_info:
-                            hw_tc = normalize_type_code(info.get("type_code"))
-                            ex_tc = normalize_type_code(detect_info.get("type_code"))
+                            hw_tcs = normalize_type_code(info.get("type_code"))
+                            ex_tcs = normalize_type_code(detect_info.get("type_code"))
                             
-                            if hw_tc is not None and ex_tc is not None and hw_tc != ex_tc:
+                            if hw_tcs and ex_tcs and not (hw_tcs & ex_tcs):
                                 logger.warning(f"[Scan] Slave {slave_id} rejected: Hardware TypeCode {info.get('type_code')} != Expected {detect_info.get('type_code')}")
                                 continue  # Reject and move to next iteration
                             
@@ -304,6 +371,7 @@ def background_scan(comm: dict):
                                 if ";" in str_mppt:
                                     total_strings = sum(int(x) for x in str_mppt.split(";") if x.isdigit())
                                     info["strings_per_mppt"] = None  # Phức tạp nên không gán chung
+                                  
                                 else:
                                     spm = int(str_mppt)
                                     total_strings = spm * mppt_count
@@ -322,7 +390,7 @@ def background_scan(comm: dict):
                             info["brand"] = brand_selected
                             info["model"] = model_selected
                             
-                            logger.info(f"[Scan] TypeCode valid: {ex_tc}")
+                            logger.info(f"[Scan] TypeCode valid: {info.get('type_code')} in {detect_info.get('type_code')}")
 
                         info["slave_id"] = slave_id
                         with scan_state.lock:
@@ -347,6 +415,13 @@ def background_scan(comm: dict):
         with scan_state.lock:
             scan_state.is_running = False
             logger.info(f"[Scan] Finished. Found {len(scan_state.results)} inverters.")
+        if comm_id:
+            try:
+                from backend.db_manager import MetadataDB
+                db = MetadataDB(app_config.METADATA_DB)
+                db.set_setting(f"scanning_comm_{comm_id}", "false")
+            except Exception as e:
+                logger.error(f"[Scan] Failed to clear scanning status for comm {comm_id}: {e}")
 
 @router.post("/start")
 def start_scan(background_tasks: BackgroundTasks, body: dict = Body(default=None)):
@@ -423,7 +498,7 @@ def save_inverters(body: dict = Body(...)):
 def get_setup_service() -> SetupService:
     from backend.services.auth_service import AuthService
     svc = get_project_service()
-    auth = AuthService()
+    auth = AuthService(svc.metadata_db)
     return SetupService(auth, svc)
 
 @router.post("/sync")

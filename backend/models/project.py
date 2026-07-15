@@ -29,6 +29,7 @@ class ProjectCreate:
     server_account_id: Optional[int] = None
     evn_slave_id: Optional[int] = 1
     evn_project_id: Optional[int] = None
+    telemetry_mode: Optional[str] = "Realtime"
 
 
 # =========================
@@ -56,6 +57,7 @@ class ProjectUpdate:
     server_request_id: Optional[int] = None
     server_account_id: Optional[int] = None
     sync_status: Optional[str] = None
+    telemetry_mode: Optional[str] = None
 
     # ===== EVN =====
     evn_slave_id: Optional[int] = None
@@ -88,6 +90,7 @@ class ProjectResponse:
     server_request_id: Optional[int] = None
     server_account_id: Optional[int] = None
     sync_status: str = "pending"
+    telemetry_mode: Optional[str] = "Realtime"
 
     # ===== EVN =====
     evn_slave_id: Optional[int] = 0

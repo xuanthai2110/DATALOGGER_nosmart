@@ -5,7 +5,7 @@ UNIFIED_STATES = {
     6: "VẬN HÀNH CÓ CẢNH BÁO", 7: "GIẢM CÔNG SUẤT", 8: "VẬN HÀNH THEO LỆNH ĐIỀU ĐỘ", 9: "LỖI TRUYỀN THÔNG",
     10: "DỪNG KHẨN CẤP", 11: "DỪNG BẰNG NÚT", 12: "CHỜ KHỞI TẠO", 13: "ĐANG DÒ LƯỚI",
     14: "KIỂM TRA CÁCH ĐIỆN", 15: "TỰ KIỂM TRA", 16: "VẬN HÀNH ĐỘC LẬP", 17: "CHẾ ĐỘ BẢO TRÌ",
-    18: "ĐANG NÂNG CẤP", 19: "ĐANG TẮT", 20: "GIỚI HẠN CÔNG SUẤT", 21: "CHỜ PHỤC HỒI LƯỚI", 22: "NGỦ",23:"Phát hiện String bị hở mach"
+    18: "ĐANG NÂNG CẤP", 19: "ĐANG TẮT", 20: "GIỚI HẠN CÔNG SUẤT", 21: "CHỜ PHỤC HỒI LƯỚI", 22: "NGỦ", 23: "Phát hiện String bị hở mach", 24: "FAIL SAFE"
 }
 
 UNIFIED_FAULTS = {
@@ -15,11 +15,12 @@ UNIFIED_FAULTS = {
     1007: "MẤT ĐIỆN LƯỚI", 1008: "MẤT CÂN BẰNG ĐIỆN ÁP LƯỚI", 1009: "MẤT PHA LƯỚI",
     1010: "LƯỚI BẤT THƯỜNG", 1011: "QUÁ ĐIỆN ÁP LƯỚI 10 PHÚT", 1012: "KHÁNG TRỞ LƯỚI BẤT THƯỜNG",
     1013: "CÔNG SUẤT NGƯỢC LƯỚI", 1014: "MẤT KẾT NỐI LƯỚI", 1015: "BẢO VỆ LƯỚI KÍCH HOẠT",
+    1016: "GÓC PHA LƯỚI BẤT THƯỜNG", 1017: "LỖI BÁM ĐUỔI DÒNG ĐIỆN LƯỚI",
     # PIN MẶT TRỜI
     1101: "ĐẤU NGƯỢC PV", 1102: "QUÁ ĐIỆN ÁP PV", 1103: "LỖI CẤU HÌNH PV",
     1104: "ĐẦU VÀO PV BẤT THƯỜNG", 1105: "LỖI DÂY PV", 1106: "MẤT DÂY PV",
     1107: "DÂY PV KHÔNG CÂN BẰNG", 1108: "ĐIỆN ÁP PV THẤP", 1109: "QUÁ ĐIỆN ÁP BUS DC PV",
-    1110: "THẤP ĐIỆN ÁP BUS DC PV",
+    1110: "THẤP ĐIỆN ÁP BUS DC PV", 1112: "NHIỄU DC BẤT THƯỜNG",
     # ĐIỆN
     1201: "DÒNG RÒ", 1202: "KHÁNG TRỞ CÁCH ĐIỆN THẤP", 1203: "QUÁ TẢI AC",
     1204: "NGẮN MẠCH AC", 1205: "QUÁ DÒNG DC", 1206: "LỖI NỐI ĐẤT",
@@ -31,6 +32,7 @@ UNIFIED_FAULTS = {
     1401: "LỖI QUẠT", 1402: "LỖI SPD AC", 1403: "LỖI SPD DC", 1404: "LỖI RƠ LE",
     1405: "LỖI CÔNG TẮC TƠ", 1406: "LỖI CẢM BIẾN", 1407: "LỖI EEPROM",
     1408: "LỖI TRUYỀN THÔNG NỘI BỘ", 1409: "LỖI BOARD ĐIỀU KHIỂN", 1410: "LỖI MODULE CÔNG SUẤT",
+    1411: "LỖI NGUỒN NỘI BỘ THẤP ÁP",
     # TRUYỀN THÔNG
     1501: "LỖI TRUYỀN THÔNG", 1502: "LỖI TRUYỀN THÔNG ĐỒNG HỒ", 1503: "LỖI TRUYỀN THÔNG RS485",
     1504: "LỖI TRUYỀN THÔNG MODBUS", 1505: "LỖI TRUYỀN THÔNG ETHERNET", 1506: "LỖI TRUYỀN THÔNG CLOUD",
@@ -476,19 +478,139 @@ SUNGROW_FAULT_MAP = {
 
 HUAWEI_FAULT_MAP = {
     200: {"id_huawei": 200, "id_unified": 0, "name": "Vận hành bình thường", "severity": "STABLE", "repair_instruction": "Bình thường."},
-    201: {"id_huawei": 201, "id_unified": 1001, "name": "Quá điện áp lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra điện áp lưới."},
-    202: {"id_huawei": 202, "id_unified": 1003, "name": "Thấp điện áp lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra điện áp lưới."},
-    203: {"id_huawei": 203, "id_unified": 1005, "name": "Quá tần số lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra tần số."},
-    204: {"id_huawei": 204, "id_unified": 1006, "name": "Thấp tần số lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra tần số."},
-    205: {"id_huawei": 205, "id_unified": 1007, "name": "Mất điện lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra cầu dao AC."},
-    206: {"id_huawei": 206, "id_unified": 1009, "name": "Lỗi pha lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra thứ tự pha."},
-    2011: {"id_huawei": 2011, "id_unified": 1102, "name": "Quá điện áp DC", "severity": "ERROR", "repair_instruction": "Kiểm tra điện áp PV."},
-    2012: {"id_huawei": 2012, "id_unified": 1202, "name": "Lỗi cách điện DC", "severity": "ERROR", "repair_instruction": "Kiểm tra cách điện."},
-    2013: {"id_huawei": 2013, "id_unified": 1206, "name": "Lỗi nối đất", "severity": "ERROR", "repair_instruction": "Kiểm tra tiếp đất."},
-    2014: {"id_huawei": 2014, "id_unified": 1201, "name": "Dòng rò", "severity": "ERROR", "repair_instruction": "Kiểm tra dòng rò."},
-    2015: {"id_huawei": 2015, "id_unified": 1105, "name": "Lỗi dây PV", "severity": "WARNING", "repair_instruction": "Kiểm tra dây nối."},
-    2021: {"id_huawei": 2021, "id_unified": 1301, "name": "Quá nhiệt", "severity": "ERROR", "repair_instruction": "Kiểm tra thông gió."},
-    2022: {"id_huawei": 2022, "id_unified": 1401, "name": "Lỗi quạt", "severity": "WARNING", "repair_instruction": "Kiểm tra quạt."},
+    2034: {"id_huawei": 2034, "id_unified": 1001, "name": "Quá điện áp lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra điện áp lưới AC, cài đặt lại ngưỡng bảo vệ điện áp lưới."},
+    2033: {"id_huawei": 2033, "id_unified": 1003, "name": "Thấp điện áp lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối cáp AC và điện áp lưới điện."},
+    2036: {"id_huawei": 2036, "id_unified": 1005, "name": "Quá tần số lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra tần số lưới."},
+    2037: {"id_huawei": 2037, "id_unified": 1006, "name": "Thấp tần số lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra tần số lưới."},
+    2032: {"id_huawei": 2032, "id_unified": 1007, "name": "Mất điện lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra cầu dao AC và kết nối cáp AC."},
+    2031: {"id_huawei": 2031, "id_unified": 1009, "name": "Lỗi pha lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối các pha lưới và thứ tự pha."},
+    2001: {"id_huawei": 2001, "id_unified": 1102, "name": "Quá áp chuỗi PV", "severity": "ERROR", "repair_instruction": "Kiểm tra điện áp chuỗi PV, cấu hình số lượng tấm pin hợp lý."},
+    2002: {"id_huawei": 2002, "id_unified": 1601, "name": "Lỗi hồ quang DC", "severity": "ERROR", "repair_instruction": "Kiểm tra phóng hồ quang DC bên ngoài, vệ sinh giắc nối PV."},
+    2011: {"id_huawei": 2011, "id_unified": 1101, "name": "Đấu ngược PV", "severity": "ERROR", "repair_instruction": "Kiểm tra cực tính và dây nối PV."},
+    2012: {"id_huawei": 2012, "id_unified": 1105, "name": "Lỗi dây PV", "severity": "WARNING", "repair_instruction": "Kiểm tra kết nối dây PV."},
+    2013: {"id_huawei": 2013, "id_unified": 1104, "name": "Đầu vào PV bất thường", "severity": "WARNING", "repair_instruction": "Kiểm tra công suất đầu vào PV."},
+    2014: {"id_huawei": 2014, "id_unified": 1201, "name": "Dòng rò", "severity": "ERROR", "repair_instruction": "Kiểm tra dòng rò rỉ cách điện."},
+    2015: {"id_huawei": 2015, "id_unified": 1105, "name": "PV String Loss", "severity": "WARNING", "repair_instruction": "Kiểm tra kết nối các chuỗi PV."},
+    2021: {"id_huawei": 2021, "id_unified": 1702, "name": "AFCI Self-Check Fail", "severity": "ERROR", "repair_instruction": "Khởi động lại biến tần, liên hệ hãng nếu xảy ra thường xuyên."},
+    2051: {"id_huawei": 2051, "id_unified": 1201, "name": "Dòng rò rỉ cách điện", "severity": "ERROR", "repair_instruction": "Kiểm tra dòng rò rỉ cách điện AC."},
+    2061: {"id_huawei": 2061, "id_unified": 1206, "name": "Lỗi tiếp địa", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối tiếp địa biến tần."},
+    2062: {"id_huawei": 2062, "id_unified": 1202, "name": "Điện trở cách điện thấp", "severity": "ERROR", "repair_instruction": "Kiểm tra cách điện DC của hệ thống pin."},
+    2063: {"id_huawei": 2063, "id_unified": 1301, "name": "Quá nhiệt", "severity": "ERROR", "repair_instruction": "Kiểm tra làm mát, thông gió và quạt."},
+    2064: {"id_huawei": 2064, "id_unified": 1701, "name": "Lỗi thiết bị", "severity": "ERROR", "repair_instruction": "Khởi động lại biến tần, liên hệ nhà sản xuất nếu không khắc phục."},
+    2086: {"id_huawei": 2086, "id_unified": 1401, "name": "Lỗi quạt ngoài", "severity": "WARNING", "repair_instruction": "Kiểm tra quạt ngoài."},
+    2087: {"id_huawei": 2087, "id_unified": 1401, "name": "Lỗi quạt trong", "severity": "WARNING", "repair_instruction": "Kiểm tra quạt trong."},
+}
+
+SOLIS_STATE_MAP = {
+    # Trạng thái bình thường
+    0x0000: {"id_solis": 0x0000, "id_unified": 2, "name": "Chờ", "severity": "STABLE", "description": "Chế độ chờ (Waiting)"},
+    0x0001: {"id_solis": 0x0001, "id_unified": 1, "name": "Vận hành", "severity": "STABLE", "description": "Vận hành bình thường (OpenRun)"},
+    0x0002: {"id_solis": 0x0002, "id_unified": 3, "name": "Đang khởi động", "severity": "STABLE", "description": "Đang khởi động mềm (SoftRun)"},
+    0x0003: {"id_solis": 0x0003, "id_unified": 1, "name": "Đang phát điện", "severity": "STABLE", "description": "Đang phát điện hòa lưới (Generating)"},
+    0x1004: {"id_solis": 0x1004, "id_unified": 4, "name": "Mất lưới", "severity": "ERROR", "description": "Dừng do mất lưới điện (Grid off)"},
+
+    # Cảnh báo (Warning)
+    0xF010: {"id_solis": 0xF010, "id_unified": 6, "name": "Dao động lưới", "severity": "WARNING", "description": "Grid surge (Warning)"},
+    0xF011: {"id_solis": 0xF011, "id_unified": 6, "name": "Cảnh báo lỗi quạt", "severity": "WARNING", "description": "FAN fault (Warning)"},
+    0xF013: {"id_solis": 0xF013, "id_unified": 6, "name": "Lỗi chống sét AC", "severity": "WARNING", "description": "AC SPD ERROR (Warning)"},
+    0xF014: {"id_solis": 0xF014, "id_unified": 6, "name": "Lỗi chống sét DC", "severity": "WARNING", "description": "DC SPD ERROR (Warning)"},
+    0xF015: {"id_solis": 0xF015, "id_unified": 6, "name": "Cảnh báo lỗi quạt ngoài", "severity": "WARNING", "description": "Fan fault (Warning External)"},
+
+    # Lỗi hệ thống (Faults)
+    0x1010: {"id_solis": 0x1010, "id_unified": 5, "name": "Quá điện áp lưới", "severity": "ERROR", "description": "Grid Over Voltage"},
+    0x1011: {"id_solis": 0x1011, "id_unified": 5, "name": "Thấp điện áp lưới", "severity": "ERROR", "description": "Grid Under Voltage"},
+    0x1012: {"id_solis": 0x1012, "id_unified": 5, "name": "Quá tần số lưới", "severity": "ERROR", "description": "Grid Over Frequency"},
+    0x1013: {"id_solis": 0x1013, "id_unified": 5, "name": "Thấp tần số lưới", "severity": "ERROR", "description": "Grid Under Frequency"},
+    0x1014: {"id_solis": 0x1014, "id_unified": 5, "name": "Dòng ngược AC", "severity": "ERROR", "description": "Grid reverse"},
+    0x1015: {"id_solis": 0x1015, "id_unified": 5, "name": "Mất lưới", "severity": "ERROR", "description": "No Grid"},
+    0x1016: {"id_solis": 0x1016, "id_unified": 5, "name": "Mất cân bằng lưới", "severity": "ERROR", "description": "Grid Unbalance"},
+    0x1017: {"id_solis": 0x1017, "id_unified": 5, "name": "Tần số lưới biến động", "severity": "ERROR", "description": "Grid Frequency Fluctuation"},
+    0x1018: {"id_solis": 0x1018, "id_unified": 5, "name": "Quá dòng AC", "severity": "ERROR", "description": "Grid Over Current"},
+    0x1019: {"id_solis": 0x1019, "id_unified": 5, "name": "Lỗi bám đuổi dòng lưới", "severity": "ERROR", "description": "Grid current tracking fault"},
+
+    0x1020: {"id_solis": 0x1020, "id_unified": 5, "name": "Quá điện áp DC", "severity": "ERROR", "description": "DC Over Voltage"},
+    0x1021: {"id_solis": 0x1021, "id_unified": 5, "name": "Quá áp Bus DC", "severity": "ERROR", "description": "DC Bus Over Voltage"},
+    0x1022: {"id_solis": 0x1022, "id_unified": 5, "name": "Mất cân bằng Bus DC", "severity": "ERROR", "description": "DC Bus Unbalance"},
+    0x1023: {"id_solis": 0x1023, "id_unified": 5, "name": "Thấp áp Bus DC", "severity": "ERROR", "description": "DC Bus Under Voltage"},
+    0x1024: {"id_solis": 0x1024, "id_unified": 5, "name": "Mất cân bằng Bus DC 2", "severity": "ERROR", "description": "DC Bus Unbalance 2"},
+    0x1025: {"id_solis": 0x1025, "id_unified": 5, "name": "Quá dòng DC Kênh A", "severity": "ERROR", "description": "DC(Channel A) Over Current"},
+    0x1026: {"id_solis": 0x1026, "id_unified": 5, "name": "Quá dòng DC Kênh B", "severity": "ERROR", "description": "DC(Channel B) Over Current"},
+    0x1027: {"id_solis": 0x1027, "id_unified": 5, "name": "Nhiễu DC bất thường", "severity": "ERROR", "description": "DC interference"},
+    0x1028: {"id_solis": 0x1028, "id_unified": 5, "name": "Đấu ngược cực PV", "severity": "ERROR", "description": "DC reverse"},
+    0x1029: {"id_solis": 0x1029, "id_unified": 5, "name": "PV chạm đất điểm giữa", "severity": "ERROR", "description": "PV mid-point grounding"},
+
+    0x1030: {"id_solis": 0x1030, "id_unified": 5, "name": "Bảo vệ nhiễu lưới", "severity": "ERROR", "description": "The Grid Interference Protection"},
+    0x1031: {"id_solis": 0x1031, "id_unified": 5, "name": "Lỗi khởi tạo DSP", "severity": "ERROR", "description": "The DSP Initial Protection"},
+    0x1032: {"id_solis": 0x1032, "id_unified": 5, "name": "Quá nhiệt thiết bị", "severity": "ERROR", "description": "Temperature Protection"},
+    0x1033: {"id_solis": 0x1033, "id_unified": 5, "name": "Lỗi cách điện PV", "severity": "ERROR", "description": "PV Insulation fault"},
+    0x1034: {"id_solis": 0x1034, "id_unified": 5, "name": "Lỗi dòng rò rỉ", "severity": "ERROR", "description": "Leakage Current Protection"},
+    0x1035: {"id_solis": 0x1035, "id_unified": 5, "name": "Lỗi rơ-le AC", "severity": "ERROR", "description": "Relay Protection"},
+    0x1036: {"id_solis": 0x1036, "id_unified": 5, "name": "Lỗi bảo vệ DSP_B", "severity": "ERROR", "description": "DSP_B Protection"},
+    0x1037: {"id_solis": 0x1037, "id_unified": 5, "name": "Dòng DC Injection cao", "severity": "ERROR", "description": "DC Injection Protection"},
+    0x1038: {"id_solis": 0x1038, "id_unified": 5, "name": "Lỗi nguồn 12V thấp áp", "severity": "ERROR", "description": "12V Under Voltage Faulty"},
+    0x1039: {"id_solis": 0x1039, "id_unified": 5, "name": "Lỗi kiểm tra dòng rò", "severity": "ERROR", "description": "Leakage Current Check Protection"},
+    0x103A: {"id_solis": 0x103A, "id_unified": 5, "name": "Nhiệt độ quá thấp", "severity": "ERROR", "description": "Under temperature protection"},
+
+    0x1040: {"id_solis": 0x1040, "id_unified": 5, "name": "Lỗi kiểm tra AFCI", "severity": "ERROR", "description": "AFCI Check Fault"},
+    0x1041: {"id_solis": 0x1041, "id_unified": 5, "name": "Sự cố hồ quang AFCI", "severity": "ERROR", "description": "AFCI Fault"},
+    0x1042: {"id_solis": 0x1042, "id_unified": 5, "name": "Lỗi DSP SRAM", "severity": "ERROR", "description": "DSP SRAM Fault"},
+    0x1043: {"id_solis": 0x1043, "id_unified": 5, "name": "Lỗi DSP FLASH", "severity": "ERROR", "description": "DSP FLASH Fault"},
+    0x1044: {"id_solis": 0x1044, "id_unified": 5, "name": "Lỗi DSP PC Pointer", "severity": "ERROR", "description": "DSP PC pointer fault"},
+    0x1045: {"id_solis": 0x1045, "id_unified": 5, "name": "Lỗi DSP Critical Reg", "severity": "ERROR", "description": "DSP Critical Reg fault"},
+    0x1046: {"id_solis": 0x1046, "id_unified": 5, "name": "Bảo vệ nhiễu lưới 02", "severity": "ERROR", "description": "Grid INTF 02"},
+    0x1047: {"id_solis": 0x1047, "id_unified": 5, "name": "Lỗi lấy mẫu dòng AC", "severity": "ERROR", "description": "Grid current sampling error"},
+    0x1048: {"id_solis": 0x1048, "id_unified": 5, "name": "Quá dòng Module IGBT", "severity": "ERROR", "description": "IGBT over current"},
+
+    0x2011: {"id_solis": 0x2011, "id_unified": 24, "name": "Fail Safe", "severity": "ERROR", "description": "Fail Safe"},
+}
+
+SOLIS_FAULT_MAP = {
+    # Fault Status 01 (Thanh ghi 3067)
+    306700: {"id_solis": 306700, "id_unified": 1001, "name": "Quá điện áp lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra điện áp lưới AC, cài đặt lại ngưỡng bảo vệ điện áp lưới."},
+    306701: {"id_solis": 306701, "id_unified": 1003, "name": "Thấp điện áp lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối cáp AC và điện áp lưới điện."},
+    306702: {"id_solis": 306702, "id_unified": 1005, "name": "Quá tần số lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra tần số lưới điện khu vực."},
+    306703: {"id_solis": 306703, "id_unified": 1006, "name": "Thấp tần số lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra tần số lưới điện khu vực."},
+    306704: {"id_solis": 306704, "id_unified": 1013, "name": "Công suất ngược lưới", "severity": "WARNING", "repair_instruction": "Kiểm tra đấu nối và hệ thống EPM chống phát ngược."},
+    306705: {"id_solis": 306705, "id_unified": 1007, "name": "Mất điện lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra cầu dao AC, aptomat kết nối biến tần."},
+    306706: {"id_solis": 306706, "id_unified": 1008, "name": "Mất cân bằng điện áp lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra điện áp pha AC, đảm bảo cân bằng tải các pha lưới."},
+    306707: {"id_solis": 306707, "id_unified": 1010, "name": "Tần số lưới dao động", "severity": "WARNING", "repair_instruction": "Theo dõi chất lượng lưới điện."},
+    306708: {"id_solis": 306708, "id_unified": 1004, "name": "Quá dòng AC lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra tải đầu ra và ngắn mạch AC nếu có."},
+    306709: {"id_solis": 306709, "id_unified": 1017, "name": "Lỗi bám đuổi dòng điện lưới", "severity": "ERROR", "repair_instruction": "Liên hệ nhà sản xuất hỗ trợ kỹ thuật."},
+    306710: {"id_solis": 306710, "id_unified": 1016, "name": "Góc pha lưới bất thường", "severity": "ERROR", "repair_instruction": "Kiểm tra đấu nối pha AC, thứ tự pha lưới."},
+
+    # Fault Status 02 (Thanh ghi 3068)
+    306800: {"id_solis": 306800, "id_unified": 1102, "name": "Quá điện áp DC PV", "severity": "ERROR", "repair_instruction": "Kiểm tra số lượng tấm pin đấu nối tiếp trong string, giảm điện áp hở mạch PV xuống dưới ngưỡng cho phép."},
+    306801: {"id_solis": 306801, "id_unified": 1109, "name": "Quá điện áp Bus DC", "severity": "ERROR", "repair_instruction": "Liên hệ nhà sản xuất hỗ trợ kỹ thuật."},
+    306802: {"id_solis": 306802, "id_unified": 1107, "name": "Mất cân bằng Bus DC", "severity": "ERROR", "repair_instruction": "Liên hệ hỗ trợ kỹ thuật kiểm tra phần cứng thiết bị."},
+    306803: {"id_solis": 306803, "id_unified": 1110, "name": "Thấp điện áp Bus DC", "severity": "ERROR", "repair_instruction": "Kiểm tra điện áp PV đầu vào, đảm bảo đủ điện áp khởi động."},
+    306804: {"id_solis": 306804, "id_unified": 1107, "name": "Mất cân bằng Bus DC 2", "severity": "ERROR", "repair_instruction": "Liên hệ hỗ trợ kỹ thuật kiểm tra phần cứng thiết bị."},
+    306805: {"id_solis": 306805, "id_unified": 1205, "name": "Quá dòng DC Kênh A", "severity": "ERROR", "repair_instruction": "Kiểm tra cách điện PV, đấu nối dây PV."},
+    306806: {"id_solis": 306806, "id_unified": 1205, "name": "Quá dòng DC Kênh B", "severity": "ERROR", "repair_instruction": "Kiểm tra cách điện PV, đấu nối dây PV."},
+    306807: {"id_solis": 306807, "id_unified": 1112, "name": "Nhiễu DC bất thường", "severity": "ERROR", "repair_instruction": "Kiểm tra nguồn DC đầu vào."},
+    306808: {"id_solis": 306808, "id_unified": 1101, "name": "Đấu ngược cực tính PV", "severity": "ERROR", "repair_instruction": "Kiểm tra cực tính dây DC đầu vào của các string và cắm lại đúng cực dương/âm."},
+    306809: {"id_solis": 306809, "id_unified": 1206, "name": "PV chạm đất điểm giữa", "severity": "ERROR", "repair_instruction": "Kiểm tra rò rỉ cách điện DC của giàn pin mặt trời chạm vào giàn khung."},
+    306810: {"id_solis": 306810, "id_unified": 1107, "name": "Điện áp Bus không cân bằng", "severity": "ERROR", "repair_instruction": "Liên hệ nhà sản xuất hỗ trợ."},
+
+    # Fault Status 03 (Thanh ghi 3069)
+    306900: {"id_solis": 306900, "id_unified": 1015, "name": "Bảo vệ nhiễu lưới kích hoạt", "severity": "WARNING", "repair_instruction": "Kiểm tra biến động điện áp/tần số lưới."},
+    306901: {"id_solis": 306901, "id_unified": 1703, "name": "Lỗi khởi tạo bảo vệ DSP", "severity": "ERROR", "repair_instruction": "Tắt nguồn AC và DC, đợi 5 phút rồi bật lại để khởi động lại DSP."},
+    306902: {"id_solis": 306902, "id_unified": 1301, "name": "Quá nhiệt thiết bị", "severity": "ERROR", "repair_instruction": "Kiểm tra nhiệt độ môi trường xung quanh, vệ sinh cánh tản nhiệt và quạt làm mát biến tần."},
+    306903: {"id_solis": 306903, "id_unified": 1206, "name": "Lỗi chạm đất PV (Ground Fault)", "severity": "ERROR", "repair_instruction": "Kiểm tra rò rỉ cách điện phía DC, kiểm tra giàn khung PV."},
+    306904: {"id_solis": 306904, "id_unified": 1201, "name": "Lỗi bảo vệ dòng rò (Leakage Current)", "severity": "ERROR", "repair_instruction": "Kiểm tra dòng rò phía AC và DC, kiểm tra tiếp địa biến tần."},
+    306905: {"id_solis": 306905, "id_unified": 1404, "name": "Lỗi rơ-le bảo vệ (Relay Fault)", "severity": "ERROR", "repair_instruction": "Liên hệ nhà cung cấp bảo hành để sửa chữa hoặc thay thế rơ-le phần cứng."},
+    306906: {"id_solis": 306906, "id_unified": 1703, "name": "Lỗi bảo vệ DSP_B", "severity": "ERROR", "repair_instruction": "Khởi động lại biến tần, cập nhật firmware nếu cần."},
+    306907: {"id_solis": 306907, "id_unified": 1209, "name": "Thành phần dòng DC cao (DC Injection)", "severity": "ERROR", "repair_instruction": "Kiểm tra chất lượng lưới điện AC, liên hệ hãng nếu xảy ra thường xuyên."},
+    306908: {"id_solis": 306908, "id_unified": 1411, "name": "Lỗi nguồn 12V nội bộ thấp áp", "severity": "ERROR", "repair_instruction": "Liên hệ trung tâm dịch vụ sửa chữa bo mạch."},
+    306909: {"id_solis": 306909, "id_unified": 1201, "name": "Lỗi kiểm tra dòng rò rỉ", "severity": "ERROR", "repair_instruction": "Kiểm tra dòng rò và bo mạch cảm biến dòng rò."},
+    306910: {"id_solis": 306910, "id_unified": 1303, "name": "Nhiệt độ hoạt động quá thấp", "severity": "WARNING", "repair_instruction": "Kiểm tra nhiệt độ làm việc môi trường lắp đặt."},
+
+    # Fault Status 04 (Thanh ghi 3070)
+    307000: {"id_solis": 307000, "id_unified": 1601, "name": "Lỗi tự kiểm tra hồ quang AFCI", "severity": "ERROR", "repair_instruction": "Kiểm tra bo mạch AFCI, khởi động lại biến tần."},
+    307001: {"id_solis": 307001, "id_unified": 1601, "name": "Phát hiện sự cố phóng hồ quang AFCI", "severity": "ERROR", "repair_instruction": "Kiểm tra các mối nối cáp DC phía pin mặt trời để khắc phục tiếp xúc kém sinh tia lửa điện."},
+    307005: {"id_solis": 307005, "id_unified": 1703, "name": "Cảnh báo tự kiểm tra DSP", "severity": "WARNING", "repair_instruction": "Theo dõi hoạt động của thiết bị."},
+    307006: {"id_solis": 307006, "id_unified": 1015, "name": "Bảo vệ nhiễu lưới 02", "severity": "WARNING", "repair_instruction": "Kiểm tra chất lượng lưới điện AC."},
+    307007: {"id_solis": 307007, "id_unified": 1703, "name": "Lỗi lấy mẫu dòng điện lưới", "severity": "ERROR", "repair_instruction": "Kiểm tra bo mạch cảm biến dòng AC."},
+    307008: {"id_solis": 307008, "id_unified": 1410, "name": "Quá dòng module công suất IGBT", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối và bo mạch công suất, liên hệ bảo hành."},
 }
 
 # 
@@ -571,13 +693,55 @@ class FaultStateService:
     def __init__(self):
         self.state_maps = {
             "HUAWEI": HUAWEI_STATE_MAP,
-            "SUNGROW": SUNGROW_STATE_MAP
+            "SUNGROW": SUNGROW_STATE_MAP,
+            "SOLIS": SOLIS_STATE_MAP
             }
         self.fault_maps = {
             "HUAWEI": HUAWEI_FAULT_MAP,
-            "SUNGROW": SUNGROW_FAULT_MAP
+            "SUNGROW": SUNGROW_FAULT_MAP,
+            "SOLIS": SOLIS_FAULT_MAP
             }
-
+GOODWE_STATE_MAP = {
+    0: {"id_goodwe": 0, "id_unified": 12, "name": "CHỜ KHỞI TẠO", "severity": "STABLE", "description": "Thiết bị đang chờ hoặc tự kiểm tra (Waiting)"},
+    1: {"id_goodwe": 1, "id_unified": 1, "name": "ĐANG VẬN HÀNH", "severity": "STABLE", "description": "Thiết bị đang phát điện bình thường (Normal)"},
+    2: {"id_goodwe": 2, "id_unified": 5, "name": "LỖI", "severity": "ERROR", "description": "Thiết bị đang gặp sự cố hệ thống (Fault)"},
+    3: {"id_goodwe": 3, "id_unified": 18, "name": "ĐANG NÂNG CẤP", "severity": "WARNING", "description": "Thiết bị đang trong quá trình nạp phần mềm (Flash)"},
+    4: {"id_goodwe": 4, "id_unified": 2, "name": "CHỜ", "severity": "STABLE", "description": "Chế độ chờ tiết kiệm điện (Standby)"},
+}
+GOODWE_FAULT_MAP = {
+    1 << 0:  {"id_goodwe": 1 << 0,  "id_unified": 1703, "name": "Lỗi tự kiểm tra cảm biến GFCI", "severity": "ERROR", "repair_instruction": "Khởi động lại inverter, nếu không hết hãy liên hệ bảo hành."},
+    1 << 1:  {"id_goodwe": 1 << 1,  "id_unified": 1703, "name": "Lỗi kiểm tra cảm biến dòng AC (HCT)", "severity": "ERROR", "repair_instruction": "Khởi động lại inverter, nếu không hết hãy liên hệ bảo hành."},
+    1 << 2:  {"id_goodwe": 1 << 2,  "id_unified": 1411, "name": "Lỗi điện áp tham chiếu 1.5V", "severity": "ERROR", "repair_instruction": "Kiểm tra phần cứng hoặc bo mạch điều khiển."},
+    1 << 3:  {"id_goodwe": 1 << 3,  "id_unified": 1404, "name": "Lỗi công tắc DC", "severity": "ERROR", "repair_instruction": "Kiểm tra công tắc DC của inverter."},
+    1 << 4:  {"id_goodwe": 1 << 4,  "id_unified": 1403, "name": "Lỗi chống sét DC (SPD)", "severity": "WARNING", "repair_instruction": "Thay thế module chống sét DC đã hỏng."},
+    1 << 5:  {"id_goodwe": 1 << 5,  "id_unified": 1701, "name": "Lỗi nhà sản xuất (05)", "severity": "ERROR", "repair_instruction": "Liên hệ với bộ phận dịch vụ khách hàng."},
+    1 << 6:  {"id_goodwe": 1 << 6,  "id_unified": 1201, "name": "Lỗi dòng rò GFCI", "severity": "ERROR", "repair_instruction": "Kiểm tra dòng rò AC và kết nối tiếp địa."},
+    1 << 7:  {"id_goodwe": 1 << 7,  "id_unified": 1404, "name": "Lỗi rơ le", "severity": "ERROR", "repair_instruction": "Kiểm tra rơ le đầu ra AC hoặc bo mạch công suất."},
+    1 << 8:  {"id_goodwe": 1 << 8,  "id_unified": 1406, "name": "Lỗi cảm biến dòng AC (HCT)", "severity": "ERROR", "repair_instruction": "Kiểm tra cảm biến dòng điện đầu ra AC."},
+    1 << 9:  {"id_goodwe": 1 << 9,  "id_unified": 1007, "name": "Mất lưới điện (Utility Loss)", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối lưới, cầu dao AC và điện áp lưới điện."},
+    1 << 10: {"id_goodwe": 1 << 10, "id_unified": 1201, "name": "Lỗi dòng rò đất (Ground I Fail)", "severity": "ERROR", "repair_instruction": "Kiểm tra rò rỉ dòng điện từ hệ thống pin xuống đất."},
+    1 << 11: {"id_goodwe": 1 << 11, "id_unified": 1109, "name": "Điện áp Bus DC cao", "severity": "ERROR", "repair_instruction": "Kiểm tra cấu hình chuỗi pin mặt trời, giảm bớt tấm pin nếu quá áp."},
+    1 << 12: {"id_goodwe": 1 << 12, "id_unified": 1401, "name": "Lỗi quạt bên trong (Internal Fan Fail)", "severity": "WARNING", "repair_instruction": "Kiểm tra quạt tản nhiệt bên trong xem có bị kẹt hoặc hỏng dây không."},
+    1 << 13: {"id_goodwe": 1 << 13, "id_unified": 1301, "name": "Quá nhiệt độ thiết bị", "severity": "WARNING", "repair_instruction": "Kiểm tra thông gió xung quanh inverter, làm sạch bụi bẩn tấm tản nhiệt."},
+    1 << 14: {"id_goodwe": 1 << 14, "id_unified": 1701, "name": "Lỗi nhà sản xuất (14)", "severity": "ERROR", "repair_instruction": "Liên hệ dịch vụ kỹ thuật của hãng."},
+    1 << 15: {"id_goodwe": 1 << 15, "id_unified": 1102, "name": "Quá điện áp đầu vào PV", "severity": "ERROR", "repair_instruction": "Đo điện áp hở mạch chuỗi PV, đảm bảo không vượt ngưỡng định mức của inverter."},
+    1 << 16: {"id_goodwe": 1 << 16, "id_unified": 1401, "name": "Lỗi quạt bên ngoài (External Fan Fail)", "severity": "WARNING", "repair_instruction": "Kiểm tra quạt tản nhiệt bên ngoài inverter xem có bị kẹt hoặc hỏng."},
+    1 << 17: {"id_goodwe": 1 << 17, "id_unified": 1001, "name": "Lỗi điện áp lưới ngoài phạm vi (Vac Fail)", "severity": "ERROR", "repair_instruction": "Đo điện áp lưới AC, điều chỉnh giới hạn bảo vệ lưới nếu lưới điện dao động mạnh."},
+    1 << 18: {"id_goodwe": 1 << 18, "id_unified": 1202, "name": "Lỗi cách điện hệ thống PV (Isolation Fail)", "severity": "ERROR", "repair_instruction": "Kiểm tra đầu nối MC4, cáp DC xem có bị trầy xước, chạm chập hoặc bị ẩm."},
+    1 << 19: {"id_goodwe": 1 << 19, "id_unified": 1209, "name": "Thành phần dòng DC trong AC cao", "severity": "ERROR", "repair_instruction": "Khởi động lại inverter, nếu lỗi lặp lại liên hệ bộ phận hỗ trợ kĩ thuật."},
+    1 << 20: {"id_goodwe": 1 << 20, "id_unified": 1408, "name": "Lỗi truyền thông màn hình LCD", "severity": "WARNING", "repair_instruction": "Kiểm tra cáp kết nối màn hình LCD bên trong inverter."},
+    1 << 21: {"id_goodwe": 1 << 21, "id_unified": 1104, "name": "Quá dòng chuỗi PV (String Over Current)", "severity": "ERROR", "repair_instruction": "Kiểm tra đấu nối song song chuỗi pin PV, đảm bảo dòng điện trong giới hạn cho phép."},
+    1 << 22: {"id_goodwe": 1 << 22, "id_unified": 1101, "name": "Đấu ngược cực chuỗi PV", "severity": "ERROR", "repair_instruction": "Kiểm tra cực tính (+ / -) của các chuỗi pin mặt trời và đấu nối lại cho đúng."},
+    1 << 23: {"id_goodwe": 1 << 23, "id_unified": 1805, "name": "Lỗi phần cứng giới hạn công suất", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối và cấu hình của SmartMeter hoặc bộ điều khiển giới hạn công suất."},
+    1 << 24: {"id_goodwe": 1 << 24, "id_unified": 1206, "name": "Lỗi kết nối N-PE", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối dây Trung tính (N) và tiếp địa (PE) ở đầu ra AC."},
+    1 << 25: {"id_goodwe": 1 << 25, "id_unified": 1404, "name": "Lỗi tự kiểm tra rơ le (Relay Check Fail)", "severity": "ERROR", "repair_instruction": "Khởi động lại thiết bị, liên hệ hỗ trợ kỹ thuật nếu rơ le bị dính hoặc hỏng."},
+    1 << 26: {"id_goodwe": 1 << 26, "id_unified": 1204, "name": "Ngắn mạch L-PE", "severity": "ERROR", "repair_instruction": "Kiểm tra chạm mát giữa pha AC với dây tiếp địa."},
+    1 << 27: {"id_goodwe": 1 << 27, "id_unified": 1701, "name": "Lỗi nguồn phụ ban đêm (Night SPS Fail)", "severity": "ERROR", "repair_instruction": "Kiểm tra khối nguồn nuôi phụ SPS."},
+    1 << 28: {"id_goodwe": 1 << 28, "id_unified": 1601, "name": "Lỗi sự cố hồ quang DC (AFCI Fault)", "severity": "ERROR", "repair_instruction": "Kiểm tra tiếp xúc đầu nối MC4, cáp DC phía giàn pin xem có bị phóng điện hồ quang."},
+    1 << 29: {"id_goodwe": 1 << 29, "id_unified": 1005, "name": "Tần số lưới điện ngoài phạm vi", "severity": "ERROR", "repair_instruction": "Kiểm tra tần số lưới AC có ổn định không."},
+    1 << 30: {"id_goodwe": 1 << 30, "id_unified": 1407, "name": "Lỗi đọc/ghi bộ nhớ EEPROM", "severity": "ERROR", "repair_instruction": "Khởi động lại inverter, thay thế board điều khiển nếu chíp EEPROM bị hỏng."},
+    1 << 31: {"id_goodwe": 1 << 31, "id_unified": 1408, "name": "Lỗi truyền thông nội bộ (SPI Fail)", "severity": "ERROR", "repair_instruction": "Kiểm tra kết nối cáp dẹt truyền thông nội bộ giữa các board mạch bên trong."},
+}
 
 # ============================================================
 # ALIASES — dùng cho fault_service.py
@@ -587,12 +751,16 @@ class FaultStateService:
 FAULT_MAPS = {
     "HUAWEI": HUAWEI_FAULT_MAP,
     "SUNGROW": SUNGROW_FAULT_MAP,
+    "SOLIS": SOLIS_FAULT_MAP,
+    "GOODWE": GOODWE_FAULT_MAP,
 }
 
 # Dict theo brand: STATE_MAPS["HUAWEI"] -> HUAWEI_STATE_MAP
 STATE_MAPS = {
     "HUAWEI": HUAWEI_STATE_MAP,
     "SUNGROW": SUNGROW_STATE_MAP,
+    "SOLIS": SOLIS_STATE_MAP,
+    "GOODWE": GOODWE_STATE_MAP,
 }
 
 # Huawei Modbus: map raw status_code từ thanh ghi Modbus 

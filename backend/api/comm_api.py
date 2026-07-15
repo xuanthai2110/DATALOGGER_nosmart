@@ -21,6 +21,15 @@ def list_comm_configs(svc: CommService = Depends(get_comm_service)):
         logger.error(f"list_comm_configs error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/available-ports")
+def get_available_ports(svc: CommService = Depends(get_comm_service)):
+    """Lấy danh sách các cổng serial vật lý trên máy."""
+    try:
+        return svc.get_available_ports()
+    except Exception as e:
+        logger.error(f"get_available_ports error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/{config_id}", response_model=CommConfig)
 def get_comm_id(config_id: int, svc: CommService = Depends(get_comm_service)):
     """Lấy thông tin một cấu hình kết nối theo ID."""
@@ -112,11 +121,3 @@ def delete_comm(config_id: int, svc: CommService = Depends(get_comm_service)):
         logger.error(f"delete_comm_config error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/available-ports")
-def get_available_ports(svc: CommService = Depends(get_comm_service)):
-    """Lấy danh sách các cổng serial vật lý trên máy."""
-    try:
-        return svc.get_available_ports()
-    except Exception as e:
-        logger.error(f"get_available_ports error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))

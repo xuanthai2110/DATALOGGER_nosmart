@@ -90,6 +90,7 @@ def main():
         )
         
         # Start Threads
+        build_tele_worker.mqtt_sub = mqtt_sub
         poll_worker.start()
         logic_worker.start()
         persist_worker.start()

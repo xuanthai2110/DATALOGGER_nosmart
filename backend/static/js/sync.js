@@ -1,5 +1,6 @@
 let syncProjects = [];
 let currentUser = null;
+let syncPollInterval = null;
 
 async function loadSync() {
     console.log("loadSync called");

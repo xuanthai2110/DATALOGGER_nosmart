@@ -55,7 +55,7 @@ class Sungrowsg33cx(BaseDriver):
             "stat": [
                 {"name": "temp_c", "address": 5007, "length": 1, "type": "sint16", "scale": 0.1},
                 {"name": "e_daily", "address": 5002, "length": 1, "type": "uint16", "scale": 0.1},
-                {"name": "e_total", "address": 5003, "length": 2, "type": "uint32", "scale": 1.0},
+                {"name": "e_total", "address": 5143, "length": 2, "type": "uint32", "scale": 0.1},
                 {"name": "ir", "address": 5070, "length": 1, "type": "uint16", "scale": 1.0},
             ],
             "control": [

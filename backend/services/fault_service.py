@@ -26,6 +26,13 @@ class FaultService:
             self.inverter_brands[inv_id] = "SUNGROW"
         self.active_faults_map[inv_id] = set() # Điền vào từ db nếu cần history kỹ hơn
 
+    @staticmethod
+    def format_repair_instruction(brand: str, raw_fault: int, instruction: str) -> str:
+        brand = brand.upper()
+        if not instruction:
+            return f"mã lỗi {brand}: +{raw_fault}+"
+        return f"mã lỗi {brand}: +{raw_fault}+{instruction}"
+
     def get_inverter_status_payload(self, brand: str, raw_state: int, raw_fault: int, polling_time: str) -> list:
         brand = brand.upper()
         state_map = STATE_MAPS.get(brand, {})
@@ -39,10 +46,11 @@ class FaultService:
         if raw_fault != 0:
             fault_info = fault_map.get(raw_fault, {"id_unified": raw_fault, "name": f"ERROR_{raw_fault}", "severity": "ERROR"})
             fault_unified_code = fault_info.get("id_unified", raw_fault)
+            raw_inst = fault_info.get("repair_instruction", "")
             return [{
                 "fault_code": fault_unified_code,
                 "fault_description": UNIFIED_FAULTS.get(fault_unified_code, fault_info.get("name", f"ERROR_{raw_fault}")),
-                "repair_instruction": fault_info.get("repair_instruction", ""),
+                "repair_instruction": FaultService.format_repair_instruction(brand, raw_fault, raw_inst),
                 "severity": fault_info.get("severity", "ERROR"),
                 "created_at": polling_time
             }]

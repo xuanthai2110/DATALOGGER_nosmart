@@ -27,7 +27,8 @@ class CacheDB(BaseDB):
                 IR REAL, Temp_C REAL, P_ac REAL, Q_ac REAL,
                 V_a REAL, V_b REAL, V_c REAL, I_a REAL, I_b REAL, I_c REAL,
                 PF REAL, H REAL, E_daily REAL, E_total REAL,
-                delta_E_monthly REAL DEFAULT 0, E_monthly REAL DEFAULT 0, updated_at TEXT
+                delta_E_monthly REAL DEFAULT 0, E_monthly REAL DEFAULT 0, 
+                p_dc_w REAL DEFAULT 0, updated_at TEXT
             );
             """)
             # Migration cache DB cho các cột mới nếu trước đó chưa có
@@ -36,6 +37,8 @@ class CacheDB(BaseDB):
                 conn.execute("ALTER TABLE inverter_ac_cache ADD COLUMN E_monthly REAL DEFAULT 0")
             if "delta_E_monthly" not in cols:
                 conn.execute("ALTER TABLE inverter_ac_cache ADD COLUMN delta_E_monthly REAL DEFAULT 0")
+            if "p_dc_w" not in cols:
+                conn.execute("ALTER TABLE inverter_ac_cache ADD COLUMN p_dc_w REAL DEFAULT 0")
 
             # MPPT Cache
             conn.execute("""
@@ -120,17 +123,19 @@ class CacheDB(BaseDB):
                 INSERT INTO inverter_ac_cache (
                     inverter_id, project_id, IR, Temp_C, P_ac, Q_ac,
                     V_a, V_b, V_c, I_a, I_b, I_c, PF, H,
-                    E_daily, E_total, delta_E_monthly, E_monthly, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    E_daily, E_total, delta_E_monthly, E_monthly, p_dc_w, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(inverter_id) DO UPDATE SET
                     project_id=excluded.project_id, IR=excluded.IR, Temp_C=excluded.Temp_C, P_ac=excluded.P_ac, Q_ac=excluded.Q_ac,
                     V_a=excluded.V_a, V_b=excluded.V_b, V_c=excluded.V_c, I_a=excluded.I_a, I_b=excluded.I_b, I_c=excluded.I_c,
                     PF=excluded.PF, H=excluded.H, E_daily=excluded.E_daily, E_total=excluded.E_total,
                     delta_E_monthly=COALESCE(excluded.delta_E_monthly, inverter_ac_cache.delta_E_monthly),
-                    E_monthly=COALESCE(excluded.E_monthly, inverter_ac_cache.E_monthly), updated_at=excluded.updated_at
+                    E_monthly=COALESCE(excluded.E_monthly, inverter_ac_cache.E_monthly),
+                    p_dc_w=excluded.p_dc_w, updated_at=excluded.updated_at
             """, (inverter_id, project_id, data.get("ir"), data.get("temp_c"), data.get("p_inv_w"), data.get("q_inv_var"),
                   data.get("v_a"), data.get("v_b"), data.get("v_c"), data.get("i_a"), data.get("i_b"), data.get("i_c"),
-                  data.get("pf"), data.get("grid_hz"), data.get("e_daily"), data.get("e_total"), data.get("delta_E_monthly"), data.get("e_monthly"), now_str))
+                  data.get("pf"), data.get("grid_hz"), data.get("e_daily"), data.get("e_total"), data.get("delta_E_monthly"), data.get("e_monthly"),
+                  data.get("p_dc_w"), now_str))
 
     def update_ac_processed(self, inverter_id: int, e_monthly: float, delta_e: float):
         with self._connect() as conn:

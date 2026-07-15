@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solar Datalogger Premium</title>
+    <title>SolarVision Premium</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css?v=1.0.1">
 </head>
 
 <body>
@@ -16,10 +16,12 @@
     <!-- Login View -->
     <div id="login-view">
         <div class="login-card glass fade-in">
-            <h2 class="text-primary"><i class="fas fa-solar-panel"></i> Solar Datalogger</h2>
-            <div class="input-group"><label>Tài khoản</label><input type="text" id="username" value="admin"></div>
+            <div style="text-align:center; margin-bottom: 24px;"><img src="/static/img/logo.png" alt="SolarVision"
+                    style="max-width: 180px; height: auto;"></div>
+            <div class="input-group"><label>Tài khoản</label><input type="text" id="username"
+                    placeholder="Nhập tên đăng nhập"></div>
             <div class="input-group"><label>Mật khẩu</label><input type="password" id="password"
-                    value="adminpassword123"></div>
+                    placeholder="Nhập mật khẩu"></div>
             <button class="btn btn-primary" onclick="handleLogin()">ĐĂNG NHẬP</button>
         </div>
     </div>
@@ -27,14 +29,34 @@
     <!-- Main Application UI -->
     <div id="app-view" class="hidden">
         <nav id="sidebar" class="glass">
-            <div class="logo"><i class="fas fa-bolt"></i> SOLAR CONSOLE</div>
+            <div class="logo" style="flex-direction: column; gap: 4px;"><img src="/static/img/logo.png"
+                    alt="SolarVision" style="max-width: 100px; height: auto;"></div>
             <ul class="nav-list">
-                <li class="nav-item active" onclick="showView('overview')"><i class="fas fa-chart-line"></i> Dashboard
+                <li class="nav-item active" id="menu-overview" onclick="showView('overview')"><i
+                        class="fas fa-chart-line"></i> Dashboard</li>
+                <li class="nav-item" id="menu-sync" onclick="showView('sync')"><i class="fas fa-sync"></i> Đồng bộ</li>
+                <li class="nav-item" id="menu-accounts" onclick="showView('accounts')"><i class="fas fa-users-cog"></i>
+                    Tài khoản Cloud</li>
+                <li class="nav-item" id="menu-project-device" onclick="showView('project-device')"><i
+                        class="fas fa-tasks"></i> Thiết bị & Dự án</li>
+
+                <!-- Settings Dropdown Accordion -->
+                <li class="nav-item" id="menu-settings" onclick="toggleSettingsMenu()">
+                    <i class="fas fa-cog"></i> Settings
+                    <i class="fas fa-chevron-down"
+                        style="margin-left:auto; font-size:12px; transition:0.3s; transform: rotate(-90deg);"></i>
                 </li>
-                <li class="nav-item" onclick="showView('sync')"><i class="fas fa-sync"></i> Đồng bộ</li>
-                <li class="nav-item" onclick="showView('accounts')"><i class="fas fa-users-cog"></i> Tài khoản Cloud
-                </li>
-                <li class="nav-item" onclick="showView('settings')"><i class="fas fa-cog"></i> Settings</li>
+
+                <div class="submenu-container" id="settings-submenu" style="display: none;">
+                    <div class="sub-item" id="sub-plant" onclick="showView('plant')">Plant</div>
+                    <div class="sub-item" id="sub-ip" onclick="showView('ip')">IP</div>
+                    <div class="sub-item" id="sub-rs485" onclick="showView('rs485')">RS_485</div>
+                    <div class="sub-item" id="sub-ethernet" onclick="showView('ethernet')">Ethernet</div>
+                    <div class="sub-item" id="sub-diboard" onclick="showView('diboard')">DI_Board</div>
+                    <div class="sub-item" id="sub-digitalsensor" onclick="showView('digitalsensor')">Digital_Sensor
+                    </div>
+                    <div class="sub-item" id="sub-status" onclick="showView('status')">Status</div>
+                </div>
             </ul>
             <div class="nav-item" onclick="handleLogout()" style="margin-top:auto;"><i class="fas fa-power-off"></i>
                 Logout</div>
@@ -163,162 +185,113 @@
                 </div>
             </div>
 
-            <div id="view-settings" class="view-section hidden">
-                <div class="header">
-                    <h1>Quản lý thiết bị <span style="font-size:14px; opacity:0.6; font-weight:400;">(Lưu tại
-                            datalogger)</span></h1>
+            <!-- ================= VIEW: TRANG LỚN THIẾT BỊ & DỰ ÁN ================= -->
+            <div id="view-project-device" class="view-section hidden">
+                <div class="view-title-container">
+                    <h2 class="view-title"><i class="fas fa-tasks"></i> Thiết bị & Dự án</h2>
+                    <button class="btn btn-accent btn-sm" onclick="triggerRestart()"><i class="fas fa-redo"></i>
+                        Restart</button>
                 </div>
-                <div class="settings-grid">
-                    <div class="glass settings-section fade-in">
-                        <h2>Quản lý dự án</h2>
-                        <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
+
+                <!-- Phân tab bên trong trang lớn -->
+                <div class="inner-tabs-container">
+                    <div class="inner-tab active" id="btn-tab-proj" onclick="switchInnerTab('proj-tab')">Quản lý Dự án
+                    </div>
+                    <div class="inner-tab" id="btn-tab-dev" onclick="switchInnerTab('dev-tab')">Quản lý Thiết bị</div>
+                    <div class="inner-tab" id="btn-tab-evn" onclick="switchInnerTab('evn-tab')">Cấu hình EVN & VPN IPsec
+                    </div>
+                </div>
+
+                <!-- Tab content 1: Quản lý dự án -->
+                <div id="proj-tab" class="inner-tab-content active">
+                    <div class="config-card">
+                        <div class="card-header">Danh sách dự án</div>
+                        <div class="table-container" style="margin-bottom: 24px;">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Tên</th>
+                                        <th>Tên dự án</th>
                                         <th>Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody id="body-settings-projects"></tbody>
                             </table>
                         </div>
-                        <div id="form-project">
-                            <input type="hidden" id="proj-id">
-                            <div class="input-group"><label>Tài khoản Cloud liên kết *</label>
-                                <select id="proj-account-id">
-                                    <option value="1">Default Account</option>
-                                </select>
-                            </div>
-                            <div class="input-group"><label>Tên dự án *</label><input type="text" id="proj-name"
-                                    placeholder="Tên dự án..."></div>
-                            <div class="input-group"><label>Địa điểm *</label><input type="text" id="proj-loc"
-                                    placeholder="Địa chỉ dự án..."></div>
-                            <div class="form-row">
-                                <div class="input-group"><label>Vĩ độ (Lat)</label><input type="number" step="any"
-                                        id="proj-lat" value="0"></div>
-                                <div class="input-group"><label>Kinh độ (Lon)</label><input type="number" step="any"
-                                        id="proj-lon" value="0"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="input-group"><label>SBC Meter No *</label><input type="text" id="proj-meter"
-                                        placeholder="Số công tơ..."></div>
-                                <div class="input-group"><label>Giá điện *</label><input type="number" id="proj-price"
-                                        value="1783"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="input-group"><label>Capacity DC (kWp) *</label><input type="number"
-                                        step="0.1" id="proj-dc" value="0"></div>
-                                <div class="input-group"><label>Capacity AC (kW) *</label><input type="number"
-                                        step="0.1" id="proj-ac" value="0"></div>
-                            </div>
-                            <div class="input-group"><label>Số lượng Inverter</label><input type="number"
-                                    id="proj-inv-count" value="0"></div>
 
-                            <button class="btn btn-success" onclick="saveProject()">LƯU DỰ ÁN</button>
-                            <button class="btn" style="margin-top:8px;" onclick="resetProjectForm()">HỦY</button>
-                        </div>
-                    </div>
-                    <div class="glass settings-section fade-in" style="animation-delay:0.1s">
-                        <h2>Cấu hình truyền thông</h2>
-                        <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Driver</th>
-                                        <th>Type</th>
-                                        <th>Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="body-settings-comm"></tbody>
-                            </table>
-                        </div>
-                        <div id="form-comm">
-                            <input type="hidden" id="comm-id">
-                            <div class="form-row">
-                                <div class="input-group"><label>Thương hiệu (Brand)</label><select id="comm-brand"
-                                        onchange="updateModels()">
-                                        <option value="Sungrow">Sungrow</option>
-                                        <option value="Huawei">Huawei</option>
-                                    </select></div>
-                                <div class="input-group"><label>Model</label><select id="comm-model"></select></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="input-group"><label>Driver</label><select id="comm-driver">
-                                        <option value="Huawei">Huawei</option>
-                                        <option value="Sungrow">Sungrow</option>
-                                    </select></div>
-                                <div class="input-group"><label>Kiểu</label><select id="comm-type-select"
-                                        onchange="toggleCommFields()">
-                                        <option value="TCP">TCP</option>
-                                        <option value="RTU">RTU</option>
-                                    </select></div>
-                            </div>
-                            <div id="fields-tcp">
-                                <div class="form-row">
-                                    <div class="input-group"><label>Host</label><input type="text" id="comm-host"
-                                            value="192.168.1.10"></div>
-                                    <div class="input-group"><label>Port</label><input type="number" id="comm-port"
-                                            value="502"></div>
+                        <!-- Form Thêm / Sửa dự án -->
+                        <div id="project-form-container" class="hidden">
+                            <div class="card-header" style="margin-top: 20px;">Thêm / Sửa Dự án (Cấu hình Plant)</div>
+                            <div id="form-project">
+                                <input type="hidden" id="proj-id">
+                                <div class="input-group" style="margin-bottom: 20px;">
+                                    <label>Tài khoản Cloud liên kết *</label>
+                                    <select id="proj-account-id">
+                                        <option value="1">Default Account</option>
+                                    </select>
                                 </div>
-                            </div>
-                            <div id="fields-rtu" class="hidden">
-                                <div class="form-row">
+
+                                <div class="input-group" style="margin-bottom: 20px;">
+                                    <label>Tên dự án *</label>
+                                    <input type="text" id="proj-name" placeholder="Tên dự án...">
+                                </div>
+
+                                <div class="input-group" style="margin-bottom: 20px;">
+                                    <label>Địa điểm *</label>
+                                    <input type="text" id="proj-loc" placeholder="Địa chỉ dự án...">
+                                </div>
+
+                                <div class="form-grid" style="margin-bottom: 20px;">
                                     <div class="input-group">
-                                        <label>COM Port</label>
-                                        <div style="display:flex; gap:5px;">
-                                            <input type="text" id="comm-com" list="available-ports" value="/dev/ttyUSB0">
-                                            <datalist id="available-ports"></datalist>
-                                            <button class="action-btn" onclick="loadAvailablePorts()" title="Tải lại danh sách cổng"><i class="fas fa-sync"></i></button>
-                                        </div>
+                                        <label>Vĩ độ (Lat)</label>
+                                        <input type="number" step="any" id="proj-lat" value="0">
                                     </div>
-                                    <div class="input-group"><label>Baudrate</label><input type="number" id="comm-baud"
-                                             value="9600"></div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="input-group"><label>Databits</label><input type="number" id="comm-data"
-                                             value="8"></div>
-                                    <div class="input-group"><label>Parity</label><select id="comm-parity">
-                                             <option value="N">None</option>
-                                             <option value="E">Even</option>
-                                             <option value="O">Odd</option>
-                                         </select></div>
-                                </div>
-                                <div class="input-group"><label>Stopbits</label><input type="number" id="comm-stop"
-                                         value="1"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="input-group"><label>Slave ID Start</label><input type="number"
-                                         id="comm-start" value="1"></div>
-                                <div class="input-group"><label>Slave ID End</label><input type="number" id="comm-end"
-                                         value="10"></div>
-                            </div>
-                            <div id="scan-results" class="hidden glass" style="margin-bottom:16px; padding:16px;">
-                                <div
-                                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                    <span id="scan-status-text" style="font-size:12px; opacity:0.8">Đang quét...</span>
-                                    <button class="action-btn delete" id="btn-stop-scan" onclick="stopScan()"
-                                        title="Dừng quét"><i class="fas fa-stop"></i></button>
-                                </div>
-                                <div
-                                    style="height:4px; background:rgba(255,255,255,0.1); border-radius:10px; margin-bottom:15px; overflow:hidden;">
-                                    <div id="scan-progress-bar"
-                                        style="width:0%; height:100%; background:var(--primary); transition:0.3s;">
+                                    <div class="input-group">
+                                        <label>Kinh độ (Lon)</label>
+                                        <input type="number" step="any" id="proj-lon" value="0">
                                     </div>
                                 </div>
-                                <div id="scan-list" style="max-height:200px; overflow-y:auto; font-size:13px;"></div>
+
+                                <div class="form-grid" style="margin-bottom: 20px;">
+                                    <div class="input-group">
+                                        <label>SBC Meter No *</label>
+                                        <input type="text" id="proj-meter" placeholder="Số công tơ...">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Giá điện *</label>
+                                        <input type="number" id="proj-price" value="1783">
+                                    </div>
+                                </div>
+
+                                <div class="form-grid" style="margin-bottom: 20px;">
+                                    <div class="input-group">
+                                        <label>Capacity DC (kWp) *</label>
+                                        <input type="number" step="0.1" id="proj-dc" value="0">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Capacity AC (kW) *</label>
+                                        <input type="number" step="0.1" id="proj-ac" value="0">
+                                    </div>
+                                </div>
+
+                                <div class="input-group" style="margin-bottom: 20px;">
+                                    <label>Số lượng Inverter</label>
+                                    <input type="number" id="proj-inv-count" value="0">
+                                </div>
+
+                                <div class="button-bar">
+                                    <button class="btn btn-secondary" onclick="resetProjectForm()">Hủy</button>
+                                    <button class="btn btn-primary" onclick="saveProject()">Lưu Dự Án</button>
+                                </div>
                             </div>
-                            <div class="form-row" style="margin-bottom:12px;">
-                                <button class="btn btn-primary" onclick="startScan()" id="btn-scan"><i
-                                         class="fas fa-search"></i> QUÉT THIẾT BỊ</button>
-                                <button class="btn btn-success" onclick="saveComm()" id="btn-save-comm">LƯU TRUYỀN
-                                    THÔNG</button>
-                            </div>
-                            <button class="btn" onclick="resetCommForm()">HỦY</button>
                         </div>
                     </div>
-                    <div class="glass settings-section fade-in" style="animation-delay:0.2s">
-                        <h2>Quản lý Inverter <span style="font-size:12px; opacity:0.6;"></span></h2>
+                </div>
 
+                <!-- Tab content 2: Quản lý Thiết bị & Auto-Scan -->
+                <div id="dev-tab" class="inner-tab-content">
+                    <!-- Quản lý Inverter -->
+                    <div class="config-card">
+                        <div class="card-header">Quản lý Inverter</div>
                         <div class="input-group">
                             <label>Chọn dự án để xem Inverters</label>
                             <select id="inv-mgmt-project-filter" onchange="renderInvertersByProject()">
@@ -326,7 +299,7 @@
                             </select>
                         </div>
 
-                        <div style="max-height: 250px; overflow-y: auto; margin-bottom: 24px;">
+                        <div class="table-container" style="margin-bottom: 24px;">
                             <table>
                                 <thead>
                                     <tr>
@@ -345,41 +318,44 @@
                         </div>
 
                         <div id="form-inverter" class="hidden glass"
-                            style="padding: 20px; border: 1px solid var(--primary); margin-top: 10px;">
+                            style="padding: 20px; border: 1px solid var(--primary); margin-top: 10px; margin-bottom: 20px; border-radius: 12px;">
                             <h3 style="margin-bottom:15px; font-size:16px; color:var(--primary)">Chỉnh sửa Inverter</h3>
                             <input type="hidden" id="inv-id">
 
-                            <div class="form-row">
+                            <div class="form-row" style="margin-bottom: 15px;">
                                 <div class="input-group"><label>Dự án</label><select id="inv-proj-select"></select>
                                 </div>
                                 <div class="input-group"><label>Truyền thông</label><select
                                         id="inv-comm-select"></select></div>
                             </div>
 
-                            <div class="form-row">
+                            <div class="form-row" style="margin-bottom: 15px;">
                                 <div class="input-group"><label>Số Serial (SN) *</label><input type="text" id="inv-sn">
                                 </div>
                                 <div class="input-group"><label>Slave ID *</label><input type="number" id="inv-slave">
                                 </div>
+                                <div class="input-group"><label>Inverter Index</label><input type="number"
+                                        id="inv-index"></div>
                             </div>
 
-                            <div class="form-row">
+                            <div class="form-row" style="margin-bottom: 15px;">
                                 <div class="input-group"><label>Hãng (Brand)</label><input type="text" id="inv-brand">
                                 </div>
                                 <div class="input-group"><label>Model</label><input type="text" id="inv-model"></div>
                             </div>
 
-                            <div class="form-row">
+                            <div class="form-row" style="margin-bottom: 15px;">
                                 <div class="input-group"><label>Công suất (kW) *</label><input type="number" step="0.1"
-                                         id="inv-cap"></div>
+                                        id="inv-cap"></div>
+                                <div class="input-group"><label>Công suất DC (kWp)</label><input type="number"
+                                        step="0.1" id="inv-dc"></div>
                                 <div class="input-group"><label>Số pha</label><input type="number" id="inv-phase"></div>
                             </div>
 
                             <div style="display:flex; flex-direction: column; gap:10px;">
                                 <div style="display:flex; gap:10px;">
                                     <button class="btn btn-success" onclick="saveInverter()">CẬP NHẬT TRÊN PI</button>
-                                    <button class="btn" style="background:rgba(255,255,255,0.05)"
-                                        onclick="resetInverterForm()">ĐÓNG</button>
+                                    <button class="btn btn-secondary" onclick="resetInverterForm()">ĐÓNG</button>
                                 </div>
                                 <button class="btn btn-danger"
                                     style="background:rgba(239, 68, 68, 0.15); color:var(--danger); border: 1px solid var(--danger);"
@@ -387,15 +363,65 @@
                             </div>
                         </div>
                     </div>
-                    <div class="glass settings-section fade-in" style="animation-delay:0.3s">
-                        <h2>Quản lý Meter <span style="font-size:12px; opacity:0.6;">(Công tơ)</span></h2>
+
+                    <!-- Quét Inverter Tự Động -->
+                    <div class="config-card">
+                        <div class="card-header">Quét Inverter Tự Động</div>
+                        <div class="form-row" style="margin-bottom: 15px;">
+                            <div class="input-group"><label>Truyền thông</label><select
+                                    id="inv-scan-comm-select"></select></div>
+                            <div class="input-group">
+                                <label>Chọn Driver Inverter</label>
+                                <select id="inv-scan-driver-select">
+                                    <option value="huawei_sun2000_110ktl">Huawei SUN2000-110KTL</option>
+                                    <option value="sungrow_sg33cx">Sungrow SG33CX</option>
+                                    <option value="sungrow_sg50cx">Sungrow SG50CX</option>
+                                    <option value="sungrow_sg110cx">Sungrow SG110CX</option>
+                                    <option value="solis_110k">Solis 110K</option>
+                                    <option value="canadian_csi110KTL1400GL02E">Canadian CSI-110KTL</option>
+                                    <option value="goodwe_gw80kmt">GoodWe GW80KMT</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-bottom: 15px;">
+                            <div class="input-group"><label>Slave Start</label><input type="number" id="inv-scan-start"
+                                    value="1"></div>
+                            <div class="input-group"><label>Slave End</label><input type="number" id="inv-scan-end"
+                                    value="30"></div>
+                        </div>
+                        <button class="btn btn-primary" onclick="startInverterScan()" id="btn-scan-inverter"
+                            style="margin-bottom: 15px;"><i class="fas fa-search"></i> QUÉT INVERTER</button>
+
+                        <div id="inverter-scan-results" class="hidden glass"
+                            style="margin-bottom:16px; padding:16px; border-radius: 12px;">
+                            <div
+                                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span id="inverter-scan-status-text" style="font-size:12px; opacity:0.8">Đang
+                                    quét...</span>
+                                <button class="action-btn delete" id="btn-stop-scan-inverter"
+                                    onclick="stopInverterScan()" title="Dừng quét"><i class="fas fa-stop"></i></button>
+                            </div>
+                            <div
+                                style="height:4px; background:rgba(255,255,255,0.1); border-radius:10px; margin-bottom:15px; overflow:hidden;">
+                                <div id="inverter-scan-progress-bar"
+                                    style="width:0%; height:100%; background:var(--primary); transition:0.3s;"></div>
+                            </div>
+                            <div id="inverter-scan-list"
+                                style="max-height:250px; overflow-y:auto; font-size:13px; display:flex; flex-direction:column; gap:10px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quản lý Meter (Công tơ) -->
+                    <div class="config-card">
+                        <div class="card-header">Quản lý Meter (Công tơ)</div>
                         <div class="input-group">
                             <label>Chọn dự án</label>
                             <select id="meter-mgmt-project-filter" onchange="renderMetersByProject()">
                                 <option value="">-- Chọn dự án --</option>
                             </select>
                         </div>
-                        <div style="max-height: 200px; overflow-y: auto; margin-bottom: 24px;">
+                        <div class="table-container" style="margin-bottom: 24px;">
                             <table>
                                 <thead>
                                     <tr>
@@ -407,84 +433,962 @@
                                 </thead>
                                 <tbody id="body-settings-meters">
                                     <tr>
-                                        <td colspan="4" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...</td>
+                                        <td colspan="4" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
 
-                        <div id="form-meter" class="hidden glass" style="padding: 15px; border: 1px solid var(--primary); margin-bottom: 20px;">
-                            <h3 style="margin-bottom:15px; font-size:14px; color:var(--primary)">Thêm / Sửa Meter</h3>
+                        <div id="form-meter" class="hidden glass"
+                            style="padding: 20px; border: 1px solid var(--border); margin-bottom: 20px; border-radius: 12px;">
+                            <h3 style="margin-bottom:15px; font-size:16px; color:var(--primary)" id="form-meter-title">
+                                Thêm Meter Mới</h3>
                             <input type="hidden" id="meter-id">
-                            <div class="form-row">
-                                <div class="input-group"><label>Dự án</label><select id="meter-proj-select"></select></div>
-                                <div class="input-group"><label>Truyền thông</label><select id="meter-comm-select"></select></div>
+
+                            <div class="form-row" style="margin-bottom: 15px;">
+                                <div class="input-group"><label>Dự án</label><select id="meter-proj-select"
+                                        disabled></select></div>
+                                <div class="input-group"><label>Truyền thông</label><select
+                                        id="meter-comm-select"></select></div>
                             </div>
-                            <div class="form-row">
-                                <div class="input-group"><label>Số Serial (SN)</label><input type="text" id="meter-sn"></div>
-                                <div class="input-group"><label>Slave ID</label><input type="number" id="meter-slave" value="1"></div>
+
+                            <div class="form-row" style="margin-bottom: 15px;">
+                                <div class="input-group">
+                                    <label>Chọn Driver Meter</label>
+                                    <select id="meter-driver-select" onchange="handleMeterDriverChange()">
+                                        <option value="chint_dtsu666">Chint DTSU666</option>
+                                        <option value="chint_dssu666">Chint DSSU666</option>
+                                        <option value="acrel_dtsd1352-c">Acrel DTSD1352-C</option>
+                                        <option value="eastron_sdm630mct">Eastron SDM630MCT</option>
+                                        <option value="huawei_dtsu666-h">Huawei DTSU666-H</option>
+                                        <option value="schneider_pm5350">Schneider PM5350</option>
+                                        <option value="janitza_b23">Janitza B23</option>
+                                        <option value="janitza_umg96rm-e">Janitza UMG96RM-E</option>
+                                    </select>
+                                </div>
+                                <div class="input-group"><label>Slave ID</label><input type="number" id="meter-slave"
+                                        value="1"></div>
                             </div>
-                            <div class="form-row">
-                                <div class="input-group"><label>Hãng (Brand)</label><input type="text" id="meter-brand" value="Chint"></div>
-                                <div class="input-group"><label>Model</label><input type="text" id="meter-model" value="DTSU666"></div>
+
+                            <div class="form-row" style="margin-bottom: 15px;">
+                                <div class="input-group"><label>Số Serial (SN) (Không bắt buộc)</label><input
+                                        type="text" id="meter-sn" placeholder="Tự động tạo nếu để trống"></div>
+                                <input type="hidden" id="meter-brand" value="Chint">
+                                <input type="hidden" id="meter-model" value="DTSU666">
                             </div>
+
                             <div style="display:flex; gap:10px;">
                                 <button class="btn btn-success" onclick="saveMeter()">LƯU METER</button>
-                                <button class="btn" style="background:rgba(255,255,255,0.05)" onclick="resetMeterForm()">HỦY</button>
+                                <button class="btn btn-secondary" onclick="resetMeterForm()">LÀM MỚI</button>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <h3 style="font-size:14px; margin-bottom:10px;">Scan Meter Tự Động</h3>
-                        <div class="form-row">
-                            <div class="input-group"><label>Truyền thông</label><select id="meter-scan-comm-select"></select></div>
+                <!-- Tab content 3: Cấu hình EVN & VPN IPsec -->
+                <div id="evn-tab" class="inner-tab-content">
+                    <!-- 1. Đẩy dữ liệu Modbus TCP cho EVN -->
+                    <div class="config-card">
+                        <div class="card-header">1. Đẩy dữ liệu Modbus TCP cho EVN (Local Server)</div>
+                        <div class="input-group"
+                            style="flex-direction: row; align-items: center; gap: 10px; margin-bottom: 20px;">
+                            <label style="margin:0;">Kích hoạt đẩy EVN Modbus TCP</label>
+                            <input type="checkbox" id="evn-enabled" style="width: auto; margin:0;">
                         </div>
-                        <div class="form-row">
-                            <div class="input-group">
-                                <label>Thương hiệu</label>
-                                <select id="meter-scan-brand">
-                                    <option value="Chint">Chint</option>
-                                    <option value="Acrel">Acrel</option>
-                                </select>
-                            </div>
-                            <div class="input-group">
-                                <label>Model</label>
-                                <select id="meter-scan-model">
-                                    <option value="DTSU666">DTSU666</option>
-                                    <option value="DTSD1352">DTSD1352</option>
-                                </select>
+                        <div class="form-grid">
+                            <div class="input-group"><label>Host (Listen IP)</label><input type="text" id="evn-host"
+                                    value="0.0.0.0"></div>
+                            <div class="input-group"><label>Port</label><input type="number" id="evn-port" value="502">
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="input-group"><label>Slave Start</label><input type="number" id="meter-scan-start" value="1"></div>
-                            <div class="input-group"><label>Slave End</label><input type="number" id="meter-scan-end" value="20"></div>
-                        </div>
-                        <button class="btn btn-primary" onclick="startMeterScan()" id="btn-scan-meter" style="width:100%; margin-bottom: 15px;"><i class="fas fa-search"></i> QUÉT METER</button>
-                        
-                        <div id="meter-scan-results" class="hidden glass" style="margin-bottom:16px; padding:16px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                <span id="meter-scan-status-text" style="font-size:12px; opacity:0.8">Đang quét...</span>
-                                <button class="action-btn delete" id="btn-stop-scan-meter" onclick="stopMeterScan()" title="Dừng quét"><i class="fas fa-stop"></i></button>
-                            </div>
-                            <div style="height:4px; background:rgba(255,255,255,0.1); border-radius:10px; margin-bottom:15px; overflow:hidden;">
-                                <div id="meter-scan-progress-bar" style="width:0%; height:100%; background:var(--primary); transition:0.3s;"></div>
-                            </div>
-                            <div id="meter-scan-list" style="max-height:200px; overflow-y:auto; font-size:13px;"></div>
+                        <div class="button-bar">
+                            <button class="btn btn-primary" onclick="saveEVNConfig()">Lưu Cấu Hình EVN</button>
                         </div>
                     </div>
 
-                    <div class="glass settings-section fade-in" style="animation-delay:0.4s">
-                        <h2>Cấu hình EVN <span style="font-size:12px; opacity:0.6;">(Đẩy dữ liệu Modbus TCP)</span></h2>
-                        <div id="form-evn" class="glass" style="padding: 20px; border: 1px solid var(--primary);">
-                            <div class="input-group" style="flex-direction: row; align-items: center; gap: 10px; margin-bottom: 15px;">
-                                <label style="margin:0;">Kích hoạt đẩy EVN</label>
-                                <input type="checkbox" id="evn-enabled" style="width: auto; margin:0;">
-                            </div>
-                            <div class="form-row">
-                                <div class="input-group"><label>Host (Listen IP)</label><input type="text" id="evn-host" placeholder="0.0.0.0"></div>
-                                <div class="input-group"><label>Port</label><input type="number" id="evn-port" placeholder="502"></div>
-                            </div>
-                            <button class="btn btn-success" onclick="saveEVNConfig()">LƯU CẤU HÌNH EVN</button>
+                    <!-- 2. Cấu hình IPsec VPN Client kết nối EVN -->
+                    <div class="config-card">
+                        <div class="card-header">2. Cấu hình IPsec VPN Client kết nối EVNNPC</div>
+                        <div class="input-group"
+                            style="flex-direction: row; align-items: center; gap: 10px; margin-bottom: 20px;">
+                            <label style="margin:0;">Kích hoạt kết nối VPN IPsec</label>
+                            <input type="checkbox" id="vpn-enabled" checked onchange="toggleVPNInputs()"
+                                style="width: auto; margin:0;">
                         </div>
+
+                        <div
+                            style="font-size:14.5px; font-weight:700; color:var(--primary); margin: 20px 0 10px 0; border-left:3px solid var(--primary); padding-left:10px;">
+                            VPN Connection Settings:</div>
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Listening interface (IP Gateway đầu xa)</label>
+                                <input type="text" id="vpn-gateway" value="116.212.47.2">
+                            </div>
+                            <div class="input-group">
+                                <label>Preshared key</label>
+                                <input type="password" id="vpn-psk" value="Hdang@0526">
+                            </div>
+                            <div class="input-group">
+                                <label>Local ID</label>
+                                <input type="text" id="vpn-local-id" value="Sophos_EVN">
+                            </div>
+                            <div class="input-group">
+                                <label>Remote ID</label>
+                                <input type="text" id="vpn-remote-id" value="HNM_Hdang">
+                            </div>
+                            <div class="input-group">
+                                <label>Local subnet</label>
+                                <input type="text" id="vpn-local-subnet" value="10.21.10.64/27">
+                            </div>
+                            <div class="input-group">
+                                <label>Remote subnet</label>
+                                <input type="text" id="vpn-remote-subnet" value="10.43.248.76/30">
+                            </div>
+                        </div>
+
+                        <div
+                            style="font-size:14.5px; font-weight:700; color:var(--primary); margin: 30px 0 10px 0; border-left:3px solid var(--primary); padding-left:10px;">
+                            IPSEC Parameters (IKE & Phase Configurations):</div>
+                        <div class="form-grid" style="margin-bottom: 20px;">
+                            <div class="input-group">
+                                <label>Key Exchange</label>
+                                <select id="vpn-key-exchange">
+                                    <option value="IKEv1">IKEv1</option>
+                                    <option value="IKEv2" selected>IKEv2</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Authentication Mode</label>
+                                <select id="vpn-auth-mode">
+                                    <option value="main" selected>Main mode</option>
+                                    <option value="aggressive">Aggressive mode</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div
+                            style="font-size:13.5px; font-weight:600; color:var(--text); margin: 20px 0 10px 0; opacity:0.8;">
+                            Phase 1:</div>
+                        <div class="form-grid-3" style="margin-bottom: 20px;">
+                            <div class="input-group">
+                                <label>Key Life (s)</label>
+                                <input type="number" id="vpn-p1-life" value="28800">
+                            </div>
+                            <div class="input-group">
+                                <label>Re-key Margin (s)</label>
+                                <input type="number" id="vpn-p1-margin" value="360">
+                            </div>
+                            <div class="input-group">
+                                <label>DH Group (Key Group)</label>
+                                <select id="vpn-p1-dh">
+                                    <option value="2">Group 2 (DH1024)</option>
+                                    <option value="5">Group 5 (DH1536)</option>
+                                    <option value="14" selected>Group 14 (DH2048)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Encryption</label>
+                                <select id="vpn-p1-enc">
+                                    <option value="3des">3DES</option>
+                                    <option value="aes128">AES128</option>
+                                    <option value="aes256" selected>AES256</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Authentication</label>
+                                <select id="vpn-p1-auth">
+                                    <option value="md5">MD5</option>
+                                    <option value="sha1">SHA1</option>
+                                    <option value="sha256" selected>SHA2 256</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div
+                            style="font-size:13.5px; font-weight:600; color:var(--text); margin: 25px 0 10px 0; opacity:0.8;">
+                            Phase 2:</div>
+                        <div class="form-grid-3">
+                            <div class="input-group">
+                                <label>PFS Group (DH Group)</label>
+                                <select id="vpn-p2-dh">
+                                    <option value="none">None</option>
+                                    <option value="2">Group 2 (DH1024)</option>
+                                    <option value="14" selected>Group 14 (DH2048)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Key Life (s)</label>
+                                <input type="number" id="vpn-p2-life" value="21600">
+                            </div>
+                            <div class="input-group">
+                                <label>Encryption</label>
+                                <select id="vpn-p2-enc">
+                                    <option value="aes128">AES128</option>
+                                    <option value="aes256" selected>AES256</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Authentication</label>
+                                <select id="vpn-p2-auth">
+                                    <option value="sha1">SHA1</option>
+                                    <option value="sha256" selected>SHA2 256</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="button-bar">
+                            <button class="btn btn-secondary" onclick="loadEVNVPN()">Get</button>
+                            <button class="btn btn-primary" onclick="saveVPNConfig()">Lưu Cấu Hình VPN</button>
+                            <button class="btn btn-accent" onclick="applyVPNConfig()">Áp Dụng & Kết Nối VPN</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: PLANT SETTINGS ================= -->
+            <div id="view-plant" class="view-section hidden">
+                <div class="view-title-container">
+                    <h2 class="view-title"><i class="fas fa-industry"></i> Plant Settings</h2>
+                    <button class="btn btn-accent btn-sm" onclick="triggerRestart()"><i class="fas fa-redo"></i>
+                        Restart</button>
+                </div>
+
+                <!-- Danh sach Plant -->
+                <div class="config-card">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>Danh s&#225;ch Plant (D&#7921; &#225;n)</span>
+                        <button class="btn btn-primary btn-sm" onclick="newPlantForm()">
+                            <i class="fas fa-plus"></i> Th&#234;m Plant M&#7899;i
+                        </button>
+                    </div>
+                    <div class="table-container" style="padding:0; margin-bottom:0;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>T&#234;n Plant</th>
+                                    <th>&#272;&#7883;a &#273;i&#7875;m</th>
+                                    <th>DC (kWp)</th>
+                                    <th>AC (kW)</th>
+                                    <th>Meter No</th>
+                                    <th>Thao t&#225;c</th>
+                                </tr>
+                            </thead>
+                            <tbody id="plant-list-body">
+                                <tr>
+                                    <td colspan="7" style="text-align:center; color:var(--text-dim);">&#272;ang
+                                        t&#7843;i...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Cấu hình Chế độ Hoạt động (Plant Mode) -->
+                <div class="config-card" style="margin-top: 20px;">
+                    <div class="card-header">Cấu hình Chế độ gửi dữ liệu (Plant Mode)</div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Chọn Plant (Dự án)</label>
+                            <select id="mode-plant-select" onchange="onPlantModeChange()">
+                                <option value="" disabled selected>-- Chọn Plant --</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Chế độ hoạt động</label>
+                            <select id="mode-telemetry-select">
+                                <option value="Periodic">Định Kỳ (Gửi server 5 phút/lần)</option>
+                                <option value="Realtime">Realtime (Gửi server 5p + Publish MQTT 10s)</option>
+                                <option value="Offline">Offline (Chỉ xem local, không gửi server/MQTT)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="button-bar" style="margin-top: 16px; justify-content: flex-start;">
+                        <button class="btn btn-primary" onclick="savePlantMode()"><i class="fas fa-save"></i> Lưu Chế
+                            Độ</button>
+                    </div>
+                </div>
+
+                <!-- Form Them / Sua Plant -->
+                <div class="config-card hidden" id="plant-form-card">
+                    <div class="card-header" id="plant-form-title">Th&#234;m Plant M&#7899;i</div>
+                    <input type="hidden" id="plant-id">
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>T&#224;i kho&#7843;n Cloud li&#234;n k&#7871;t</label>
+                            <select id="plant-account-id">
+                                <option value="1">Default Account</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>T&#234;n d&#7921; &#225;n *</label>
+                            <input type="text" id="plant-name" placeholder="T&#234;n d&#7921; &#225;n...">
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-bottom:16px;">
+                        <label>&#272;&#7883;a &#273;i&#7875;m *</label>
+                        <input type="text" id="plant-loc" placeholder="&#272;&#7883;a ch&#7881; d&#7921; &#225;n...">
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>V&#297; &#273;&#7897; (Lat)</label>
+                            <input type="number" step="any" id="plant-lat" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>Kinh &#273;&#7897; (Lon)</label>
+                            <input type="number" step="any" id="plant-lon" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>SBC Meter No *</label>
+                            <input type="text" id="plant-meter" placeholder="S&#7889; c&#244;ng t&#417;...">
+                        </div>
+                        <div class="input-group">
+                            <label>Gi&#225; &#273;i&#7879;n (VN&#272;/kWh) *</label>
+                            <input type="number" id="plant-price" value="1783">
+                        </div>
+                        <div class="input-group">
+                            <label>Capacity DC (kWp) *</label>
+                            <input type="number" step="0.1" id="plant-dc" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>Capacity AC (kW) *</label>
+                            <input type="number" step="0.1" id="plant-ac" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>S&#7889; l&#432;&#7907;ng Inverter</label>
+                            <input type="number" id="plant-inv-count" value="0">
+                        </div>
+                    </div>
+
+                    <div class="button-bar">
+                        <button class="btn btn-primary" onclick="savePlantSettings()">
+                            <i class="fas fa-save"></i> L&#432;u Plant
+                        </button>
+                        <button class="btn btn-secondary" onclick="cancelPlantForm()"
+                            style="width:auto;padding:12px 24px;">
+                            <i class="fas fa-times"></i> H&#7911;y
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: IP CONFIGURATION ================= -->
+            <div id="view-ip" class="view-section hidden">
+                <div class="view-title-container">
+                    <h2 class="view-title"><i class="fas fa-network-wired"></i> IP Settings <span
+                            style="font-size:12px; font-weight:normal; opacity:0.6; margin-left:10px;">(Raspberry Pi
+                            3B+)</span></h2>
+                    <button class="btn btn-accent btn-sm" onclick="triggerRestart()"><i class="fas fa-redo"></i>
+                        Restart</button>
+                </div>
+
+                <!-- LAN Settings (eth0) -->
+                <div class="config-card">
+                    <div class="card-header">LAN Settings (Cổng mạng dây eth0) :</div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>IP Configuration Type</label>
+                            <div class="options-row">
+                                <label class="radio-label">
+                                    <input type="radio" name="lan-type" value="static" checked
+                                        onchange="toggleLANInputs()"> Static IP
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="lan-type" value="dynamic" onchange="toggleLANInputs()">
+                                    Dynamic IP (DHCP)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>IP Address</label>
+                            <input type="text" id="lan-ip" value="192.168.1.100">
+                        </div>
+                        <div class="input-group">
+                            <label>Gateway</label>
+                            <input type="text" id="lan-gateway" value="192.168.1.1">
+                        </div>
+                        <div class="input-group">
+                            <label>Subnet Mask</label>
+                            <input type="text" id="lan-mask" value="255.255.255.0">
+                        </div>
+                        <div class="input-group">
+                            <label>Primary DNS</label>
+                            <input type="text" id="lan-dns1" value="192.168.1.1">
+                        </div>
+                        <div class="input-group">
+                            <label>Secondary DNS</label>
+                            <input type="text" id="lan-dns2" value="8.8.8.8">
+                        </div>
+                        <div class="input-group">
+                            <label></label>
+                            <div class="options-row">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="lan-default" checked> Set as default (Đường mặc định)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WLAN Settings (wlan0) -->
+                <div class="config-card">
+                    <div class="card-header">WLAN Settings (Cổng không dây wlan0 - Wifi) :</div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>IP Configuration Type</label>
+                            <div class="options-row">
+                                <label class="radio-label">
+                                    <input type="radio" name="wlan-type" value="static" checked
+                                        onchange="toggleWLANInputs()"> Static IP
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="wlan-type" value="dynamic" onchange="toggleWLANInputs()">
+                                    Dynamic IP (DHCP)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>IP Address</label>
+                            <input type="text" id="wlan-ip" value="192.168.43.100">
+                        </div>
+                        <div class="input-group">
+                            <label>Gateway</label>
+                            <input type="text" id="wlan-gateway" value="192.168.43.1">
+                        </div>
+                        <div class="input-group">
+                            <label>Subnet Mask</label>
+                            <input type="text" id="wlan-mask" value="255.255.255.0">
+                        </div>
+                        <div class="input-group">
+                            <label>Primary DNS</label>
+                            <input type="text" id="wlan-dns1" value="192.168.43.1">
+                        </div>
+                        <div class="input-group">
+                            <label>Secondary DNS</label>
+                            <input type="text" id="wlan-dns2" value="8.8.8.8">
+                        </div>
+
+                        <!-- Quét Wifi và điền SSID -->
+                        <div class="input-group">
+                            <label>WLAN SSID</label>
+                            <div class="phone-input-container">
+                                <select id="wlan-ssid-select">
+                                    <option value="" disabled selected>-- Chọn Wifi --</option>
+                                </select>
+                                <button class="btn-scan" id="btn-wifi-scan" onclick="scanWifi()"><i class="fas fa-sync"
+                                        id="scan-icon"></i> Quét Wifi</button>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label>WLAN Password (Mật khẩu Wifi)</label>
+                            <input type="password" id="wlan-pass" value="">
+                        </div>
+                        <div class="input-group">
+                            <div class="options-row">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="wlan-manual" onchange="toggleManualSSID()"> Manual SSID
+                                    (Tự nhập tên Wifi)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="input-group" id="manual-ssid-group" style="display:none;">
+                            <label>Nhập SSID thủ công</label>
+                            <input type="text" id="wlan-manual-ssid" placeholder="Nhập tên Wifi...">
+                        </div>
+                        <div class="input-group">
+                            <div class="options-row">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="wlan-default"> Set as default (Đường mặc định)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="button-bar">
+                    <button class="btn btn-secondary" onclick="loadIPSettings()">Get</button>
+                    <button class="btn btn-primary" onclick="readLiveIPSettings()"><i class="fas fa-eye"></i> Đọc IP
+                        hiện tại từ Pi</button>
+                    <button class="btn btn-accent" onclick="applyIPSettings()">Apply & Restart</button>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: RS_485 CONFIG ================= -->
+            <div id="view-rs485" class="view-section hidden">
+                <div class="view-title-container" style="margin-bottom: 15px;">
+                    <h2 class="view-title"><i class="fas fa-ethernet"></i> Cấu hình Cổng RS-485</h2>
+                </div>
+
+                <div class="config-card"
+                    style="padding: 10px; border-radius: 12px; margin-bottom: 15px; background: rgba(30, 41, 59, 0.4);">
+                    <div
+                        style="font-size: 13.5px; font-weight: 600; color: var(--primary); margin-bottom: 8px; padding-left: 8px; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-microchip"></i> Cấu hình Cổng RS-485 (Serial)
+                    </div>
+                    <div class="table-container" style="overflow-x: auto; padding: 0; margin-bottom: 0;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); color: var(--text-dim);">
+                                    <th style="text-align: left; padding: 6px 8px;">Kênh Truyền Thông</th>
+                                    <th style="padding: 6px 8px; width: 110px; text-align: left;">Baud Rate</th>
+                                    <th style="padding: 6px 8px; width: 90px; text-align: left;">Data Bits</th>
+                                    <th style="padding: 6px 8px; width: 95px; text-align: left;">Parity</th>
+                                    <th style="padding: 6px 8px; width: 85px; text-align: left;">Stop Bits</th>
+                                    <th style="padding: 6px 8px; width: 85px; text-align: left;">Timeout (s)</th>
+                                    <th style="padding: 6px 8px; width: 85px; text-align: left;">Slave Start</th>
+                                    <th style="padding: 6px 8px; width: 85px; text-align: left;">Slave End</th>
+                                    <th style="padding: 6px 8px; width: 100px; text-align: left;">Multi-Master</th>
+                                    <th style="padding: 6px 8px; width: 100px; text-align: left;">Vai Trò</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Channel 1 -->
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 6px 8px; font-weight: 600; color: var(--primary);">RS485_0
+                                        (USB0)</td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-baud-1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="4800">4800</option>
+                                            <option value="9600" selected>9600</option>
+                                            <option value="19200">19200</option>
+                                            <option value="38400">38400</option>
+                                            <option value="115200">115200</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-data-1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="7">7</option>
+                                            <option value="8" selected>8</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-parity-1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="N" selected>NONE</option>
+                                            <option value="E">EVEN</option>
+                                            <option value="O">ODD</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-stop-1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>1</option>
+                                            <option value="2">2</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" step="0.1" id="comm-timeout-1" value="1.0"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-start-1" value="1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-end-1" value="30"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-multimaster-1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="0" selected>Tắt</option>
+                                            <option value="1">Bật</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-role-1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>Master</option>
+                                            <option value="0">Slave</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <!-- Channel 2 -->
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 6px 8px; font-weight: 600; color: var(--primary);">RS485_1
+                                        (USB1)</td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-baud-2"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="4800">4800</option>
+                                            <option value="9600" selected>9600</option>
+                                            <option value="19200">19200</option>
+                                            <option value="38400">38400</option>
+                                            <option value="115200">115200</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-data-2"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="7">7</option>
+                                            <option value="8" selected>8</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-parity-2"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="N" selected>NONE</option>
+                                            <option value="E">EVEN</option>
+                                            <option value="O">ODD</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-stop-2"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>1</option>
+                                            <option value="2">2</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" step="0.1" id="comm-timeout-2" value="1.0"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-start-2" value="1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-end-2" value="30"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-multimaster-2"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="0" selected>Tắt</option>
+                                            <option value="1">Bật</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-role-2"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>Master</option>
+                                            <option value="0">Slave</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <!-- Channel 3 -->
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 6px 8px; font-weight: 600; color: var(--primary);">RS485_2
+                                        (USB2)</td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-baud-3"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="4800">4800</option>
+                                            <option value="9600" selected>9600</option>
+                                            <option value="19200">19200</option>
+                                            <option value="38400">38400</option>
+                                            <option value="115200">115200</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-data-3"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="7">7</option>
+                                            <option value="8" selected>8</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-parity-3"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="N" selected>NONE</option>
+                                            <option value="E">EVEN</option>
+                                            <option value="O">ODD</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-stop-3"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>1</option>
+                                            <option value="2">2</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" step="0.1" id="comm-timeout-3" value="1.0"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-start-3" value="1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-end-3" value="30"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-multimaster-3"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="0" selected>Tắt</option>
+                                            <option value="1">Bật</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-role-3"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>Master</option>
+                                            <option value="0">Slave</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <!-- Channel 4 -->
+                                <tr style="border-bottom: none;">
+                                    <td style="padding: 6px 8px; font-weight: 600; color: var(--primary);">RS485_3
+                                        (USB3)</td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-baud-4"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="4800">4800</option>
+                                            <option value="9600" selected>9600</option>
+                                            <option value="19200">19200</option>
+                                            <option value="38400">38400</option>
+                                            <option value="115200">115200</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-data-4"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="7">7</option>
+                                            <option value="8" selected>8</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-parity-4"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="N" selected>NONE</option>
+                                            <option value="E">EVEN</option>
+                                            <option value="O">ODD</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-stop-4"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>1</option>
+                                            <option value="2">2</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" step="0.1" id="comm-timeout-4" value="1.0"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-start-4" value="1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-end-4" value="30"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-multimaster-4"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="0" selected>Tắt</option>
+                                            <option value="1">Bật</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-role-4"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>Master</option>
+                                            <option value="0">Slave</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="button-bar" style="margin-top: 10px;">
+                    <button class="btn btn-secondary" onclick="loadCommSettings()">Get</button>
+                    <button class="btn btn-primary" onclick="saveCommSettings()">Set</button>
+                    <button class="btn btn-accent" onclick="triggerRestart()">Apply & Restart</button>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: ETHERNET CONFIG ================= -->
+            <div id="view-ethernet" class="view-section hidden">
+                <div class="view-title-container" style="margin-bottom: 15px;">
+                    <h2 class="view-title"><i class="fas fa-network-wired"></i> Cấu hình Cổng Ethernet</h2>
+                </div>
+
+                <!-- Ethernet Config Card -->
+                <div class="config-card"
+                    style="padding: 10px; border-radius: 12px; margin-bottom: 15px; background: rgba(30, 41, 59, 0.4);">
+                    <div
+                        style="font-size: 13.5px; font-weight: 600; color: var(--accent); margin-bottom: 8px; padding-left: 8px; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-network-wired"></i> Cấu hình Kết nối ETHERNET (Modbus TCP)
+                    </div>
+                    <div class="table-container" style="overflow-x: auto; padding: 0; margin-bottom: 0;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); color: var(--text-dim);">
+                                    <th style="text-align: left; padding: 6px 8px;">Kênh Truyền Thông</th>
+                                    <th style="padding: 6px 8px; width: 180px; text-align: left;">Host IP</th>
+                                    <th style="padding: 6px 8px; width: 100px; text-align: left;">Port</th>
+                                    <th style="padding: 6px 8px; width: 100px; text-align: left;">Timeout (s)</th>
+                                    <th style="padding: 6px 8px; width: 100px; text-align: left;">Slave Start</th>
+                                    <th style="padding: 6px 8px; width: 100px; text-align: left;">Slave End</th>
+                                    <th style="padding: 6px 8px; width: 110px; text-align: left;">Multi-Master</th>
+                                    <th style="padding: 6px 8px; width: 110px; text-align: left;">Vai Trò</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- TCP Channel (5) -->
+                                <tr style="border-bottom: none;">
+                                    <td style="padding: 6px 8px; font-weight: 600; color: var(--accent);">TCP</td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="text" id="comm-host-5" value="192.168.1.10"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-port-5" value="502"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" step="0.1" id="comm-timeout-5" value="1.0"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-start-5" value="1"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <input type="number" id="comm-end-5" value="30"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-multimaster-5"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="0" selected>Tắt</option>
+                                            <option value="1">Bật</option>
+                                        </select>
+                                    </td>
+                                    <td style="padding: 6px 8px;">
+                                        <select id="comm-role-5"
+                                            style="width:100%; padding:4px 6px; border-radius:4px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:12.5px;">
+                                            <option value="1" selected>Master</option>
+                                            <option value="0">Slave</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="button-bar" style="margin-top: 10px;">
+                    <button class="btn btn-secondary" onclick="loadCommSettings()">Get</button>
+                    <button class="btn btn-primary" onclick="saveCommSettings()">Set</button>
+                    <button class="btn btn-accent" onclick="triggerRestart()">Apply & Restart</button>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: DI_BOARD CONFIG ================= -->
+            <div id="view-diboard" class="view-section hidden">
+                <div class="view-title-container">
+                    <h2 class="view-title"><i class="fas fa-microchip"></i> DI_Board Settings</h2>
+                </div>
+                <div class="config-card">
+                    <div class="card-header">Cấu hình cổng số vào (Digital Input)</div>
+                    <div class="form-grid">
+                        <div class="input-group"><label>Địa chỉ bo mạch DI (Slave ID)</label><input type="number"
+                                id="di-slave" value="1"></div>
+                        <div class="input-group">
+                            <label>Số lượng cổng DI</label>
+                            <select id="di-ports">
+                                <option value="8">8 Cổng</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="button-bar"><button class="btn btn-primary" onclick="saveDIBoardSettings()">Set</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: DIGITAL_SENSOR CONFIG ================= -->
+            <div id="view-digitalsensor" class="view-section hidden">
+                <div class="view-title-container">
+                    <h2 class="view-title"><i class="fas fa-wind"></i> Digital Sensor Settings</h2>
+                </div>
+                <div class="config-card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Devices</th>
+                                    <th>Model</th>
+                                    <th>Sr No</th>
+                                    <th>RS485 / ETH</th>
+                                    <th>Slave ID</th>
+                                </tr>
+                            </thead>
+                            <tbody id="digital-sensors-body">
+                                <tr>
+                                    <td>Pyra Tilt</td>
+                                    <td>Surya-Sensor</td>
+                                    <td>102458612</td>
+                                    <td>RS485-1</td>
+                                    <td>Direct</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: STATUS & DETAILS ================= -->
+            <div id="view-status" class="view-section hidden">
+                <div class="view-title-container">
+                    <h2 class="view-title"><i class="fas fa-info-circle"></i> Status & Details</h2>
+                </div>
+                <div class="config-card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Sl</th>
+                                    <th>Parameters</th>
+                                    <th>Values</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody id="status-parameters-body">
+                                <tr class="status-header-row"
+                                    style="background: rgba(255,255,255,0.02); font-weight: bold;">
+                                    <td colspan="4">Device Info</td>
+                                </tr>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Device Serial NO</td>
+                                    <td>SLN005213N</td>
+                                    <td>Device Unique ID</td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>Device MAC ID</td>
+                                    <td>54:10:EC:2F:EC:1A</td>
+                                    <td>Physical address</td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td>OS Version</td>
+                                    <td>Raspbian GNU/Linux 11 (bullseye)</td>
+                                    <td>Operating System</td>
+                                </tr>
+                                <tr>
+                                    <td>4</td>
+                                    <td>Backend Version</td>
+                                    <td>v2.0.0</td>
+                                    <td>SolarVision Core service</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -574,14 +1478,71 @@
         <div id="ui-debug"
             style="position:fixed; bottom:10px; right:10px; font-size:10px; color:rgba(255,255,255,0.3); z-index:999; pointer-events:none;">
         </div>
+
+        <!-- Modal: Add Device -->
+        <div id="add-device-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Add New Device</h3>
+                    <button class="close-modal" onclick="closeAddDeviceModal()">&times;</button>
+                </div>
+                <div class="form-grid">
+                    <div class="input-group"><label>Device Name</label><input type="text" id="m-dev-name"
+                            value="Device-New"></div>
+                    <div class="input-group"><label>Model</label><input type="text" id="m-dev-model"
+                            value="Generic Model"></div>
+                    <div class="input-group"><label>Serial Number</label><input type="text" id="m-dev-sn"
+                            value="1234567"></div>
+                    <div class="input-group">
+                        <label>RS485 / ETH</label>
+                        <select id="m-dev-comm">
+                            <option value="RS485-1">RS485-1</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="button-bar">
+                    <button class="btn btn-secondary" onclick="closeAddDeviceModal()">Hủy</button>
+                    <button class="btn btn-primary" onclick="submitAddDevice()">Add Device</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast-success">
+            <i class="fas fa-check-circle"></i>
+            <div class="toast-content">
+                <span class="toast-title" id="toast-title">Success</span>
+                <span class="toast-desc" id="toast-desc">Success</span>
+            </div>
+        </div>
     </div>
 
-    <script src="/static/js/api.js"></script>
-    <script src="/static/js/ui.js"></script>
-    <script src="/static/js/dashboard.js"></script>
-    <script src="/static/js/settings.js"></script>
-    <script src="/static/js/sync.js"></script>
-    <script src="/static/js/accounts.js"></script>
+    <!-- Modal: Custom Confirm Dialog -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3 id="confirm-title" style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i> Xác
+                    nhận</h3>
+                <button class="close-modal" onclick="closeConfirmModal()">&times;</button>
+            </div>
+            <div style="margin-bottom: 24px;">
+                <p id="confirm-message" style="font-size: 15px; line-height: 1.6; color: var(--text-dim);"></p>
+            </div>
+            <div class="button-bar" style="justify-content: flex-end; gap: 12px; margin-top: 0;">
+                <button class="btn btn-secondary" onclick="closeConfirmModal()"
+                    style="width: auto; padding: 10px 20px;">Hủy</button>
+                <button class="btn btn-danger" id="confirm-yes-btn"
+                    style="background: var(--danger); color: white; width: auto; padding: 10px 20px;">Đồng ý</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js?v=1.0.1"></script>
+    <script src="/static/js/ui.js?v=1.0.1"></script>
+    <script src="/static/js/dashboard.js?v=1.0.1"></script>
+    <script src="/static/js/settings.js?v=1.0.1"></script>
+    <script src="/static/js/sync.js?v=1.0.1"></script>
+    <script src="/static/js/accounts.js?v=1.0.1"></script>
     <script>
         if (token) initApp();
     </script>

@@ -1,6 +1,24 @@
 from typing import Optional, List, Dict, Any
 from dataclasses import asdict
 
+def find_raw_fault(brand: str, unified_code: int, old_instruction: str) -> Optional[int]:
+    from backend.services.fault_mappings import FAULT_MAPS
+    fault_map = FAULT_MAPS.get(brand.upper(), {})
+    possible_faults = []
+    for raw_code, info in fault_map.items():
+        if info.get("id_unified") == unified_code:
+            possible_faults.append((raw_code, info))
+            
+    if not possible_faults:
+        return None
+        
+    if old_instruction:
+        for raw_code, info in possible_faults:
+            if info.get("repair_instruction") == old_instruction:
+                return raw_code
+                
+    return possible_faults[0][0]
+
 class MonitoringService:
     def __init__(self, metadata_db, realtime_db, cache_db=None):
         self.metadata_db = metadata_db
@@ -24,6 +42,21 @@ class MonitoringService:
         strings = self.realtime_db.get_latest_string_batch(inverter_id)
         errors = self.realtime_db.get_inverter_errors(inverter_id)
         
+        # Nâng cấp động các lỗi cũ từ database chưa có tiền tố
+        try:
+            inv = self.metadata_db.get_inverter_by_id(inverter_id)
+            if inv and errors:
+                brand = inv.brand.upper()
+                from backend.services.fault_service import FaultService
+                for e in errors:
+                    if e.repair_instruction and not e.repair_instruction.startswith("mã lỗi ") and e.fault_code != 23:
+                        raw_code = find_raw_fault(brand, e.fault_code, e.repair_instruction)
+                        if raw_code is not None:
+                            e.repair_instruction = FaultService.format_repair_instruction(brand, raw_code, e.repair_instruction)
+        except Exception as ex:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to auto-format history error: {ex}")
+            
         return {
             "ac": asdict(ac) if ac else None,
             "mppts": [asdict(m) for m in mppts],

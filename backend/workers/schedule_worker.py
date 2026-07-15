@@ -104,7 +104,7 @@ class ScheduleWorker(threading.Thread):
 
         for slave_id in self.modbus_server.get_all_slave_ids():
             mode = getattr(schedule, "mode", "")
-            if mode in ("MAXP", "LIMIT_PERCENT"):
+            if mode in ("MAXP", "PERCENT"):
                 if self.modbus_server.is_evn_controlling_p(slave_id):
                     return True
             # Mở rộng cho Q schedule modes (nếu có)

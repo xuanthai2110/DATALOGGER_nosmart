@@ -76,7 +76,13 @@ class TelemetryService:
                     "strings": m_strings
                 })
             
-            total_p_dc += inv_dc_sum
+            p_dc_val = ac.get("p_dc_w")
+            if p_dc_val is not None:
+                inverter_dc_power = self._num(p_dc_val)
+            else:
+                inverter_dc_power = inv_dc_sum
+
+            total_p_dc += inverter_dc_power
 
             # Error Payload
             err_row = cache_db.get_error_cache(inv_id)

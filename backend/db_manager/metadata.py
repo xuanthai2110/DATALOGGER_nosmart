@@ -154,9 +154,27 @@ class MetadataDB(BaseDB):
                 stopbits INTEGER,
                 timeout REAL,
                 slave_id_start INTEGER,
-                slave_id_end INTEGER
+                slave_id_end INTEGER,
+                multi_master INTEGER DEFAULT 0,
+                is_master INTEGER DEFAULT 1
             );
             """)
+
+            # Seed default communication configurations (ID 1 to 5)
+            for cid, dev, ctype, h, p, cp, br, db, pa, sb, to, st, en in [
+                (1, "RS485_0", "RTU", "", 502, "/dev/ttyUSB0", 9600, 8, "N", 1, 1.0, 1, 30),
+                (2, "RS485_1", "RTU", "", 502, "/dev/ttyUSB1", 9600, 8, "N", 1, 1.0, 1, 30),
+                (3, "RS485_2", "RTU", "", 502, "/dev/ttyUSB2", 9600, 8, "N", 1, 1.0, 1, 30),
+                (4, "RS485_3", "RTU", "", 502, "/dev/ttyUSB3", 9600, 8, "N", 1, 1.0, 1, 30),
+                (5, "TCP", "TCP", "192.168.1.10", 502, "", 9600, 8, "N", 1, 1.0, 1, 30),
+            ]:
+                cursor.execute("SELECT id FROM comm_config WHERE id = ?", (cid,))
+                if not cursor.fetchone():
+                    cursor.execute("""
+                        INSERT INTO comm_config (id, driver, comm_type, host, port, com_port, baudrate, databits, parity, stopbits, timeout, slave_id_start, slave_id_end)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (cid, dev, ctype, h, p, cp, br, db, pa, sb, to, st, en))
+            conn.commit()
             # Meters table
             cursor.execute('''CREATE TABLE IF NOT EXISTS meters (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -186,6 +204,9 @@ class MetadataDB(BaseDB):
             self._ensure_column(conn, "inverters", "sync_status", "sync_status TEXT DEFAULT 'pending'")
             self._ensure_column(conn, "inverters", "comm_id", "comm_id INTEGER")
             self._ensure_column(conn, "projects", "server_account_id", "server_account_id INTEGER")
+            self._ensure_column(conn, "projects", "telemetry_mode", "telemetry_mode TEXT DEFAULT 'Realtime'")
+            self._ensure_column(conn, "comm_config", "multi_master", "multi_master INTEGER DEFAULT 0")
+            self._ensure_column(conn, "comm_config", "is_master", "is_master INTEGER DEFAULT 1")
             
             # Update existing projects to use account 1 if server_account_id is NULL
             cursor.execute("UPDATE projects SET server_account_id = 1 WHERE server_account_id IS NULL")
@@ -230,14 +251,16 @@ class MetadataDB(BaseDB):
                     INSERT INTO projects (
                         project_index, elec_meter_no, elec_price_per_kwh, name, location, lat, lon,
                         capacity_kwp, ac_capacity_kw, inverter_count, server_id, server_request_id,
-                        server_account_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        server_account_id, telemetry_mode
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (next_idx, data_dict.get("elec_meter_no"), data_dict.get("elec_price_per_kwh"),
                       data_dict.get("name"), data_dict.get("location"), data_dict.get("lat"), data_dict.get("lon"),
                       data_dict.get("capacity_kwp"), data_dict.get("ac_capacity_kw"), data_dict.get("inverter_count"),
-                      data_dict.get("server_id"), data_dict.get("server_request_id"), data_dict.get("server_account_id")))
+                      data_dict.get("server_id"), data_dict.get("server_request_id"), data_dict.get("server_account_id"),
+                      data_dict.get("telemetry_mode") or "Realtime"))
                 final_id = cursor.lastrowid
                 
+            conn.commit()
             row = conn.execute("SELECT * FROM projects WHERE id=?", (final_id,)).fetchone()
             return to_dataclass(ProjectResponse, row)
 
@@ -252,12 +275,14 @@ class MetadataDB(BaseDB):
                 INSERT INTO projects (
                     project_index, elec_meter_no, elec_price_per_kwh, name, location, lat, lon,
                     capacity_kwp, ac_capacity_kw, inverter_count, server_id, server_request_id,
-                    server_account_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    server_account_id, telemetry_mode
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (next_idx, data_dict.get("elec_meter_no"), data_dict.get("elec_price_per_kwh"),
                   data_dict.get("name"), data_dict.get("location"), data_dict.get("lat"), data_dict.get("lon"),
                   data_dict.get("capacity_kwp"), data_dict.get("ac_capacity_kw"), data_dict.get("inverter_count"),
-                  data_dict.get("server_id"), data_dict.get("server_request_id"), data_dict.get("server_account_id")))
+                  data_dict.get("server_id"), data_dict.get("server_request_id"), data_dict.get("server_account_id"),
+                  data_dict.get("telemetry_mode") or "Realtime"))
+            conn.commit()
             return cursor.lastrowid
 
     def patch_project(self, project_id: int, data: ProjectUpdate):
@@ -268,6 +293,7 @@ class MetadataDB(BaseDB):
         values.append(project_id)
         with self._connect() as conn:
             conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id=?", tuple(values))
+            conn.commit()
 
     def update_project_sync(self, project_id: int, server_id: Optional[int] = None, server_request_id: Optional[int] = None, status: str = 'pending'):
         logger.info(f"[MetadataDB] Updating project {project_id} sync status to {status} (server_id={server_id})")
@@ -279,6 +305,7 @@ class MetadataDB(BaseDB):
                     sync_status = ? 
                 WHERE id = ?
             """, (server_id, server_request_id, status, project_id))
+            conn.commit()
 
     def get_project_sync_info(self, project_id: int) -> Optional[dict]:
         with self._connect() as conn:
@@ -287,8 +314,10 @@ class MetadataDB(BaseDB):
 
     def delete_project(self, project_id: int):
         with self._connect() as conn:
+            conn.execute("DELETE FROM meters WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM inverters WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
+            conn.commit()
 
     # --- Inverter API ---
     def get_inverter_by_id(self, inverter_id: int) -> Optional[InverterResponse]:
@@ -338,6 +367,7 @@ class MetadataDB(BaseDB):
                 cursor.execute(f"INSERT INTO inverters ({', '.join(keys)}) VALUES ({', '.join(placeholders)})", tuple(values))
                 final_id = cursor.lastrowid
             
+            conn.commit()
             row = conn.execute("SELECT * FROM inverters WHERE id=?", (final_id,)).fetchone()
             return to_dataclass(InverterResponse, row)
 
@@ -349,6 +379,7 @@ class MetadataDB(BaseDB):
         values.append(inverter_id)
         with self._connect() as conn:
             conn.execute(f"UPDATE inverters SET {', '.join(fields)} WHERE id=?", tuple(values))
+            conn.commit()
 
     def update_inverter_sync(self, inverter_id: int, server_id: Optional[int] = None, server_request_id: Optional[int] = None, status: str = 'pending'):
         with self._connect() as conn:
@@ -359,6 +390,12 @@ class MetadataDB(BaseDB):
                     sync_status = ? 
                 WHERE id = ?
             """, (server_id, server_request_id, status, inverter_id))
+            conn.commit()
+
+    def delete_inverter(self, inverter_id: int):
+        with self._connect() as conn:
+            conn.execute("DELETE FROM inverters WHERE id=?", (inverter_id,))
+            conn.commit()
 
     # --- Comm/Auth API (Rút gọn) ---
     def get_comm_config(self) -> List[CommConfig]:
@@ -380,11 +417,14 @@ class MetadataDB(BaseDB):
         with self._connect() as conn:
             cursor = conn.execute("""
                 INSERT INTO comm_config (
-                    driver, comm_type, host, port, com_port, baudrate, databits, parity, stopbits, timeout, slave_id_start, slave_id_end
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    driver, comm_type, host, port, com_port, baudrate, databits, parity, stopbits, timeout, slave_id_start, slave_id_end, multi_master, is_master
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (data_dict.get("driver"), data_dict.get("comm_type"), data_dict.get("host"), data_dict.get("port"),
                   data_dict.get("com_port"), data_dict.get("baudrate"), data_dict.get("databits"), data_dict.get("parity"),
-                  data_dict.get("stopbits"), data_dict.get("timeout"), data_dict.get("slave_id_start"), data_dict.get("slave_id_end")))
+                  data_dict.get("stopbits"), data_dict.get("timeout"), data_dict.get("slave_id_start"), data_dict.get("slave_id_end"),
+                  1 if data_dict.get("multi_master") else 0,
+                  0 if data_dict.get("is_master") is False else 1))
+            conn.commit()
             return cursor.lastrowid
 
     def patch_comm(self, config_id: int, updates: dict):
@@ -397,15 +437,18 @@ class MetadataDB(BaseDB):
             if not fields: return
             values.append(config_id)
             conn.execute(f"UPDATE comm_config SET {', '.join(fields)} WHERE id=?", tuple(values))
+            conn.commit()
 
     def delete_comm(self, config_id: int):
         with self._connect() as conn:
             conn.execute("DELETE FROM comm_config WHERE id=?", (config_id,))
+            conn.commit()
 
     def reset_comm(self):
         with self._connect() as conn:
             conn.execute("DELETE FROM comm_config")
             conn.execute("DELETE FROM sqlite_sequence WHERE name='comm_config'")
+            conn.commit()
 
     # --- User API ---
     def get_user_by_name(self, username: str) -> Optional[dict]:
@@ -424,6 +467,7 @@ class MetadataDB(BaseDB):
                 "INSERT INTO users (username, hashed_password, email, fullname, phone, role) VALUES (?, ?, ?, ?, ?, ?)",
                 (data.username, data.password, data.email, data.fullname, data.phone, data.role)
             )
+            conn.commit()
             return cursor.lastrowid
 
     # --- Server Account API ---
@@ -470,6 +514,7 @@ class MetadataDB(BaseDB):
                 """, (data_dict.get("name"), data_dict.get("username"), data_dict.get("password")))
                 final_id = cursor.lastrowid
                 
+            conn.commit()
             row = conn.execute("SELECT * FROM server_accounts WHERE id=?", (final_id,)).fetchone()
             return to_dataclass(ServerAccountResponse, row)
 
@@ -481,10 +526,12 @@ class MetadataDB(BaseDB):
         values.append(account_id)
         with self._connect() as conn:
             conn.execute(f"UPDATE server_accounts SET {', '.join(fields)} WHERE id=?", tuple(values))
+            conn.commit()
 
     def delete_server_account(self, account_id: int):
         with self._connect() as conn:
             conn.execute("DELETE FROM server_accounts WHERE id=?", (account_id,))
+            conn.commit()
 
     # --- Meter API ---
     def get_meter(self, meter_id: int) -> Optional[MeterResponse]:
@@ -521,12 +568,34 @@ class MetadataDB(BaseDB):
                 values = [data_dict[k] for k in keys]
                 cursor.execute(f"INSERT INTO meters ({', '.join(keys)}) VALUES ({', '.join(placeholders)})", tuple(values))
                 final_id = cursor.lastrowid
+            conn.commit()
             row = conn.execute("SELECT * FROM meters WHERE id=?", (final_id,)).fetchone()
             return to_dataclass(MeterResponse, row)
+
+    def post_meter(self, data: MeterCreate) -> int:
+        data_dict = asdict(data)
+        with self._connect() as conn:
+            keys = [k for k, v in data_dict.items() if v is not None]
+            placeholders = ["?" for _ in keys]
+            values = [data_dict[k] for k in keys]
+            cursor = conn.execute(f"INSERT INTO meters ({', '.join(keys)}) VALUES ({', '.join(placeholders)})", tuple(values))
+            conn.commit()
+            return cursor.lastrowid
+
+    def patch_meter(self, meter_id: int, data: MeterUpdate):
+        data_dict = asdict(data)
+        fields = [f"{k} = ?" for k, v in data_dict.items() if v is not None]
+        values = [v for v in data_dict.values() if v is not None]
+        if not fields: return
+        values.append(meter_id)
+        with self._connect() as conn:
+            conn.execute(f"UPDATE meters SET {', '.join(fields)} WHERE id=?", tuple(values))
+            conn.commit()
 
     def delete_meter(self, meter_id: int):
         with self._connect() as conn:
             conn.execute("DELETE FROM meters WHERE id=?", (meter_id,))
+            conn.commit()
 
     # --- EVN Project Mapping ---
     def get_evn_project_map(self) -> Dict[int, ProjectResponse]:

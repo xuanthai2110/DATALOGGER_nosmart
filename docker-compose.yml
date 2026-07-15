@@ -1,15 +1,20 @@
+# Docker Compose file (version omitted)
+
 services:
   web:
-    build: .
-    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: datalogger:latest
     container_name: datalogger_web
-    command: [ "python", "backend/app.py" ]
-    ports:
-      - "5000:5000"
+    restart: always
+    network_mode: "host"
+    privileged: true
+    command: ["python", "backend/app.py"]
     env_file:
       - .env
-    devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"
+    # devices:
     volumes:
       - ./backend/db_manager/data:/app/backend/db_manager/data
       - /dev/shm:/dev/shm
@@ -20,14 +25,18 @@ services:
         max-file: "3"
 
   polling:
-    build: .
-    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: datalogger:latest
     container_name: datalogger_polling
-    command: [ "python", "backend/scripts/run_polling.py" ]
+    restart: always
+    network_mode: "host"
+    command: ["python", "backend/scripts/run_polling.py"]
     env_file:
       - .env
-    devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"
+    # devices:
     volumes:
       - ./backend/db_manager/data:/app/backend/db_manager/data
       - /dev/shm:/dev/shm
@@ -40,10 +49,15 @@ services:
       - web
 
   uploader:
-    build: .
-    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: datalogger:latest
     container_name: datalogger_uploader
-    command: [ "python", "backend/scripts/run_uploader.py" ]
+    restart: always
+    network_mode: "host"
+    command: ["python", "backend/scripts/run_uploader.py"]
     env_file:
       - .env
     volumes:
@@ -57,23 +71,27 @@ services:
     depends_on:
       - web
 
-  evn:
-    build: .
-    restart: always
-    container_name: datalogger_evn
-    command: [ "python", "backend/scripts/run_evn.py" ]
-    ports:
-      - "502:502"
-    env_file:
-      - .env
-    volumes:
-      - ./backend/db_manager/data:/app/backend/db_manager/data
-      - /dev/shm:/dev/shm
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    depends_on:
-      - web
-      - polling
+#   evn:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#       target: runtime
+#     image: datalogger:latest
+#     container_name: datalogger_evn
+#     restart: always
+#     command: ["python", "backend/scripts/run_evn.py"]
+#     ports:
+#       - "502:502"
+#     env_file:
+#       - .env
+#     volumes:
+#       - ./backend/db_manager/data:/app/backend/db_manager/data
+#       - /dev/shm:/dev/shm
+#     logging:
+#       driver: "json-file"
+#       options:
+#         max-size: "10m"
+#         max-file: "3"
+#     depends_on:
+#       - web
+#       - polling

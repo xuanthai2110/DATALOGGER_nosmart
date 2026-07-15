@@ -19,4 +19,7 @@ class CommConfig:
     slave_id_start: Optional[int] = None
     slave_id_end: Optional[int] = None
 
+    multi_master: Optional[bool] = False
+    is_master: Optional[bool] = True
+
     id: Optional[int] = None

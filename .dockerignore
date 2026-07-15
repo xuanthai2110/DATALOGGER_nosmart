@@ -1,0 +1,24 @@
+# Exclude version control
+.git
+.gitignore
+
+# Python cache
+**/__pycache__/
+*.py[cod]
+
+# Logs and data
+*.log
+*.db
+backend/db_manager/data/
+
+# Environment files
+.env
+.env.*
+
+# Tests
+tests/
+test_*.py
+
+# Docker related files (not needed inside image)
+Dockerfile
+docker-compose.yml

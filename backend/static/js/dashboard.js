@@ -65,8 +65,20 @@ async function loadInverterDetail(id, sn) {
     document.getElementById('inv-det-mppt').innerHTML = (d.mppts || []).map(m => `<div class="list-item"><p><b>MPPT ${m.mppt_index}</b></p><p>${m.V_mppt}V / ${m.I_mppt}A / ${m.P_mppt.toFixed(2)}kW</p></div>`).join('') || 'Trống';
     document.getElementById('inv-det-string').innerHTML = (d.strings || []).map(s => `<div class="list-item">String ${s.string_id}: ${s.I_string}A</div>`).join('') || 'Trống';
     const actualErrors = (d.errors || []).filter(e => e.fault_code != 0 && e.severity !== "STABLE" && e.fault_code !== "0");
-    document.getElementById('inv-det-errors').innerHTML = actualErrors.length ? actualErrors.map(e => `<div class="list-item text-danger">Lỗi ${e.fault_code}: ${e.fault_description}</div>`).join('') : '<p class="text-success">Hoạt động tốt</p>';
+    document.getElementById('inv-det-errors').innerHTML = actualErrors.length ? actualErrors.map(e => `<div class="list-item text-danger">Lỗi ${formatFaultLabel(e)}: ${e.fault_description}</div>`).join('') : '<p class="text-success">Hoạt động tốt</p>';
 
     
     showView('inverter-detail');
+}
+
+function formatFaultLabel(e) {
+    if (e.repair_instruction && e.repair_instruction.startsWith("mã lỗi ")) {
+        const match = e.repair_instruction.match(/^mã lỗi\s+([^:]+):\s+\+([^+]+)\+/);
+        if (match) {
+            const brand = match[1].trim();
+            const rawFault = match[2].trim();
+            return `${e.fault_code} [Mã gốc: ${rawFault} (${brand})]`;
+        }
+    }
+    return e.fault_code;
 }

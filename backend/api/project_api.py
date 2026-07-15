@@ -67,11 +67,16 @@ def update_project(project_id: int, svc: ProjectService = Depends(get_project_se
 })):
     """Cập nhật thông tin dự án (PATCH - hỗ trợ cập nhật từng trường) qua Service."""
     try:
-        # Lọc các trường hợp lệ cho ProjectCreate
-        valid_fields = {f.name for f in fields(ProjectCreate)}
+        from backend.models.project import ProjectUpdate
+        # Lọc các trường hợp lệ cho ProjectUpdate
+        valid_fields = {f.name for f in fields(ProjectUpdate)}
         filtered_body = {k: v for k, v in body.items() if k in valid_fields and k != "id"}
         
-        proj = svc.upsert_project(ProjectCreate(**filtered_body), project_id=project_id)
+        svc.update_project(project_id, ProjectUpdate(**filtered_body))
+        
+        proj = svc.get_project(project_id)
+        if not proj:
+            return JSONResponse(status_code=404, content={"ok": False, "error": "Project not found"})
         return asdict(proj)
     except Exception as e:
         logger.error(f"update_project error: {e}")

@@ -1,32 +1,31 @@
-FROM python:3.11-slim
-
-# Set working directory
+# ---------- Builder ----------
+FROM public.ecr.aws/docker/library/python:3.11-slim AS builder
 WORKDIR /app
 
-# Install system dependencies (build-essential, curl if needed for Modbus/Serial dependencies)
-# For pyserial, depending on the arch, GCC might be required, but usually wheel works fine.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    tzdata \
-    gcc \
-    libc-dev \
+# Install system dependencies (tzdata, gcc, libc-dev) – rarely change
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        tzdata gcc libc-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set local timezone (assuming VN timezone for datalogger)
-ENV TZ="Asia/Ho_Chi_Minh"
-
-# Copy exactly what is needed for python environment
+# Copy only the requirements file and install Python deps (cached)
 COPY backend/requirements.txt ./backend/
-
-# Install python dependencies
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# Copy source code and the env templates
-COPY backend/ ./backend/
-COPY .env* ./
+# Copy the rest of the source code
+COPY . .
 
-# Ensure Python output is sent straight to terminal (unbuffered)
+# ---------- Runtime ----------
+FROM public.ecr.aws/docker/library/python:3.11-slim AS runtime
+WORKDIR /app
+
+# Set timezone and unbuffered output
+ENV TZ="Asia/Ho_Chi_Minh"
 ENV PYTHONUNBUFFERED=1
 
-# Default CMD (can be overridden by docker-compose)
-CMD ["python", "backend/app.py"]
+# Copy the built artefacts from the builder stage
+COPY --from=builder /app /app
+# Sao chép các gói Python đã cài vào runtime
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+
+# Default command (can be overridden by docker‑compose)
+CMD ["python", "backend/app.py"]    

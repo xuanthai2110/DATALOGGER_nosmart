@@ -32,6 +32,7 @@ from backend.api.schedule_api import router as schedule_router
 from backend.api.account_api import router as account_router
 from backend.api.meter_api import router as meter_router
 from backend.api.evn_api import router as evn_router
+from backend.api.network_api import router as network_router
 
 from backend.core import settings as app_config
 
@@ -52,6 +53,7 @@ app.include_router(schedule_router, dependencies=[Depends(get_current_user_id)])
 app.include_router(account_router, prefix="/api/server-accounts", dependencies=[Depends(get_current_user_id)])
 app.include_router(meter_router, prefix="/api/meters", dependencies=[Depends(get_current_user_id)])
 app.include_router(evn_router, prefix="/api/evn", dependencies=[Depends(get_current_user_id)])
+app.include_router(network_router, prefix="/api/network", dependencies=[Depends(get_current_user_id)])
 
 # --- WebSocket Manager ---
 class ConnectionManager:

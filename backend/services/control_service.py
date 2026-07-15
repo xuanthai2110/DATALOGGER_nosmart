@@ -106,7 +106,7 @@ class ControlService:
         """Đọc chỉ read_power() từng inverter (W). Lỗi đọc → 0 + warning."""
         out: Dict[int, int] = {}
         for inv in inverters:
-            transport = self.polling_service._get_transport(inv.brand)
+            transport = self.polling_service._get_transport(inv.comm_id)
             driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
             if not driver or not hasattr(driver, "read_power"):
                 logger.warning(
@@ -187,7 +187,7 @@ class ControlService:
         *,
         do_post_log: bool = False,
     ) -> Tuple[bool, Optional[str]]:
-        transport = self.polling_service._get_transport(inv.brand)
+        transport = self.polling_service._get_transport(inv.comm_id)
         driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
 
         if not driver:
@@ -242,7 +242,7 @@ class ControlService:
                         self._schedule_post_control_power_log(inv, schedule_id)
                     return True, method_name
 
-                if mode == "LIMIT_PERCENT" and limit_percent is not None:
+                if mode == "PERCENT" and limit_percent is not None:
                     pct = self._clamp_percent(limit_percent)
                     method_name = None
                     command_ok = False
@@ -262,14 +262,14 @@ class ControlService:
 
                     if not method_name:
                         logger.error(
-                            "[ControlService] Driver %s does not support LIMIT_PERCENT for Inv ID %s",
+                            "[ControlService] Driver %s does not support PERCENT for Inv ID %s",
                             driver.__class__.__name__,
                             inv.id,
                         )
                         return False, None
                     if not command_ok:
                         logger.error(
-                            "[ControlService] Driver %s failed LIMIT_PERCENT for Inv ID %s",
+                            "[ControlService] Driver %s failed PERCENT for Inv ID %s",
                             driver.__class__.__name__,
                             inv.id,
                         )
@@ -434,13 +434,13 @@ class ControlService:
             )
             return True
 
-        if schedule.mode == "LIMIT_PERCENT" and schedule.limit_percent is not None:
+        if schedule.mode == "PERCENT" and schedule.limit_percent is not None:
             pct = self._clamp_percent(schedule.limit_percent)
             success = True
             for inv in inverters:
                 ok, _ = self._apply_single_inverter_limits(
                     inv,
-                    "LIMIT_PERCENT",
+                    "PERCENT",
                     None,
                     pct,
                     schedule.id,
@@ -531,10 +531,10 @@ class ControlService:
                 )
                 if not ok:
                     success = False
-            elif schedule.mode == "LIMIT_PERCENT" and schedule.limit_percent is not None:
+            elif schedule.mode == "PERCENT" and schedule.limit_percent is not None:
                 ok, _ = self._apply_single_inverter_limits(
                     inv,
-                    "LIMIT_PERCENT",
+                    "PERCENT",
                     None,
                     schedule.limit_percent,
                     schedule.id,
@@ -555,7 +555,7 @@ class ControlService:
     def _reset_inverters(self, target_inverters) -> bool:
         success = True
         for inv in target_inverters:
-            transport = self.polling_service._get_transport(inv.brand)
+            transport = self.polling_service._get_transport(inv.comm_id)
             driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
             if not driver:
                 logger.error(f"[ControlService] No driver resolved for inverter {inv.id} ({inv.brand}) during reset.")
@@ -617,7 +617,7 @@ class ControlService:
             # --- Kiểm tra EVN Priority Lock ---
             local_project_id = project_item["project"].id
             mode = getattr(schedule, 'mode', '')
-            is_p_control = mode in ('MAXP', 'LIMIT_PERCENT')
+            is_p_control = mode in ('MAXP', 'PERCENT')
             is_q_control = mode in ('LIMIT_Q_PERCENT', 'LIMIT_Q_KVAR')
 
             if is_p_control and self.is_evn_locked_p(local_project_id):
@@ -664,7 +664,7 @@ class ControlService:
             # --- Kiểm tra EVN Priority Lock khi reset ---
             local_project_id = project_item["project"].id
             mode = getattr(schedule, 'mode', '')
-            is_p_control = mode in ('MAXP', 'LIMIT_PERCENT')
+            is_p_control = mode in ('MAXP', 'PERCENT')
             is_q_control = mode in ('LIMIT_Q_PERCENT', 'LIMIT_Q_KVAR')
 
             if is_p_control and self.is_evn_locked_p(local_project_id):
@@ -775,7 +775,7 @@ class ControlService:
             success_count = 0
             for inv in inverters:
                 try:
-                    transport = self.polling_service._get_transport(inv.brand)
+                    transport = self.polling_service._get_transport(inv.comm_id)
                     driver = self.polling_service._get_driver(
                         inv.brand, transport, inv.slave_id, inv.model
                     )
@@ -819,7 +819,7 @@ class ControlService:
                 id=-1,
                 project_id=project_id,
                 scope="PROJECT",
-                mode="LIMIT_PERCENT",
+                mode="PERCENT",
                 setpoint=100.0,
                 serial_number=None,
             )
@@ -838,7 +838,7 @@ class ControlService:
             inverters = project_item.get("inverters", [])
             for inv in inverters:
                 try:
-                    transport = self.polling_service._get_transport(inv.brand)
+                    transport = self.polling_service._get_transport(inv.comm_id)
                     driver = self.polling_service._get_driver(
                         inv.brand, transport, inv.slave_id, inv.model
                     )

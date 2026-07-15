@@ -24,7 +24,7 @@ class ModbusRTU:
         multi_master: bool = False,
     ):
         self.port = port
-        self.retries = retries
+        self.retries = max(retries, 1)
         self.multi_master = multi_master
         
         # Tăng cường độ lỳ lợm cho mạng nhiều Inverter

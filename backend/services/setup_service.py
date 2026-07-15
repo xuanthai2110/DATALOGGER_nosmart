@@ -387,35 +387,32 @@ class SetupService:
                     if server_data.get("usage_end_at"):
                         payload["usage_end_at"] = server_data.get("usage_end_at")
                         
-                    diff_payload = {}
+                    has_changes = False
                     for k, v in payload.items():
                         if k in ["project_id", "project_request_id"]:
                             continue
                         if not self._is_equal(server_data.get(k), v):
-                            diff_payload[k] = v
+                            has_changes = True
+                            break
                             
-                    if not diff_payload:
+                    if not has_changes:
                         logger.info(f"[Sync] Inverter {inverter_id} has no changes. Skipping update request.")
                         return -1
-                        
-                    update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
-                    logger.info(f"[Sync] Sending Inverter Update Request (Diff) to {update_url}: {diff_payload}")
-                    resp = requests.post(update_url, json=diff_payload, headers=headers, timeout=20)
-                else:
-                    # Nếu không lấy được server_data, gửi toàn bộ (loại bỏ project link)
-                    update_payload = payload.copy()
-                    update_payload.pop("project_id", None)
-                    update_payload.pop("project_request_id", None)
-                    update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
-                    logger.info(f"[Sync] Could not fetch server data, sending full update payload.")
-                    resp = requests.post(update_url, json=update_payload, headers=headers, timeout=20)
+                
+                # Chuẩn bị full payload gửi lên (loại bỏ liên kết project)
+                update_payload = payload.copy()
+                update_payload.pop("project_id", None)
+                update_payload.pop("project_request_id", None)
+                
+                update_url = f"{base_api}/api/inverters/requests/update/{inverter.server_id}"
+                logger.info(f"[Sync] Sending Inverter Update Request (Full Payload) to {update_url}: {update_payload}")
+                resp = requests.post(update_url, json=update_payload, headers=headers, timeout=20)
                 
                 if resp.status_code == 401:
                     token = self.auth.handle_unauthorized(account_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token}"
-                        current_payload = diff_payload if 'diff_payload' in locals() else update_payload
-                        resp = requests.post(update_url, json=current_payload, headers=headers, timeout=20)
+                        resp = requests.post(update_url, json=update_payload, headers=headers, timeout=20)
                 
                 if resp.status_code in [200, 201]:
                     new_req_id = resp.json().get("id")
