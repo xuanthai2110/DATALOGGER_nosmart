@@ -619,9 +619,9 @@ SOLIS_FAULT_MAP = {
 HUAWEI_STATE_MAP = {
     # Chờ và khởi động
     0:    {"id_huawei": 0,    "id_unified": 12, "name": "Chờ khởi tạo",              "severity": "STABLE",     "description": "Biến tần đã khởi tạo và đang chờ"},
-    1:    {"id_huawei": 1,    "id_unified": 13, "name": "Dò lưới",                   "severity": "STABLE",     "description": "Đang dò thông số lưới"},
-    2:    {"id_huawei": 2,    "id_unified": 14, "name": "Kiểm tra cách điện",        "severity": "STABLE",     "description": "Đang kiểm tra kháng trở cách điện"},
-    3:    {"id_huawei": 3,    "id_unified": 15, "name": "Tự kiểm tra",               "severity": "STABLE",     "description": "Tự kiểm tra trước khi khởi động"},
+    1:    {"id_huawei": 1,    "id_unified": 14, "name": "Kiểm tra cách điện",        "severity": "STABLE",     "description": "Đang kiểm tra điện trở cách điện"},
+    2:    {"id_huawei": 2,    "id_unified": 2,  "name": "Kiểm tra bức xạ",           "severity": "STABLE",     "description": "Đang kiểm tra bức xạ mặt trời"},
+    3:    {"id_huawei": 3,    "id_unified": 13, "name": "Dò lưới",                   "severity": "STABLE",     "description": "Đang dò thông số lưới điện"},
     256:  {"id_huawei": 256,  "id_unified": 3,  "name": "Đang khởi động",            "severity": "STABLE",     "description": "Biến tần đang khởi động"},
 
     # Vận hành
@@ -634,8 +634,8 @@ HUAWEI_STATE_MAP = {
     # Tắt
     768:  {"id_huawei": 768,  "id_unified": 5,  "name": "Lỗi",                       "severity": "ERROR",      "description": "Phát hiện lỗi"},
     769:  {"id_huawei": 769,  "id_unified": 19, "name": "Đang tắt",                  "severity": "WARNING",    "description": "Quá trình tắt đang diễn ra"},
-    770:  {"id_huawei": 770,  "id_unified": 9,  "name": "Lỗi truyền thông",          "severity": "ERROR",      "description": "Mất kết nối truyền thông"},
-    771:  {"id_huawei": 771,  "id_unified": 10, "name": "Dừng khẩn cấp",             "severity": "ERROR",      "description": "Kích hoạt dừng khẩn cấp"},
+    770:  {"id_huawei": 770,  "id_unified": 5,  "name": "Tắt do bảo vệ quá áp lưới", "severity": "ERROR",      "description": "Tắt do rơ-le bảo vệ quá áp lưới (OVGR)"},
+    771:  {"id_huawei": 771,  "id_unified": 9,  "name": "Lỗi truyền thông",          "severity": "ERROR",      "description": "Mất kết nối truyền thông"},
     772:  {"id_huawei": 772,  "id_unified": 20, "name": "Giới hạn công suất",        "severity": "WARNING",    "description": "Tắt do giới hạn công suất"},
     773:  {"id_huawei": 773,  "id_unified": 11, "name": "Dừng bằng nút",             "severity": "ERROR",      "description": "Dừng thủ công"},
     774:  {"id_huawei": 774,  "id_unified": 4,  "name": "Đã dừng",                   "severity": "ERROR",      "description": "Công tắc DC ngắt"},
