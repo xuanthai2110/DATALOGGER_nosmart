@@ -157,45 +157,73 @@ class LogicWorker(threading.Thread):
 
     def _publish_realtime_mqtt(self, project_id: int):
         try:
-            if not self.build_tele_worker or not hasattr(self.build_tele_worker, "mqtt_sub") or not self.build_tele_worker.mqtt_sub:
+            logger.info(f"[RealtimeMQTT] Starting check for project {project_id}")
+            if not self.build_tele_worker:
+                logger.warning("[RealtimeMQTT] Skip: build_tele_worker is None")
+                return
+            if not hasattr(self.build_tele_worker, "mqtt_sub"):
+                logger.warning("[RealtimeMQTT] Skip: build_tele_worker has no 'mqtt_sub' attribute")
+                return
+            if not self.build_tele_worker.mqtt_sub:
+                logger.warning("[RealtimeMQTT] Skip: build_tele_worker.mqtt_sub is None")
                 return
             
             proj_meta = self.project_svc.get_project(project_id)
             if not proj_meta:
+                logger.warning(f"[RealtimeMQTT] Skip: project metadata for ID {project_id} not found")
                 return
                 
             mqtt_sub = self.build_tele_worker.mqtt_sub
             server_id = proj_meta.server_id
+            logger.info(f"[RealtimeMQTT] Project {project_id} -> Server ID: {server_id}")
             
-            # Lấy client_ids đang active từ mqtt_sub
+            # Lấy client_ids đang active từ mqtt_sub (chuẩn hóa so sánh để tránh lệch kiểu dữ liệu int vs str)
             client_ids = []
-            if hasattr(mqtt_sub, "realtime_clients") and server_id in mqtt_sub.realtime_clients:
-                client_ids = list(mqtt_sub.realtime_clients[server_id])
+            if hasattr(mqtt_sub, "realtime_clients"):
+                logger.info(f"[RealtimeMQTT] mqtt_sub.realtime_clients keys: {list(mqtt_sub.realtime_clients.keys())}")
+                matched_key = None
+                for k in mqtt_sub.realtime_clients.keys():
+                    if str(k) == str(server_id):
+                        matched_key = k
+                        break
+                if matched_key is not None:
+                    client_ids = list(mqtt_sub.realtime_clients[matched_key])
+            else:
+                logger.warning("[RealtimeMQTT] mqtt_sub has no 'realtime_clients' attribute")
                 
             db_mode = getattr(proj_meta, "telemetry_mode", "Realtime")
+            logger.info(f"[RealtimeMQTT] Active clients: {client_ids}, mode: {db_mode}")
             
             # Bỏ qua nếu Web Local không chạy Realtime và cũng không có client nào đang xem
             if db_mode in ("Periodic", "Offline") and not client_ids:
+                logger.info(f"[RealtimeMQTT] Skip: db_mode is {db_mode} and no active clients")
                 return
                 
             invs = self.project_svc.get_inverters_by_project(project_id)
             active_invs = [inv for inv in invs if getattr(inv, "is_active", True)]
+            logger.info(f"[RealtimeMQTT] Active inverters: {[inv.id for inv in active_invs]}")
             
             payload_list = self.telemetry.build_payload_from_cache(
                 project_id, server_id, active_invs, self.cache_db
             )
             
-            if payload_list:
-                payload = payload_list[0]
+            if not payload_list:
+                logger.warning("[RealtimeMQTT] Skip: build_payload_from_cache returned empty payload")
+                return
                 
-                # 1. Gửi Broadcast lên topic mặc định chỉ khi Web Local bật chế độ Realtime (DB là Realtime)
-                if db_mode == "Realtime":
-                    broadcast_topic = f"telemetry/realtime/{server_id}"
-                    mqtt_sub.publish(broadcast_topic, payload)
-                
-                # 2. Gửi đích danh tới từng client_id đang hoạt động (nếu có)
-                for cid in client_ids:
-                    topic = f"telemetry/realtime/{server_id}/{cid}"
-                    mqtt_sub.publish(topic, payload)
+            payload = payload_list[0]
+            logger.info("[RealtimeMQTT] Payload generated successfully")
+            
+            # 1. Gửi Broadcast lên topic mặc định chỉ khi Web Local bật chế độ Realtime (DB là Realtime)
+            if db_mode == "Realtime":
+                broadcast_topic = f"telemetry/realtime/{server_id}"
+                logger.info(f"[RealtimeMQTT] Publishing broadcast to {broadcast_topic}")
+                mqtt_sub.publish(broadcast_topic, payload)
+            
+            # 2. Gửi đích danh tới từng client_id đang hoạt động (nếu có)
+            for cid in client_ids:
+                topic = f"telemetry/realtime/{server_id}/{cid}"
+                logger.info(f"[RealtimeMQTT] Publishing targeted telemetry to {topic}")
+                mqtt_sub.publish(topic, payload)
         except Exception as e:
-            logger.error(f"LogicWorker: Failed to publish realtime MQTT for project {project_id}: {e}")
+            logger.error(f"LogicWorker: Failed to publish realtime MQTT for project {project_id}: {e}", exc_info=True)
