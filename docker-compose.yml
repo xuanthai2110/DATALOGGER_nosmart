@@ -33,6 +33,7 @@ services:
     container_name: datalogger_polling
     restart: always
     network_mode: "host"
+    privileged: true
     command: ["python", "backend/scripts/run_polling.py"]
     env_file:
       - .env
