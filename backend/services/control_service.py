@@ -106,8 +106,8 @@ class ControlService:
         """Đọc chỉ read_power() từng inverter (W). Lỗi đọc → 0 + warning."""
         out: Dict[int, int] = {}
         for inv in inverters:
-            transport = self.polling_service._get_transport(inv.comm_id)
-            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
+            transport = self.polling_service._get_transport(getattr(inv, "comm_id", None))
+            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, getattr(inv, "model", None))
             if not driver or not hasattr(driver, "read_power"):
                 logger.warning(
                     "[ControlService] Inv ID %s: driver missing read_power(); using 0 W for allocation",
@@ -187,8 +187,8 @@ class ControlService:
         *,
         do_post_log: bool = False,
     ) -> Tuple[bool, Optional[str]]:
-        transport = self.polling_service._get_transport(inv.comm_id)
-        driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
+        transport = self.polling_service._get_transport(getattr(inv, "comm_id", None))
+        driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, getattr(inv, "model", None))
 
         if not driver:
             logger.error(f"[ControlService] No driver resolved for inverter {inv.id} ({inv.brand}).")
@@ -242,7 +242,7 @@ class ControlService:
                         self._schedule_post_control_power_log(inv, schedule_id)
                     return True, method_name
 
-                if mode == "PERCENT" and limit_percent is not None:
+                if mode in ("PERCENT", "LIMIT_PERCENT") and limit_percent is not None:
                     pct = self._clamp_percent(limit_percent)
                     method_name = None
                     command_ok = False
@@ -434,7 +434,7 @@ class ControlService:
             )
             return True
 
-        if schedule.mode == "PERCENT" and schedule.limit_percent is not None:
+        if schedule.mode in ("PERCENT", "LIMIT_PERCENT") and schedule.limit_percent is not None:
             pct = self._clamp_percent(schedule.limit_percent)
             success = True
             for inv in inverters:
@@ -481,8 +481,8 @@ class ControlService:
             try:
                 time.sleep(self.post_control_readback_delay_sec)
 
-                transport = self.polling_service._get_transport(inv.brand)
-                driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
+                transport = self.polling_service._get_transport(getattr(inv, "comm_id", None))
+                driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, getattr(inv, "model", None))
                 if not driver:
                     logger.error(
                         "[ControlService] Cannot read back power for Inv ID %s after schedule %s because driver is unavailable.",
@@ -531,7 +531,7 @@ class ControlService:
                 )
                 if not ok:
                     success = False
-            elif schedule.mode == "PERCENT" and schedule.limit_percent is not None:
+            elif schedule.mode in ("PERCENT", "LIMIT_PERCENT") and schedule.limit_percent is not None:
                 ok, _ = self._apply_single_inverter_limits(
                     inv,
                     "PERCENT",
@@ -555,8 +555,8 @@ class ControlService:
     def _reset_inverters(self, target_inverters) -> bool:
         success = True
         for inv in target_inverters:
-            transport = self.polling_service._get_transport(inv.comm_id)
-            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, inv.model)
+            transport = self.polling_service._get_transport(getattr(inv, "comm_id", None))
+            driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, getattr(inv, "model", None))
             if not driver:
                 logger.error(f"[ControlService] No driver resolved for inverter {inv.id} ({inv.brand}) during reset.")
                 success = False

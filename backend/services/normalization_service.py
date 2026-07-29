@@ -127,11 +127,16 @@ class NormalizationService:
         p_ac = result.get("p_inv_w")
         ir = result.get("ir")
         
-        is_night = (ir == 0.0) if ir is not None else False
-        if not is_night and p_dc is not None:
+        # Nhận diện ban đêm theo thứ tự ưu tiên:
+        # 1. Nếu có công suất DC thực tế -> dùng nó làm chuẩn (p_dc_w <= 10W là ban đêm)
+        # 2. Nếu không có DC nhưng có AC  -> dùng AC (p_inv_w <= 20W là ban đêm)
+        # 3. Chỉ dùng ir == 0.0 làm dự phòng khi không có cả hai thông số công suất trên
+        if p_dc is not None:
             is_night = p_dc <= 10.0
-        if not is_night and p_ac is not None:
+        elif p_ac is not None:
             is_night = p_ac <= 20.0
+        else:
+            is_night = (ir == 0.0) if ir is not None else False
             
         if is_night:
             if "p_inv_w" in result: result["p_inv_w"] = 0.0
