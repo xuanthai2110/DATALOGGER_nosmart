@@ -33,8 +33,13 @@ from backend.api.account_api import router as account_router
 from backend.api.meter_api import router as meter_router
 from backend.api.evn_api import router as evn_router
 from backend.api.network_api import router as network_router
+from backend.api.zero_export_api import router as zero_export_router
 
 from backend.core import settings as app_config
+
+# Global instance của ZeroExportService — được inject vào API thông qua dependency
+# Được set bởi run_polling.py sau khi khởi tạo, hoặc None nếu không chạy polling
+ze_service_instance = None
 
 
 app = FastAPI(title="Solar Datalogger Backend", version="2.0.0")
@@ -54,6 +59,7 @@ app.include_router(account_router, prefix="/api/server-accounts", dependencies=[
 app.include_router(meter_router, prefix="/api/meters", dependencies=[Depends(get_current_user_id)])
 app.include_router(evn_router, prefix="/api/evn", dependencies=[Depends(get_current_user_id)])
 app.include_router(network_router, prefix="/api/network", dependencies=[Depends(get_current_user_id)])
+app.include_router(zero_export_router, prefix="/api/zero-export", dependencies=[Depends(get_current_user_id)])
 
 # --- WebSocket Manager ---
 class ConnectionManager:
@@ -84,13 +90,35 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.on_event("startup")
 def startup_event():
-    from backend.db_manager import MetadataDB
+    from backend.db_manager import MetadataDB, CacheDB, RealtimeDB
     from backend.services.user_service import UserService
+    from backend.services.zero_export_service import ZeroExportService
+    from backend.services.control_service import ControlService
+    from backend.services.polling_service import PollingService
     from backend.core import settings as app_config
     
     db = MetadataDB(app_config.METADATA_DB)
     user_svc = UserService(db)
     user_svc.create_admin_if_not_exists()
+
+    # Khởi tạo ZeroExportService ở web process để xử lý cấu hình & đồng bộ trạng thái qua SQLite CacheDB
+    try:
+        cache_db = CacheDB(app_config.CACHE_DB)
+        realtime_db = RealtimeDB(app_config.REALTIME_DB)
+        fake_polling_svc = PollingService(None, cache_db, realtime_db)
+        ctrl_svc = ControlService(fake_polling_svc)
+        
+        global ze_service_instance
+        ze_service_instance = ZeroExportService(
+            cache_db=cache_db,
+            metadata_db=db,
+            control_service=ctrl_svc,
+            polling_service=fake_polling_svc,
+            schedule_service=None
+        )
+        logger.info("[App Startup] ZeroExportService initialized successfully on Web process.")
+    except Exception as e:
+        logger.error(f"[App Startup] Failed to initialize ZeroExportService: {e}", exc_info=True)
 # Static files for SPA
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 if not STATIC_DIR.exists():

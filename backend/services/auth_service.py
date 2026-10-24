@@ -113,3 +113,57 @@ class AuthService:
         """Xóa token trong Database cho một tài khoản."""
         update_data = ServerAccountUpdate(token="", refresh_token="")
         self.metadata_db.patch_server_account(account_id, update_data)
+
+
+    def login_account(self, account_id: int) -> dict:
+        """Thực hiện đăng nhập tài khoản lên Cloud Server và lưu token vào DB."""
+        account = self.metadata_db.get_server_account_for_auth(account_id)
+        if not account:
+            return {"ok": False, "message": f"Không tìm thấy tài khoản ID {account_id} trong hệ thống"}
+        if not account.username or not account.password:
+            return {"ok": False, "message": "Tài khoản chưa được cấu hình tên đăng nhập hoặc mật khẩu"}
+
+        url = f"{API_BASE_URL}/api/auth/token"
+        payload = {
+            "username": account.username,
+            "password": account.password,
+            "grant_type": "password",
+        }
+
+        try:
+            response = requests.post(url, data=payload, timeout=15)
+            if response.status_code == 200:
+                data = response.json()
+                access = data.get("access_token")
+                refresh = data.get("refresh_token")
+                self._save_tokens(account_id, access, refresh)
+                logger.info(f"[Auth] Login successful for {account.username}")
+                return {
+                    "ok": True,
+                    "message": f"Đăng nhập thành công! Đã lấy và lưu Token cho tài khoản '{account.username}'.",
+                    "username": account.username
+                }
+            elif response.status_code == 401:
+                logger.warning(f"[Auth] Login failed 401 for {account.username}")
+                return {
+                    "ok": False,
+                    "message": f"Đăng nhập thất bại (401 Unauthorized): Sai tên đăng nhập hoặc mật khẩu của tài khoản '{account.username}' trên Cloud Server."
+                }
+            else:
+                logger.warning(f"[Auth] Login failed {response.status_code} for {account.username}")
+                return {
+                    "ok": False,
+                    "message": f"Cloud Server từ chối đăng nhập (Mã lỗi {response.status_code}): {response.text[:150]}"
+                }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[Auth] Network error when logging in {account.username}: {e}")
+            return {
+                "ok": False,
+                "message": f"Không thể kết nối đến Cloud Server ({API_BASE_URL}). Vui lòng kiểm tra kết nối mạng."
+            }
+        except Exception as e:
+            logger.error(f"[Auth] Unexpected error when logging in {account.username}: {e}")
+            return {
+                "ok": False,
+                "message": f"Lỗi không xác định khi đăng nhập: {str(e)}"
+            }

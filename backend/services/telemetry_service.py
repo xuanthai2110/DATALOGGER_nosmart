@@ -90,7 +90,26 @@ class TelemetryService:
             if err_row:
                 if err_row.get("fault_json"):
                     try:
-                        errors = self._normalize_error_items(json.loads(err_row["fault_json"]), payload_created_at)
+                        raw_errs = json.loads(err_row["fault_json"])
+                        # Bỏ qua lỗi PV bất thường của Sungrow khi đẩy lên server
+                        if getattr(inv, "brand", "").upper() == "SUNGROW":
+                            from backend.services.fault_mappings import is_sungrow_pv_abnormal_fault
+                            filtered = []
+                            for item in raw_errs:
+                                f_desc = (item.get("fault_description") or "").lower()
+                                r_inst = item.get("repair_instruction") or ""
+                                is_abnormal = False
+                                if "pv" in f_desc and ("bất thường" in f_desc or "abnormal" in f_desc):
+                                    is_abnormal = True
+                                elif "mã lỗi sungrow:" in r_inst.lower():
+                                    import re
+                                    m = re.search(r"mã lỗi sungrow:\s*\+(\d+)\+", r_inst, re.IGNORECASE)
+                                    if m and is_sungrow_pv_abnormal_fault(int(m.group(1))):
+                                        is_abnormal = True
+                                if not is_abnormal:
+                                    filtered.append(item)
+                            raw_errs = filtered
+                        errors = self._normalize_error_items(raw_errs, payload_created_at)
                     except Exception:
                         logger.warning(f"Invalid fault_json in cache for inverter {inv_id}. Using fallback error payload.")
                         errors = []
@@ -103,7 +122,16 @@ class TelemetryService:
                         "created_at": payload_created_at
                     }], payload_created_at)
             if not errors:
-                errors = [self._default_error_item(err_row, ac, payload_created_at)]
+                if getattr(inv, "brand", "").upper() == "SUNGROW":
+                    errors = [{
+                        "fault_code": 1,
+                        "fault_description": "ĐANG VẬN HÀNH",
+                        "repair_instruction": "Đang vận hành bình thường",
+                        "severity": "STABLE",
+                        "created_at": payload_created_at
+                    }]
+                else:
+                    errors = [self._default_error_item(err_row, ac, payload_created_at)]
             
             # Track Project Severity (highest among inverters)
             inv_severity = errors[0].get("severity", "STABLE") if errors else "STABLE"

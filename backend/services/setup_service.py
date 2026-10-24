@@ -2,7 +2,7 @@ import requests
 import logging
 import time
 from typing import Optional, List, Dict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dataclasses import asdict
 from backend.core.settings import API_BASE_URL
 from backend.models.project import ProjectCreate, ProjectUpdate
@@ -34,6 +34,38 @@ class SetupService:
         a_str = "" if a is None else str(a).strip()
         b_str = "" if b is None else str(b).strip()
         return a_str == b_str
+
+    @staticmethod
+    def _format_iso_utc7(dt_val) -> Optional[str]:
+        """Chuẩn hóa mốc thời gian sang định dạng ISO 8601 kèm múi giờ UTC+7 (+07:00)."""
+        if not dt_val:
+            return None
+        tz_utc7 = timezone(timedelta(hours=7))
+        if isinstance(dt_val, datetime):
+            if dt_val.tzinfo is None:
+                dt_val = dt_val.replace(tzinfo=tz_utc7)
+            else:
+                dt_val = dt_val.astimezone(tz_utc7)
+            return dt_val.strftime("%Y-%m-%dT%H:%M:%S+07:00")
+
+        s = str(dt_val).strip()
+        if not s:
+            return None
+
+        # Bỏ đuôi 'Z' hoặc 'z' nếu có
+        if s.endswith("Z") or s.endswith("z"):
+            s = s[:-1].strip()
+        # Nếu đã có chuẩn offset +07:00
+        if "+07:00" in s:
+            return s.replace(" ", "T")
+        # Nếu có offset khác (ví dụ +00:00), loại bỏ để gán lại +07:00 vì đồng hồ logger là giờ VN
+        if "+" in s:
+            s = s.split("+")[0].strip()
+        # Loại bỏ microsecond
+        if "." in s:
+            s = s.split(".")[0].strip()
+        s = s.replace(" ", "T")
+        return f"{s}+07:00"""
 
     def scan_inverters(self, transport, project_id: int, driver_class) -> list[int]:
         """
@@ -338,6 +370,15 @@ class SetupService:
         }
         payload = {k: v for k, v in asdict(inverter).items() if k in inv_fields}
         
+        # Ánh xạ replaced_by_id từ Local Inverter ID sang Server ID tương ứng
+        if payload.get("replaced_by_id"):
+            rep_inv = self.project_svc.get_inverter_by_id(payload["replaced_by_id"])
+            if rep_inv and rep_inv.server_id:
+                payload["replaced_by_id"] = rep_inv.server_id
+                logger.info(f"[Sync] Mapped replaced_by_id from local ID {inverter.replaced_by_id} to server ID {rep_inv.server_id}")
+            else:
+                logger.warning(f"[Sync] Inverter {inverter_id} replacement local ID {payload['replaced_by_id']} has no server_id yet.")
+
         # Server expects integer for these kw fields
         if payload.get('rate_dc_kwp') is not None:
             payload['rate_dc_kwp'] = int(round(float(payload['rate_dc_kwp'])))
@@ -357,9 +398,15 @@ class SetupService:
             # Trường hợp 3: dự án chưa có cả 2 -> thông báo tạo request cho project trước
             return -2
         
-        # Format date strings if they are objects
+        # Chuẩn hóa các trường thời gian luôn mang múi giờ UTC+7 trước khi gửi lên Cloud
+        tz_utc7 = timezone(timedelta(hours=7))
         if payload.get("usage_start_at") is None:
-            payload["usage_start_at"] = datetime.now(timezone.utc).isoformat()
+            payload["usage_start_at"] = datetime.now(tz_utc7).strftime("%Y-%m-%dT%H:%M:%S+07:00")
+        else:
+            payload["usage_start_at"] = self._format_iso_utc7(payload.get("usage_start_at"))
+
+        if payload.get("usage_end_at") is not None:
+            payload["usage_end_at"] = self._format_iso_utc7(payload.get("usage_end_at"))
 
         try:
             base_api = API_BASE_URL.rstrip('/')
@@ -383,9 +430,9 @@ class SetupService:
                     logger.info(f"[Sync] Data from Local (to compare): {payload}")
                     
                     if server_data.get("usage_start_at"):
-                        payload["usage_start_at"] = server_data.get("usage_start_at")
+                        payload["usage_start_at"] = self._format_iso_utc7(server_data.get("usage_start_at"))
                     if server_data.get("usage_end_at"):
-                        payload["usage_end_at"] = server_data.get("usage_end_at")
+                        payload["usage_end_at"] = self._format_iso_utc7(server_data.get("usage_end_at"))
                         
                     has_changes = False
                     for k, v in payload.items():
@@ -578,6 +625,244 @@ class SetupService:
                 time.sleep(60)
         finally:
             _ACTIVE_POLLS.discard(poll_key)
+
+    def check_project_status_on_server(self, project_id: int) -> dict:
+        """Kiểm tra thủ công trạng thái phê duyệt của Project trên Cloud Server."""
+        project = self.project_svc.get_project(project_id)
+        if not project:
+            return {"ok": False, "message": "Không tìm thấy dự án trong cơ sở dữ liệu."}
+            
+        token, account_id = self._get_token_for_project(project_id)
+        if not token:
+            return {"ok": False, "message": "Dự án chưa được cấu hình tài khoản Cloud hoặc Token không hợp lệ."}
+
+        base_api = API_BASE_URL.rstrip('/')
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+        # 1. Nếu có server_request_id -> Kiểm tra request
+        if project.server_request_id:
+            req_url = f"{base_api}/api/projects/requests/{project.server_request_id}"
+            try:
+                resp = requests.get(req_url, headers=headers, timeout=10)
+                if resp.status_code == 401:
+                    token = self.auth.handle_unauthorized(account_id)
+                    if token:
+                        headers["Authorization"] = f"Bearer {token}"
+                        resp = requests.get(req_url, headers=headers, timeout=10)
+
+                if resp.status_code == 200:
+                    data = resp.json()
+                    status = data.get("status", "").lower()
+                    if status == "approved":
+                        s_id = data.get("approved_project_id") or data.get("target_project_id") or data.get("server_id")
+                        self.project_svc.update_project_sync(project_id, server_id=s_id, status='approved')
+                        
+                        inv_map = data.get("inverter_map", {})
+                        for li in self.project_svc.get_inverters_by_project(project_id):
+                            s_inv_id = inv_map.get(li.serial_number)
+                            if s_inv_id:
+                                self.project_svc.update_inverter_sync(li.id, server_id=s_inv_id, status='approved')
+
+                        return {
+                            "ok": True,
+                            "status": "approved",
+                            "server_id": s_id,
+                            "message": f"Dự án đã được phê duyệt trên Server (Server ID: {s_id})!"
+                        }
+                    elif status == "rejected":
+                        self.project_svc.update_project_sync(project_id, status='rejected')
+                        return {
+                            "ok": True,
+                            "status": "rejected",
+                            "message": "Yêu cầu dự án đã bị Admin từ chối trên Server."
+                        }
+                    elif status == "pending":
+                        return {
+                            "ok": True,
+                            "status": "pending",
+                            "message": f"Yêu cầu dự án (Request: {project.server_request_id}) vẫn đang chờ Admin phê duyệt."
+                        }
+                    else:
+                        return {
+                            "ok": True,
+                            "status": status,
+                            "message": f"Trạng thái yêu cầu trên Server: {status}."
+                        }
+                elif resp.status_code == 404:
+                    logger.warning(f"[Sync] Project request {project.server_request_id} not found on server.")
+                else:
+                    return {"ok": False, "message": f"Lỗi phản hồi từ Server ({resp.status_code}): {resp.text}"}
+            except Exception as e:
+                logger.error(f"[Sync] Error checking project request status: {e}")
+                return {"ok": False, "message": f"Lỗi kết nối Server: {str(e)}"}
+
+        # 2. Nếu đã có server_id -> Kiểm tra trực tiếp project trên server
+        if project.server_id:
+            chk_url = f"{base_api}/api/projects/{project.server_id}"
+            try:
+                resp = requests.get(chk_url, headers=headers, timeout=10)
+                if resp.status_code == 401:
+                    token = self.auth.handle_unauthorized(account_id)
+                    if token:
+                        headers["Authorization"] = f"Bearer {token}"
+                        resp = requests.get(chk_url, headers=headers, timeout=10)
+
+                if resp.status_code == 200:
+                    self.project_svc.update_project_sync(project_id, server_id=project.server_id, status='approved')
+                    return {
+                        "ok": True,
+                        "status": "approved",
+                        "server_id": project.server_id,
+                        "message": f"Dự án đã tồn tại và hoạt động bình thường trên Server (ID: {project.server_id})."
+                    }
+                elif resp.status_code == 404:
+                    return {
+                        "ok": False,
+                        "status": "not_found",
+                        "message": f"Không tìm thấy dự án ID {project.server_id} trên Server. Dự án có thể đã bị xóa."
+                    }
+            except Exception as e:
+                logger.error(f"[Sync] Error checking project server_id: {e}")
+                return {"ok": False, "message": f"Lỗi kết nối Server: {str(e)}"}
+
+        # 3. Nếu chưa có server_request_id và chưa có server_id -> Thử pre_sync_check
+        if self.pre_sync_check(project_id):
+            updated_proj = self.project_svc.get_project(project_id)
+            return {
+                "ok": True,
+                "status": "approved",
+                "server_id": updated_proj.server_id if updated_proj else None,
+                "message": "Dự án đã được tự động khớp và phê duyệt từ Server (Auto-matched)!"
+            }
+
+        return {
+            "ok": True,
+            "status": "unregistered",
+            "message": "Dự án chưa được gửi yêu cầu lên Server. Hãy bấm nút CLOUD CREATE."
+        }
+
+    def check_inverter_status_on_server(self, inverter_id: int) -> dict:
+        """Kiểm tra thủ công trạng thái phê duyệt của Inverter trên Cloud Server."""
+        inverter = self.project_svc.get_inverter_by_id(inverter_id)
+        if not inverter:
+            return {"ok": False, "message": "Không tìm thấy Inverter trong cơ sở dữ liệu."}
+
+        token, account_id = self._get_token_for_project(inverter.project_id)
+        if not token:
+            return {"ok": False, "message": "Dự án chứa Inverter chưa có tài khoản Cloud hoặc Token không hợp lệ."}
+
+        base_api = API_BASE_URL.rstrip('/')
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+        # 1. Nếu có server_request_id -> Kiểm tra request
+        if inverter.server_request_id:
+            req_url = f"{base_api}/api/inverters/requests/{inverter.server_request_id}"
+            try:
+                resp = requests.get(req_url, headers=headers, timeout=10)
+                if resp.status_code == 401:
+                    token = self.auth.handle_unauthorized(account_id)
+                    if token:
+                        headers["Authorization"] = f"Bearer {token}"
+                        resp = requests.get(req_url, headers=headers, timeout=10)
+
+                if resp.status_code == 200:
+                    data = resp.json()
+                    status = data.get("status", "").lower()
+                    if status == "approved":
+                        s_id = data.get("approved_inverter_id") or data.get("target_inverter_id")
+                        self.project_svc.update_inverter_sync(inverter_id, server_id=s_id, status='approved')
+                        return {
+                            "ok": True,
+                            "status": "approved",
+                            "server_id": s_id,
+                            "message": f"Inverter (SN: {inverter.serial_number}) đã được phê duyệt trên Server (ID: {s_id})!"
+                        }
+                    elif status == "rejected":
+                        self.project_svc.update_inverter_sync(inverter_id, status='rejected')
+                        return {
+                            "ok": True,
+                            "status": "rejected",
+                            "message": f"Yêu cầu Inverter (SN: {inverter.serial_number}) đã bị Admin từ chối."
+                        }
+                    elif status == "pending":
+                        return {
+                            "ok": True,
+                            "status": "pending",
+                            "message": f"Yêu cầu Inverter (SN: {inverter.serial_number}, Req: {inverter.server_request_id}) vẫn đang chờ duyệt."
+                        }
+                    else:
+                        return {
+                            "ok": True,
+                            "status": status,
+                            "message": f"Trạng thái Inverter trên Server: {status}."
+                        }
+                elif resp.status_code == 404:
+                    logger.warning(f"[Sync] Inverter request {inverter.server_request_id} not found on server.")
+                else:
+                    return {"ok": False, "message": f"Lỗi phản hồi từ Server ({resp.status_code}): {resp.text}"}
+            except Exception as e:
+                logger.error(f"[Sync] Error checking inverter request status: {e}")
+                return {"ok": False, "message": f"Lỗi kết nối Server: {str(e)}"}
+
+        # 2. Nếu đã có server_id -> Kiểm tra trực tiếp trên server
+        if inverter.server_id:
+            chk_url = f"{base_api}/api/inverters/{inverter.server_id}"
+            try:
+                resp = requests.get(chk_url, headers=headers, timeout=10)
+                if resp.status_code == 401:
+                    token = self.auth.handle_unauthorized(account_id)
+                    if token:
+                        headers["Authorization"] = f"Bearer {token}"
+                        resp = requests.get(chk_url, headers=headers, timeout=10)
+
+                if resp.status_code == 200:
+                    self.project_svc.update_inverter_sync(inverter_id, server_id=inverter.server_id, status='approved')
+                    return {
+                        "ok": True,
+                        "status": "approved",
+                        "server_id": inverter.server_id,
+                        "message": f"Inverter (SN: {inverter.serial_number}) đã tồn tại và hoạt động trên Server (ID: {inverter.server_id})."
+                    }
+                elif resp.status_code == 404:
+                    return {
+                        "ok": False,
+                        "status": "not_found",
+                        "message": f"Không tìm thấy Inverter ID {inverter.server_id} trên Server. Thiết bị có thể đã bị xóa."
+                    }
+            except Exception as e:
+                logger.error(f"[Sync] Error checking inverter server_id: {e}")
+                return {"ok": False, "message": f"Lỗi kết nối Server: {str(e)}"}
+
+        # 3. Nếu chưa có server_request_id và server_id -> Thử search SN trên Server
+        try:
+            search_url = f"{base_api}/api/inverters/?telemetry=false&search={inverter.serial_number}&search_fields=serial_number"
+            resp = requests.get(search_url, headers=headers, timeout=10)
+            if resp.status_code == 401:
+                token = self.auth.handle_unauthorized(account_id)
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                    resp = requests.get(search_url, headers=headers, timeout=10)
+
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if data:
+                    ri = data[0].get("inverter", data[0])
+                    s_id = ri.get("id")
+                    self.project_svc.update_inverter_sync(inverter_id, server_id=s_id, status='approved')
+                    return {
+                        "ok": True,
+                        "status": "approved",
+                        "server_id": s_id,
+                        "message": f"Đã tìm thấy Inverter trên Server và tự động khớp (ID: {s_id})!"
+                    }
+        except Exception as e:
+            logger.error(f"[Sync] Error searching inverter by SN: {e}")
+
+        return {
+            "ok": True,
+            "status": "unregistered",
+            "message": f"Inverter (SN: {inverter.serial_number}) chưa được gửi lên Server. Hãy bấm nút + (Create)."
+        }
 
     def request_delete_project_sync(self, project_id: int) -> bool:
         """Gửi yêu cầu xoá Project lên server (POST /api/projects/requests/delete/{server_id})"""

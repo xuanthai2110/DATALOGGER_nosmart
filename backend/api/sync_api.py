@@ -83,6 +83,22 @@ async def sync_inverter(
         "message": "Inverter sync request sent."
     }
 
+@router.post("/project/{project_id}/check")
+async def check_project_sync_status(
+    project_id: int,
+    svc: SetupService = Depends(get_setup_service)
+):
+    """Kiểm tra trạng thái phê duyệt của Project trên Server và cập nhật DB local."""
+    return svc.check_project_status_on_server(project_id)
+
+@router.post("/inverter/{inverter_id}/check")
+async def check_inverter_sync_status(
+    inverter_id: int,
+    svc: SetupService = Depends(get_setup_service)
+):
+    """Kiểm tra trạng thái phê duyệt của Inverter trên Server và cập nhật DB local."""
+    return svc.check_inverter_status_on_server(inverter_id)
+
 @router.delete("/project/{project_id}/stop")
 async def stop_sync(
     project_id: int, 

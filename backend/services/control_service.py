@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from contextlib import ExitStack, contextmanager
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend.core import settings
@@ -60,6 +61,27 @@ class ControlService:
         if stop is not None:
             stop.set()
 
+    @contextmanager
+    def _control_priority_for(self, inverters):
+        """Reserve control priority on each physical bus for the full command."""
+        with ExitStack() as stack:
+            seen = set()
+            for inv in inverters:
+                try:
+                    transport = self.polling_service._get_transport(self._resolve_inv_comm_id(inv))
+                except Exception as e:
+                    logger.debug(
+                        "[ControlService] Could not reserve bus for Inv ID %s: %s",
+                        getattr(inv, "id", None),
+                        e,
+                    )
+                    continue
+                arbiter = getattr(transport, "arbiter", None)
+                if arbiter is not None and id(arbiter) not in seen:
+                    seen.add(id(arbiter))
+                    stack.enter_context(arbiter.operation("control"))
+            yield
+
     # =====================================================
     # EVN Priority Lock API
     # =====================================================
@@ -102,29 +124,47 @@ class ControlService:
             return float(c)
         return 0.0
 
-    def _collect_read_power_w_map(self, inverters: List[Any]) -> Dict[int, int]:
-        """Đọc chỉ read_power() từng inverter (W). Lỗi đọc → 0 + warning."""
+    def _resolve_inv_comm_id(self, inv) -> Optional[int]:
+        comm_id = getattr(inv, "comm_id", None)
+        if isinstance(comm_id, int):
+            return comm_id
+        if isinstance(comm_id, str) and comm_id.isdigit():
+            return int(comm_id)
+
+        try:
+            inv_id = getattr(inv, "id", None)
+            if inv_id and hasattr(self.polling_service, "project_svc") and self.polling_service.project_svc and self.polling_service.project_svc.metadata_db:
+                db_inv = self.polling_service.project_svc.metadata_db.get_inverter_by_id(inv_id)
+                if db_inv and isinstance(db_inv.comm_id, int):
+                    return db_inv.comm_id
+        except Exception as e:
+            logger.warning("[ControlService] Error resolving DB comm_id for Inv ID %s: %s", getattr(inv, "id", None), e)
+
+        return None
+
+    def _collect_read_power_w_map(self, inverters: List[Any]) -> Optional[Dict[int, int]]:
+        """Read power for every target; return None if any reading is unavailable."""
         out: Dict[int, int] = {}
         for inv in inverters:
-            transport = self.polling_service._get_transport(getattr(inv, "comm_id", None))
+            comm_id = self._resolve_inv_comm_id(inv)
+            transport = self.polling_service._get_transport(comm_id)
             driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, getattr(inv, "model", None))
             if not driver or not hasattr(driver, "read_power"):
                 logger.warning(
-                    "[ControlService] Inv ID %s: driver missing read_power(); using 0 W for allocation",
+                    "[ControlService] Inv ID %s: driver missing read_power(); aborting MAXP allocation",
                     inv.id,
                 )
-                out[inv.id] = 0
-                continue
+                return None
             try:
                 with transport.arbiter.operation("control"):
                     out[inv.id] = int(driver.read_power())
             except Exception as e:
                 logger.warning(
-                    "[ControlService] Inv ID %s read_power failed: %s; using 0 W",
+                    "[ControlService] Inv ID %s read_power failed: %s; aborting MAXP allocation",
                     inv.id,
                     e,
                 )
-                out[inv.id] = 0
+                return None
         return out
 
     def _build_maxp_setpoints_kw(
@@ -187,7 +227,8 @@ class ControlService:
         *,
         do_post_log: bool = False,
     ) -> Tuple[bool, Optional[str]]:
-        transport = self.polling_service._get_transport(getattr(inv, "comm_id", None))
+        comm_id = self._resolve_inv_comm_id(inv)
+        transport = self.polling_service._get_transport(comm_id)
         driver = self.polling_service._get_driver(inv.brand, transport, inv.slave_id, getattr(inv, "model", None))
 
         if not driver:
@@ -345,16 +386,20 @@ class ControlService:
                         schedule_id,
                     )
                     break
-                power_map = self._collect_read_power_w_map(inverters)
-                sp = self._build_maxp_setpoints_kw(inverters, limit_watts, power_map)
-                logger.info(
-                    "[ControlService] PROJECT MAXP tick schedule=%s project=%s powers=%s setpoints_kw=%s",
-                    schedule_id,
-                    project_id,
-                    power_map,
-                    {iid: round(sp.get(iid, 0), 4) for iid in sp},
-                )
-                self._write_maxp_setpoints_kw(inverters, sp, schedule_id)
+                with self._control_priority_for(inverters):
+                    power_map = self._collect_read_power_w_map(inverters)
+                    if power_map is None:
+                        logger.error("[ControlService] PROJECT MAXP tick schedule=%s aborted: power read failed", schedule_id)
+                        continue
+                    sp = self._build_maxp_setpoints_kw(inverters, limit_watts, power_map)
+                    logger.info(
+                        "[ControlService] PROJECT MAXP tick schedule=%s project=%s powers=%s setpoints_kw=%s",
+                        schedule_id,
+                        project_id,
+                        power_map,
+                        {iid: round(sp.get(iid, 0), 4) for iid in sp},
+                    )
+                    self._write_maxp_setpoints_kw(inverters, sp, schedule_id)
         finally:
             with self._project_maxp_lock:
                 self._project_maxp_stop_events.pop(schedule_id, None)
@@ -402,6 +447,101 @@ class ControlService:
             )
         return target
 
+    def _find_group_inverters(self, project_item, schedule: ControlScheduleResponse):
+        """
+        Tìm danh sách inverter trong nhóm GROUP dựa trên inverter_ids (Server ID).
+
+        Quy tắc map:
+          - inverter_ids là list Server ID của inverter (từ server gửi xuống)
+          - So sánh với inv.server_id (primary)
+
+        KHÔNG dùng inverter_indices vì index trên server != slave_id dưới logger.
+        """
+        all_inverters = project_item.get("inverters", [])
+
+        if not schedule.inverter_ids:
+            logger.error(
+                "[ControlService] GROUP scope schedule=%s: inverter_ids is empty or null. "
+                "Cannot determine group targets.",
+                schedule.id,
+            )
+            return []
+
+        server_ids = set(schedule.inverter_ids)  # list[int] — Server ID của inverter
+
+        # Ưu tiên: map qua inv.server_id
+        targets = [inv for inv in all_inverters if getattr(inv, "server_id", None) in server_ids]
+
+        if not targets:
+            logger.warning(
+                "[ControlService] GROUP scope schedule=%s: No inverter matched by server_id=%s. "
+                "Ensure inverters have server_id configured.",
+                schedule.id, sorted(server_ids),
+            )
+
+        logger.info(
+            "[ControlService] GROUP scope schedule=%s: matched %d/%d inverters from server_ids=%s",
+            schedule.id, len(targets), len(all_inverters), sorted(server_ids),
+        )
+        return targets
+
+    def _apply_group_scope(self, project_item, schedule: ControlScheduleResponse) -> bool:
+        """Áp dụng lệnh điều khiển cho nhóm inverter GROUP. Các inverter ngoài nhóm không bị ảnh hưởng."""
+        group_inverters = self._find_group_inverters(project_item, schedule)
+        if not group_inverters:
+            logger.error(
+                "[ControlService] GROUP scope schedule=%s: no group inverters resolved, aborting apply.",
+                schedule.id,
+            )
+            return False
+
+        if schedule.mode == "MAXP" and schedule.limit_watts is not None:
+            # MAXP cho GROUP: phân bổ theo tỉ lệ công suất đo được (1 lần, không loop như PROJECT)
+            power_map = self._collect_read_power_w_map(group_inverters)
+            if power_map is None:
+                logger.error("[ControlService] GROUP MAXP schedule=%s aborted: power read failed", schedule.id)
+                return False
+            sp = self._build_maxp_setpoints_kw(group_inverters, schedule.limit_watts, power_map)
+            for inv in group_inverters:
+                logger.info(
+                    "[ControlService] GROUP MAXP apply schedule=%s inv=%s server_id=%s rated_kw=%.3f p_w=%s setpoint_kw=%.4f",
+                    schedule.id,
+                    inv.id,
+                    getattr(inv, "server_id", None),
+                    self._inverter_rated_kw(inv),
+                    power_map.get(inv.id),
+                    sp.get(inv.id, 0.0),
+                )
+            return self._write_maxp_setpoints_kw(group_inverters, sp, schedule.id)
+
+        if schedule.mode in ("PERCENT", "LIMIT_PERCENT") and schedule.limit_percent is not None:
+            logger.info(
+                "[ControlService] GROUP PERCENT apply schedule=%s: %s%% to %d inverters",
+                schedule.id, schedule.limit_percent, len(group_inverters),
+            )
+            return self._apply_inverters(group_inverters, schedule)
+
+        logger.error(
+            "[ControlService] Unsupported GROUP schedule: mode=%s limit_watts=%s limit_percent=%s",
+            schedule.mode, schedule.limit_watts, schedule.limit_percent,
+        )
+        return False
+
+    def _reset_group_scope(self, project_item, schedule: ControlScheduleResponse) -> bool:
+        """Chỉ reset (100%) các inverter trong nhóm GROUP. Inverter ngoài nhóm không bị ảnh hưởng."""
+        group_inverters = self._find_group_inverters(project_item, schedule)
+        if not group_inverters:
+            logger.error(
+                "[ControlService] GROUP scope schedule=%s: no group inverters resolved, aborting reset.",
+                schedule.id,
+            )
+            return False
+        logger.info(
+            "[ControlService] GROUP reset schedule=%s: resetting %d inverters to 100%%",
+            schedule.id, len(group_inverters),
+        )
+        return self._reset_inverters(group_inverters)
+
     def _apply_project_scope(self, project_item, schedule: ControlScheduleResponse) -> bool:
         inverters = self._active_inverters(project_item)
         if not inverters:
@@ -413,6 +553,9 @@ class ControlService:
 
         if schedule.mode == "MAXP" and schedule.limit_watts is not None:
             power_map = self._collect_read_power_w_map(inverters)
+            if power_map is None:
+                logger.error("[ControlService] PROJECT MAXP schedule=%s aborted: power read failed", schedule.id)
+                return False
             sp = self._build_maxp_setpoints_kw(inverters, schedule.limit_watts, power_map)
             for inv in inverters:
                 rated = self._inverter_rated_kw(inv)
@@ -635,7 +778,13 @@ class ControlService:
                 return False
 
             if schedule.scope == "PROJECT":
-                return self._apply_project_scope(project_item, schedule)
+                targets = self._active_inverters(project_item)
+                with self._control_priority_for(targets):
+                    return self._apply_project_scope(project_item, schedule)
+            elif schedule.scope == "GROUP":
+                targets = self._find_group_inverters(project_item, schedule)
+                with self._control_priority_for(targets):
+                    return self._apply_group_scope(project_item, schedule)
 
             target_inverters = self._find_target_inverters(project_item, schedule)
 
@@ -646,7 +795,8 @@ class ControlService:
                 )
                 return False
 
-            return self._apply_inverters(target_inverters, schedule)
+            with self._control_priority_for(target_inverters):
+                return self._apply_inverters(target_inverters, schedule)
 
         except Exception as e:
             logger.error(f"[ControlService] Error apply schedule: {e}")
@@ -682,7 +832,13 @@ class ControlService:
                 return False
 
             if schedule.scope == "PROJECT":
-                return self._reset_project_scope(project_item, schedule)
+                targets = self._active_inverters(project_item)
+                with self._control_priority_for(targets):
+                    return self._reset_project_scope(project_item, schedule)
+            elif schedule.scope == "GROUP":
+                targets = self._find_group_inverters(project_item, schedule)
+                with self._control_priority_for(targets):
+                    return self._reset_group_scope(project_item, schedule)
             elif schedule.scope == "INVERTER":
                 target_inverters = self._find_target_inverters(project_item, schedule)
                 if not target_inverters:
@@ -692,7 +848,8 @@ class ControlService:
                     )
                     return False
 
-                return self._reset_inverters(target_inverters)
+                with self._control_priority_for(target_inverters):
+                    return self._reset_inverters(target_inverters)
             else:
                 logger.warning(f"[ControlService] Unsupported scope for reset: {schedule.scope}")
                 return False
@@ -731,13 +888,11 @@ class ControlService:
                 serial_number=None,
             )
 
-            if mode == "PERCENT":
-                result = self._apply_project_scope(project_item, pseudo_schedule)
-            elif mode == "KW":
-                result = self._apply_project_scope(project_item, pseudo_schedule)
-            else:
+            if mode not in ("PERCENT", "KW"):
                 logger.warning("[ControlService] EVN P: Unknown mode %s", mode)
                 return False
+            with self._control_priority_for(self._active_inverters(project_item)):
+                result = self._apply_project_scope(project_item, pseudo_schedule)
 
             logger.info(
                 "[ControlService] EVN P control applied: mode=%s value=%.2f project=%s result=%s",
@@ -773,29 +928,29 @@ class ControlService:
                 return False
 
             success_count = 0
-            for inv in inverters:
-                try:
-                    transport = self.polling_service._get_transport(inv.comm_id)
-                    driver = self.polling_service._get_driver(
-                        inv.brand, transport, inv.slave_id, inv.model
-                    )
-                    if not driver:
-                        continue
-
-                    # Gọi Q control method trên driver (placeholder)
-                    if mode == "PERCENT" and hasattr(driver, "set_reactive_power_percent"):
-                        driver.set_reactive_power_percent(value)
-                        success_count += 1
-                    elif mode == "KVAR" and hasattr(driver, "set_reactive_power_kvar"):
-                        driver.set_reactive_power_kvar(value)
-                        success_count += 1
-                    else:
-                        logger.warning(
-                            "[ControlService] EVN Q: Driver %s does not support Q control (mode=%s)",
-                            type(driver).__name__, mode,
+            with self._control_priority_for(inverters):
+                for inv in inverters:
+                    try:
+                        transport = self.polling_service._get_transport(inv.comm_id)
+                        driver = self.polling_service._get_driver(
+                            inv.brand, transport, inv.slave_id, inv.model
                         )
-                except Exception as e:
-                    logger.error("[ControlService] EVN Q error on inv %s: %s", inv.id, e)
+                        if not driver:
+                            continue
+
+                        if mode == "PERCENT" and hasattr(driver, "set_reactive_power_percent"):
+                            driver.set_reactive_power_percent(value)
+                            success_count += 1
+                        elif mode == "KVAR" and hasattr(driver, "set_reactive_power_kvar"):
+                            driver.set_reactive_power_kvar(value)
+                            success_count += 1
+                        else:
+                            logger.warning(
+                                "[ControlService] EVN Q: Driver %s does not support Q control (mode=%s)",
+                                type(driver).__name__, mode,
+                            )
+                    except Exception as e:
+                        logger.error("[ControlService] EVN Q error on inv %s: %s", inv.id, e)
 
             logger.info(
                 "[ControlService] EVN Q control: mode=%s value=%.2f success=%d/%d",
@@ -823,7 +978,8 @@ class ControlService:
                 setpoint=100.0,
                 serial_number=None,
             )
-            return self._reset_project_scope(project_item, pseudo_schedule)
+            with self._control_priority_for(self._active_inverters(project_item)):
+                return self._reset_project_scope(project_item, pseudo_schedule)
         except Exception as e:
             logger.error("[ControlService] EVN P reset error: %s", e)
             return False
@@ -836,16 +992,17 @@ class ControlService:
                 return False
 
             inverters = project_item.get("inverters", [])
-            for inv in inverters:
-                try:
-                    transport = self.polling_service._get_transport(inv.comm_id)
-                    driver = self.polling_service._get_driver(
-                        inv.brand, transport, inv.slave_id, inv.model
-                    )
-                    if driver and hasattr(driver, "set_reactive_power_percent"):
-                        driver.set_reactive_power_percent(0.0)  # Reset Q về 0
-                except Exception as e:
-                    logger.error("[ControlService] EVN Q reset error inv %s: %s", inv.id, e)
+            with self._control_priority_for(inverters):
+                for inv in inverters:
+                    try:
+                        transport = self.polling_service._get_transport(inv.comm_id)
+                        driver = self.polling_service._get_driver(
+                            inv.brand, transport, inv.slave_id, inv.model
+                        )
+                        if driver and hasattr(driver, "set_reactive_power_percent"):
+                            driver.set_reactive_power_percent(0.0)  # Reset Q về 0
+                    except Exception as e:
+                        logger.error("[ControlService] EVN Q reset error inv %s: %s", inv.id, e)
 
             logger.info("[ControlService] EVN Q control reset for project %s", project_id)
             return True

@@ -291,6 +291,16 @@ class Sungrowsg33cx(BaseDriver):
         if not res_fault.isError():
             fault_code = res_fault.registers[0]
 
+        # Tắt thông báo lỗi PV bất thường của Sungrow, báo là bình thường
+        try:
+            from backend.services.fault_mappings import is_sungrow_pv_abnormal_fault
+            if is_sungrow_pv_abnormal_fault(fault_code):
+                fault_code = 0
+                if state_id in (0x9100, 0x5500):
+                    state_id = 0
+        except Exception:
+            pass
+
         return {
             "state_id": state_id,
             "fault_code": fault_code,

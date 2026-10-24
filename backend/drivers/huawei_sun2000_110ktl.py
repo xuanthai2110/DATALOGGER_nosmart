@@ -211,16 +211,20 @@ class Huaweisun2000110ktl(BaseDriver):
             # Nếu giá trị đọc được là W (ví dụ 110000), scale 0.001 sẽ biến nó thành 110.0 kW.
             # Nếu scale đã được áp dụng trong self.parse, rate_dc/ac sẽ là float.
 
+            total_strings = int(parsed.get("string_count", 20))
+            mppts = int(parsed.get("mppt_count", 10))
+            spm = total_strings // mppts if mppts > 0 else 2
+
             return {
                 "brand": "Huawei",
                 "model": "SUN2000-110KTL",
                 "serial_number": parsed.get("serial_number", ""),
                 "capacity_kw": rate_ac,
-                "mppt_count": int(parsed.get("mppt_count", 10)),
+                "mppt_count": mppts,
                 "firmware_version": "1.0",
                 "phase_count": 3,
-                "strings_per_mppt": int(parsed.get("string_count", 2)),
-                "string_count": int(parsed.get("string_count", 2)) * int(parsed.get("mppt_count", 10)),
+                "strings_per_mppt": spm,
+                "string_count": total_strings,
                 "rate_dc_kwp": rate_dc,
                 "rate_ac_kw": rate_ac,
                 "is_active": True,

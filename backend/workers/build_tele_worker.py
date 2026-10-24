@@ -77,6 +77,42 @@ class BuildTeleWorker(threading.Thread):
             
             time.sleep(0.1)
 
+    @staticmethod
+    def _is_inverter_eligible_for_telemetry(inv) -> bool:
+        """Kiểm tra điều kiện để inverter được đưa vào gói telemetry gửi lên Server:
+        1. Đang hoạt động (is_active is True).
+        2. Đã có server_id (> 0).
+        3. Đã được duyệt trên Cloud Server (sync_status == 'approved').
+        4. Chưa quá hạn ngưng hoạt động (usage_end_at).
+        """
+        if not getattr(inv, "is_active", True):
+            return False
+
+        server_id = getattr(inv, "server_id", None)
+        if server_id is None or int(server_id or 0) <= 0:
+            return False
+
+        if getattr(inv, "sync_status", "") != "approved":
+            return False
+
+        usage_end = getattr(inv, "usage_end_at", None)
+        if usage_end:
+            try:
+                if isinstance(usage_end, str):
+                    s = usage_end.replace("Z", "").replace("T", " ")
+                    if "+" in s:
+                        s = s.split("+")[0].strip()
+                    if "." in s:
+                        s = s.split(".")[0].strip()
+                    dt_end = datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+                else:
+                    dt_end = usage_end.replace(tzinfo=None)
+                if datetime.now() > dt_end:
+                    return False
+            except Exception:
+                pass
+        return True
+
     def _build_for_project(self, project_id: int):
         try:
             proj_meta = self.project_svc.get_project(project_id)
@@ -88,8 +124,12 @@ class BuildTeleWorker(threading.Thread):
                 return
 
             invs = self.project_svc.get_inverters_by_project(project_id)
-            active_invs = [inv for inv in invs if getattr(inv, "is_active", True)]
-            inverter_ids = [inv.id for inv in active_invs]
+            approved_invs = [inv for inv in invs if self._is_inverter_eligible_for_telemetry(inv)]
+            if not approved_invs:
+                logger.info(f"BuildTeleWorker: Project {project_id} has no approved active inverters. Skipping telemetry build.")
+                return
+
+            inverter_ids = [inv.id for inv in approved_invs]
             all_disconnect = self.telemetry.is_all_inverters_disconnect(inverter_ids, self.cache_db)
             disconnect_notified = self._disconnect_notified_projects.get(project_id, False)
 
@@ -105,7 +145,7 @@ class BuildTeleWorker(threading.Thread):
                 self._disconnect_notified_projects[project_id] = True
 
             payload_list = self.telemetry.build_payload_from_cache(
-                project_id, proj_meta.server_id, active_invs, self.cache_db
+                project_id, proj_meta.server_id, approved_invs, self.cache_db
             )
             
             if payload_list:

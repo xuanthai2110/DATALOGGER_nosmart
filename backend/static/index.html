@@ -8,22 +8,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/css/styles.css?v=1.0.1">
+    <link rel="stylesheet" href="/static/css/styles.css?v=2.0.0">
 </head>
 
 <body>
 
     <!-- Login View -->
     <div id="login-view">
-        <div class="login-card glass fade-in">
+        <form class="login-card glass fade-in" onsubmit="event.preventDefault(); handleLogin();">
             <div style="text-align:center; margin-bottom: 24px;"><img src="/static/img/logo.png" alt="SolarVision"
                     style="max-width: 180px; height: auto;"></div>
             <div class="input-group"><label>Tài khoản</label><input type="text" id="username"
                     placeholder="Nhập tên đăng nhập"></div>
             <div class="input-group"><label>Mật khẩu</label><input type="password" id="password"
                     placeholder="Nhập mật khẩu"></div>
-            <button class="btn btn-primary" onclick="handleLogin()">ĐĂNG NHẬP</button>
-        </div>
+            <button type="submit" class="btn btn-primary">ĐĂNG NHẬP</button>
+        </form>
     </div>
 
     <!-- Main Application UI -->
@@ -200,6 +200,7 @@
                     <div class="inner-tab" id="btn-tab-dev" onclick="switchInnerTab('dev-tab')">Quản lý Thiết bị</div>
                     <div class="inner-tab" id="btn-tab-evn" onclick="switchInnerTab('evn-tab')">Cấu hình EVN & VPN IPsec
                     </div>
+                    <div class="inner-tab" id="btn-tab-ze" onclick="switchInnerTab('ze-tab')">Cấu hình Zero Export</div>
                 </div>
 
                 <!-- Tab content 1: Quản lý dự án -->
@@ -303,14 +304,16 @@
                             <table>
                                 <thead>
                                     <tr>
+                                        <th>ID</th>
                                         <th>SN</th>
                                         <th>Slave</th>
+                                        <th>Trạng thái</th>
                                         <th>Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody id="body-settings-inverters">
                                     <tr>
-                                        <td colspan="3" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...
+                                        <td colspan="5" style="text-align:center; opacity:0.5;">Vui lòng chọn dự án...
                                         </td>
                                     </tr>
                                 </tbody>
@@ -318,38 +321,157 @@
                         </div>
 
                         <div id="form-inverter" class="hidden glass"
-                            style="padding: 20px; border: 1px solid var(--primary); margin-top: 10px; margin-bottom: 20px; border-radius: 12px;">
-                            <h3 style="margin-bottom:15px; font-size:16px; color:var(--primary)">Chỉnh sửa Inverter</h3>
+                            style="padding: 25px; border: 1px solid var(--primary); margin-top: 10px; margin-bottom: 20px; border-radius: 12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                                <h3 style="margin:0; font-size:18px; color:var(--primary)"><i class="fas fa-edit"></i> Chỉnh sửa Inverter</h3>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="autoFillInverterSpecs()" style="font-size:12px; padding:6px 12px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-wand-magic-sparkles"></i> Tự động điền theo Model
+                                </button>
+                            </div>
                             <input type="hidden" id="inv-id">
 
-                            <div class="form-row" style="margin-bottom: 15px;">
-                                <div class="input-group"><label>Dự án</label><select id="inv-proj-select"></select>
-                                </div>
-                                <div class="input-group"><label>Truyền thông</label><select
-                                        id="inv-comm-select"></select></div>
-                            </div>
+                            <style>
+                                .inv-sections-container {
+                                    display: grid;
+                                    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+                                    gap: 20px;
+                                    margin-bottom: 25px;
+                                }
 
-                            <div class="form-row" style="margin-bottom: 15px;">
-                                <div class="input-group"><label>Số Serial (SN) *</label><input type="text" id="inv-sn">
-                                </div>
-                                <div class="input-group"><label>Slave ID *</label><input type="number" id="inv-slave">
-                                </div>
-                                <div class="input-group"><label>Inverter Index</label><input type="number"
-                                        id="inv-index"></div>
-                            </div>
+                                .inv-form-section {
+                                    background: rgba(255, 255, 255, 0.02);
+                                    border: 1px solid rgba(255, 255, 255, 0.08);
+                                    padding: 20px;
+                                    border-radius: 8px;
+                                    margin-bottom: 20px;
+                                }
 
-                            <div class="form-row" style="margin-bottom: 15px;">
-                                <div class="input-group"><label>Hãng (Brand)</label><input type="text" id="inv-brand">
-                                </div>
-                                <div class="input-group"><label>Model</label><input type="text" id="inv-model"></div>
-                            </div>
+                                .inv-form-section:last-child {
+                                    margin-bottom: 0;
+                                }
 
-                            <div class="form-row" style="margin-bottom: 15px;">
-                                <div class="input-group"><label>Công suất (kW) *</label><input type="number" step="0.1"
-                                        id="inv-cap"></div>
-                                <div class="input-group"><label>Công suất DC (kWp)</label><input type="number"
-                                        step="0.1" id="inv-dc"></div>
-                                <div class="input-group"><label>Số pha</label><input type="number" id="inv-phase"></div>
+                                .inv-form-section h4 {
+                                    color: var(--primary);
+                                    margin-top: 0;
+                                    margin-bottom: 15px;
+                                    font-size: 14px;
+                                    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+                                    padding-bottom: 8px;
+                                    font-weight: 600;
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 8px;
+                                }
+
+                                .inv-form-grid {
+                                    display: grid;
+                                    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                                    gap: 15px;
+                                }
+
+                                .inv-form-grid .input-group {
+                                    margin-bottom: 0 !important;
+                                }
+                            </style>
+
+                            <div class="inv-sections-container">
+                                <!-- Column 1 -->
+                                <div class="inv-column">
+                                    <!-- Section 1: Connection & Identity -->
+                                    <div class="inv-form-section">
+                                        <h4><i class="fas fa-network-wired"></i> 1. Kết nối & Nhận diện</h4>
+                                        <div class="inv-form-grid">
+                                            <div class="input-group"><label>ID Inverter</label><input type="text"
+                                                    id="inv-id-display" readonly
+                                                    style="opacity: 0.85; background: rgba(255, 255, 255, 0.05); font-weight: 600; cursor: not-allowed;"
+                                                    placeholder="Tự động cấp"></div>
+                                            <div class="input-group"><label>Dự án *</label><select
+                                                    id="inv-proj-select"></select></div>
+                                            <div class="input-group"><label>Truyền thông *</label><select
+                                                    id="inv-comm-select"></select></div>
+                                            <div class="input-group"><label>Số Serial (SN) *</label><input type="text"
+                                                    id="inv-sn"></div>
+                                            <div class="input-group"><label>Slave ID *</label><input type="number"
+                                                    id="inv-slave"></div>
+                                            <div class="input-group"><label>Inverter Index</label><input type="number"
+                                                    id="inv-index"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Section 2: Device Info -->
+                                    <div class="inv-form-section">
+                                        <h4><i class="fas fa-info-circle"></i> 2. Hãng & Model Thiết bị</h4>
+                                        <div class="inv-form-grid">
+                                            <div class="input-group"><label>Hãng (Brand)</label><input type="text"
+                                                    id="inv-brand"></div>
+                                            <div class="input-group"><label>Model</label><input type="text"
+                                                    id="inv-model"></div>
+                                            <div class="input-group"><label>Phiên bản Firmware</label><input type="text"
+                                                    id="inv-firmware"></div>
+                                            <div class="input-group"><label>Số pha</label><input type="number"
+                                                    id="inv-phase"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Column 2 -->
+                                <div class="inv-column">
+                                    <!-- Section 3: Power & String Config -->
+                                    <div class="inv-form-section">
+                                        <h4><i class="fas fa-bolt"></i> 3. Cấu hình Công suất & String</h4>
+                                        <div class="inv-form-grid">
+                                            <div class="input-group"><label>Công suất hiển thị (kW) *</label><input
+                                                    type="number" step="0.1" id="inv-cap"></div>
+                                            <div class="input-group"><label>Công suất DC (kWp)</label><input
+                                                    type="number" step="0.1" id="inv-dc"></div>
+                                            <div class="input-group"><label>Công suất AC danh định (kW)</label><input
+                                                    type="number" step="0.1" id="inv-rate-ac"></div>
+                                            <div class="input-group"><label>Số MPPT</label><input type="number"
+                                                    id="inv-mppt-count"></div>
+                                            <div class="input-group"><label>Tổng số String</label><input type="number"
+                                                    id="inv-string-count"></div>
+                                            <div class="input-group"><label>Strings trên mỗi MPPT</label><input
+                                                    type="number" id="inv-strings-per-mppt"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Section 4: Operation Status -->
+                                    <div class="inv-form-section">
+                                        <h4><i class="fas fa-toggle-on"></i> 4. Trạng thái & Vận hành</h4>
+                                        <div class="inv-form-grid">
+                                            <div class="input-group"><label>Trạng thái</label>
+                                                <select id="inv-is-active">
+                                                    <option value="true">Hoạt động</option>
+                                                    <option value="false">Ngưng hoạt động</option>
+                                                </select>
+                                            </div>
+                                            <div class="input-group"><label>Được thay thế bởi Inv ID</label><input
+                                                    type="number" id="inv-replaced-by"></div>
+                                            <div class="input-group"><label>Bắt đầu chạy (usage_start_at)</label><input
+                                                    type="text" id="inv-usage-start" placeholder="YYYY-MM-DD HH:MM:SS">
+                                            </div>
+                                            <div class="input-group"><label>Dừng chạy (usage_end_at)</label><input
+                                                    type="text" id="inv-usage-end" placeholder="YYYY-MM-DD HH:MM:SS">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Section 5: Cloud Sync Info -->
+                                    <div class="inv-form-section">
+                                        <h4><i class="fas fa-cloud-upload-alt"></i> 5. Đồng bộ Đám mây (Đọc hiểu)</h4>
+                                        <div class="inv-form-grid">
+                                            <div class="input-group"><label>Server ID</label><input type="text"
+                                                    id="inv-server-id" readonly
+                                                    style="opacity: 0.6; background: rgba(255,255,255,0.05);"></div>
+                                            <div class="input-group"><label>Server Request ID</label><input type="text"
+                                                    id="inv-server-request-id" readonly
+                                                    style="opacity: 0.6; background: rgba(255,255,255,0.05);"></div>
+                                            <div class="input-group"><label>Trạng thái đồng bộ</label><input type="text"
+                                                    id="inv-sync-status" readonly
+                                                    style="opacity: 0.6; background: rgba(255,255,255,0.05);"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div style="display:flex; flex-direction: column; gap:10px;">
@@ -374,12 +496,15 @@
                                 <label>Chọn Driver Inverter</label>
                                 <select id="inv-scan-driver-select">
                                     <option value="huawei_sun2000_110ktl">Huawei SUN2000-110KTL</option>
+                                    <option value="huawei_sun2000_60ktl">Huawei SUN2000-60KTL</option>
                                     <option value="sungrow_sg33cx">Sungrow SG33CX</option>
                                     <option value="sungrow_sg50cx">Sungrow SG50CX</option>
                                     <option value="sungrow_sg110cx">Sungrow SG110CX</option>
                                     <option value="solis_110k">Solis 110K</option>
                                     <option value="canadian_csi110KTL1400GL02E">Canadian CSI-110KTL</option>
                                     <option value="goodwe_gw80kmt">GoodWe GW80KMT</option>
+                                    <option value="goodwe_gw100k_gt">GoodWe GW100K-GT</option>
+                                    <option value="goodwe_gw150k_gt_g10">GoodWe GW150K-GT-G10</option>
                                 </select>
                             </div>
                         </div>
@@ -640,6 +765,134 @@
                             <button class="btn btn-secondary" onclick="loadEVNVPN()">Get</button>
                             <button class="btn btn-primary" onclick="saveVPNConfig()">Lưu Cấu Hình VPN</button>
                             <button class="btn btn-accent" onclick="applyVPNConfig()">Áp Dụng & Kết Nối VPN</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab content 4: Cấu hình Zero Export -->
+                <div id="ze-tab" class="inner-tab-content">
+                    <div class="config-card">
+                        <div class="card-header">Cấu hình Zero Export cho dự án</div>
+
+                        <div class="input-group" style="margin-bottom: 20px;">
+                            <label>Chọn dự án cấu hình Zero Export</label>
+                            <select id="ze-project-select" onchange="loadZeroExportConfig()">
+                                <option value="">-- Chọn dự án --</option>
+                            </select>
+                        </div>
+
+                        <div id="ze-config-form" class="hidden">
+                            <div
+                                style="display: flex; gap: 15px; align-items: center; margin-bottom: 25px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
+                                <div style="font-weight: 600;">Trạng thái hoạt động:</div>
+                                <div id="ze-status-badge" class="badge badge-secondary"
+                                    style="padding: 6px 12px; font-size: 13px; border-radius: 4px; background: #6b7280; color: #fff;">
+                                    TẮT</div>
+                                <button class="btn btn-success btn-sm" id="ze-btn-enable"
+                                    onclick="toggleZeroExport(true)" style="width: auto;">BẬT</button>
+                                <button class="btn btn-danger btn-sm" id="ze-btn-disable"
+                                    onclick="toggleZeroExport(false)" style="width: auto;">TẮT</button>
+                            </div>
+
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label>Chọn Meter PCC (Đo lưới) *</label>
+                                    <select id="ze-meter-select">
+                                        <option value="">-- Chọn Meter --</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Hướng lắp đặt CT *</label>
+                                    <select id="ze-meter-direction">
+                                        <option value="GRID_SIDE">GRID_SIDE (CT xuôi đo lưới, Import > 0)</option>
+                                        <option value="GRID_SIDE_REVERSED">GRID_SIDE_REVERSED (CT ngược đo lưới, Export
+                                            > 0)</option>
+                                        <option value="LOAD_SIDE">LOAD_SIDE (CT xuôi đo tải, Load > 0)</option>
+                                        <option value="LOAD_SIDE_REVERSED">LOAD_SIDE_REVERSED (CT ngược đo tải, Load
+                                            &lt; 0)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Giới hạn xuất khẩu (W) *</label>
+                                    <input type="number" id="ze-export-limit-w" value="0">
+                                </div>
+                                <div class="input-group">
+                                    <label>Vùng bất nhạy Deadband (W) *</label>
+                                    <input type="number" id="ze-deadband-w" value="200">
+                                </div>
+                                <div class="input-group">
+                                    <label>Hệ số Gain (P-Control) *</label>
+                                    <input type="number" step="0.1" id="ze-gain" value="1.0">
+                                </div>
+                                <div class="input-group">
+                                    <label>Tốc độ tăng/giảm tối đa (kW/chu kỳ) *</label>
+                                    <input type="number" step="1" id="ze-ramp-kw" value="50">
+                                </div>
+                                <div class="input-group">
+                                    <label>Ngưỡng lỗi Meter (số lần mất kết nối) *</label>
+                                    <input type="number" step="1" id="ze-fail-threshold" value="10">
+                                </div>
+                            </div>
+
+                            <div class="button-bar" style="margin-top: 20px; justify-content: flex-start; gap: 10px;">
+                                <button class="btn btn-primary" onclick="saveZeroExportConfig()"><i
+                                        class="fas fa-save"></i> Lưu cấu hình</button>
+                                <button class="btn btn-secondary" onclick="loadZeroExportConfig()"><i
+                                        class="fas fa-sync"></i> Refresh Trạng Thái</button>
+                            </div>
+
+                            <div
+                                style="margin-top: 30px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                                <h3 style="font-size: 15px; color: var(--primary); margin-bottom: 15px;"><i
+                                        class="fas fa-chart-area"></i> Trạng thái giám sát Realtime (PCC)</h3>
+                                <div class="form-grid"
+                                    style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                    <div class="stat-mini-card"
+                                        style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px;">Công suất lưới
+                                            (P_grid)</div>
+                                        <div id="ze-monitor-pgrid"
+                                            style="font-size: 18px; font-weight: 600; color: var(--text);">-- W</div>
+                                    </div>
+                                    <div class="stat-mini-card"
+                                        style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px;">Tổng công suất
+                                            phát hiện tại</div>
+                                        <div id="ze-monitor-pinv"
+                                            style="font-size: 18px; font-weight: 600; color: var(--text);">-- W</div>
+                                    </div>
+                                    <div class="stat-mini-card"
+                                        style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px;">Setpoint giới
+                                            hạn (MAXP)</div>
+                                        <div id="ze-monitor-setpoint"
+                                            style="font-size: 18px; font-weight: 600; color: var(--primary);">-- kW
+                                        </div>
+                                    </div>
+                                    <div class="stat-mini-card"
+                                        style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px;">Hành động cuối
+                                        </div>
+                                        <div id="ze-monitor-action"
+                                            style="font-size: 16px; font-weight: 600; color: var(--text);">--</div>
+                                    </div>
+                                    <div class="stat-mini-card"
+                                        style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px;">Số lần mất Meter
+                                            liên tiếp</div>
+                                        <div id="ze-monitor-failcount"
+                                            style="font-size: 18px; font-weight: 600; color: var(--text);">0</div>
+                                    </div>
+                                    <div class="stat-mini-card"
+                                        style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px;">Trạng thái tạm
+                                            khóa</div>
+                                        <div id="ze-monitor-suspended"
+                                            style="font-size: 15px; font-weight: 600; color: var(--success);">KHÔNG
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1423,6 +1676,8 @@
                             </table>
                         </div>
                         <div id="sync-actions" style="display:flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn btn-primary" id="btn-sync-check" onclick="handleCheckSync('project')"><i
+                                    class="fas fa-sync-alt"></i> CHECK STATUS</button>
                             <button class="btn btn-success" id="btn-sync-create" onclick="handleSync()"><i
                                     class="fas fa-cloud-upload-alt"></i> CLOUD CREATE</button>
                             <button class="btn btn-warning" id="btn-sync-update" onclick="handleSync()"><i
@@ -1449,7 +1704,7 @@
                                 <th>ID</th>
                                 <th>Tên hiển thị</th>
                                 <th>Username (Email)</th>
-                                <th>Trạng thái Token</th>
+                                <th>Trạng thái </th>
                                 <th>Hành động</th>
                             </tr>
                         </thead>
@@ -1470,6 +1725,7 @@
 
                     <div style="display:flex; gap:10px; margin-top:20px;">
                         <button class="btn btn-success" onclick="saveAccount()">LƯU TÀI KHOẢN</button>
+                        <button type="button" class="btn btn-primary hidden" id="btn-account-login-form" onclick="loginFromForm()"><i class="fas fa-sign-in-alt"></i> ĐĂNG NHẬP</button>
                         <button class="btn" onclick="hideAccountForm()">HỦY</button>
                     </div>
                 </div>
@@ -1537,12 +1793,12 @@
         </div>
     </div>
 
-    <script src="/static/js/api.js?v=1.0.1"></script>
-    <script src="/static/js/ui.js?v=1.0.1"></script>
-    <script src="/static/js/dashboard.js?v=1.0.1"></script>
-    <script src="/static/js/settings.js?v=1.0.1"></script>
-    <script src="/static/js/sync.js?v=1.0.1"></script>
-    <script src="/static/js/accounts.js?v=1.0.1"></script>
+    <script src="/static/js/api.js?v=2.0.0"></script>
+    <script src="/static/js/ui.js?v=2.0.0"></script>
+    <script src="/static/js/dashboard.js?v=2.0.0"></script>
+    <script src="/static/js/settings.js?v=2.0.0"></script>
+    <script src="/static/js/sync.js?v=2.1.0"></script>
+    <script src="/static/js/accounts.js?v=2.0.0"></script>
     <script>
         if (token) initApp();
     </script>

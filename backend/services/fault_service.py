@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Set, Tuple
 from backend.db_manager import RealtimeDB, MetadataDB
-from backend.services.fault_mappings import FAULT_MAPS, STATE_MAPS, UNIFIED_FAULTS, UNIFIED_STATES
+from backend.services.fault_mappings import FAULT_MAPS, STATE_MAPS, UNIFIED_FAULTS, UNIFIED_STATES, is_sungrow_pv_abnormal_fault
 
 logger = logging.getLogger(__name__)    
 
@@ -35,6 +35,13 @@ class FaultService:
 
     def get_inverter_status_payload(self, brand: str, raw_state: int, raw_fault: int, polling_time: str) -> list:
         brand = brand.upper()
+
+        # Bỏ qua lỗi PV bất thường của Sungrow, báo là bình thường
+        if brand == "SUNGROW" and is_sungrow_pv_abnormal_fault(raw_fault):
+            raw_fault = 0
+            if raw_state in (0x9100, 0x5500):
+                raw_state = 0
+
         state_map = STATE_MAPS.get(brand, {})
         fault_map = FAULT_MAPS.get(brand, {})
 
@@ -49,7 +56,7 @@ class FaultService:
             raw_inst = fault_info.get("repair_instruction", "")
             return [{
                 "fault_code": fault_unified_code,
-                "fault_description": UNIFIED_FAULTS.get(fault_unified_code, fault_info.get("name", f"ERROR_{raw_fault}")),
+                "fault_description": fault_info.get("name") or UNIFIED_FAULTS.get(fault_unified_code, f"ERROR_{raw_fault}"),
                 "repair_instruction": FaultService.format_repair_instruction(brand, raw_fault, raw_inst),
                 "severity": fault_info.get("severity", "ERROR"),
                 "created_at": polling_time
@@ -78,12 +85,39 @@ class FaultService:
         self.seed_if_needed(inv_id)
         brand = self.inverter_brands[inv_id]
         
+        # Bỏ qua lỗi PV bất thường của Sungrow
+        if brand == "SUNGROW":
+            if is_sungrow_pv_abnormal_fault(fault_code):
+                fault_code = 0
+                if status_code in (0x9100, 0x5500):
+                    status_code = 0
+
         # Parse payload từ fault_json nếu có, nếu không thì tự sinh từ status_code/fault_code
         payload = []
         if fault_json:
             try:
                 import json
-                payload = json.loads(fault_json)
+                raw_payload = json.loads(fault_json)
+                if brand == "SUNGROW":
+                    # Lọc bỏ lỗi PV bất thường của Sungrow khỏi payload
+                    filtered = []
+                    for item in raw_payload:
+                        f_desc = (item.get("fault_description") or "").lower()
+                        r_inst = item.get("repair_instruction") or ""
+                        # Kiểm tra xem có chứa mã gốc PV bất thường hoặc mô tả PV bất thường
+                        is_abnormal = False
+                        if "pv" in f_desc and ("bất thường" in f_desc or "abnormal" in f_desc):
+                            is_abnormal = True
+                        elif "mã lỗi sungrow:" in r_inst.lower():
+                            import re
+                            m = re.search(r"mã lỗi sungrow:\s*\+(\d+)\+", r_inst, re.IGNORECASE)
+                            if m and is_sungrow_pv_abnormal_fault(int(m.group(1))):
+                                is_abnormal = True
+                        if not is_abnormal:
+                            filtered.append(item)
+                    payload = filtered
+                else:
+                    payload = raw_payload
             except Exception as e:
                 logger.error(f"Failed to parse fault_json in FaultService.process for inverter {inv_id}: {e}")
                 

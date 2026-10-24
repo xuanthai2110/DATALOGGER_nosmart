@@ -42,7 +42,16 @@ class UploaderWorker(threading.Thread):
                 for proj in projects:
                     if not proj.server_id: continue
                     invs = self.project_svc.get_inverters_by_project(proj.id)
-                    payload_list = self.telemetry.build_payload_from_cache(proj.id, proj.server_id, invs, self.cache_db)
+                    approved_invs = [
+                        inv for inv in invs
+                        if getattr(inv, "is_active", True)
+                        and getattr(inv, "server_id", None)
+                        and int(getattr(inv, "server_id", 0) or 0) > 0
+                        and getattr(inv, "sync_status", "") == "approved"
+                    ]
+                    if not approved_invs:
+                        continue
+                    payload_list = self.telemetry.build_payload_from_cache(proj.id, proj.server_id, approved_invs, self.cache_db)
                     
                     if payload_list:
                         # 3. Quăng vào outbox trước để lỡ cúp điện thì không mất

@@ -110,6 +110,10 @@ class RealtimeDB(BaseDB):
                 conn.execute("ALTER TABLE control_schedules ADD COLUMN day TEXT")
             if "updated_at" not in cols_sched:
                 conn.execute("ALTER TABLE control_schedules ADD COLUMN updated_at TEXT")
+            if "inverter_indices" not in cols_sched:
+                conn.execute("ALTER TABLE control_schedules ADD COLUMN inverter_indices TEXT")
+            if "inverter_ids" not in cols_sched:
+                conn.execute("ALTER TABLE control_schedules ADD COLUMN inverter_ids TEXT")
 
             # EVN Control Commands (giao tiếp giữa container EVN → Polling)
             cursor.execute("""
@@ -346,19 +350,46 @@ class RealtimeDB(BaseDB):
             ).fetchall()
             return [to_dataclass(InverterACRealtimeResponse, r) for r in rows]
 
+    # --- Control Schedule Helpers ---
+    def _serialize_schedule_dict(self, data_dict: dict) -> dict:
+        """Serialize list fields sang JSON string trước khi lưu vào SQLite."""
+        result = dict(data_dict)
+        for field in ("inverter_indices", "inverter_ids"):
+            val = result.get(field)
+            if isinstance(val, list):
+                result[field] = json.dumps(val)
+            elif val is None:
+                result[field] = None
+        return result
+
+    def _deserialize_schedule_row(self, schedule_obj):
+        """Parse JSON string các field list sau khi đọc từ DB."""
+        if schedule_obj is None:
+            return None
+        for field in ("inverter_indices", "inverter_ids"):
+            raw = getattr(schedule_obj, field, None)
+            if isinstance(raw, str):
+                try:
+                    setattr(schedule_obj, field, json.loads(raw))
+                except (json.JSONDecodeError, ValueError):
+                    setattr(schedule_obj, field, [])
+            elif raw is None:
+                setattr(schedule_obj, field, None)
+        return schedule_obj
+
     # --- Control Schedule API ---
     def get_schedule(self, schedule_id: int) -> Optional[ControlScheduleResponse]:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM control_schedules WHERE id=?", (schedule_id,)).fetchone()
-            return to_dataclass(ControlScheduleResponse, row)
+            return self._deserialize_schedule_row(to_dataclass(ControlScheduleResponse, row))
 
     def get_all_schedules(self) -> List[ControlScheduleResponse]:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM control_schedules ORDER BY start_at ASC").fetchall()
-            return [to_dataclass(ControlScheduleResponse, r) for r in rows]
+            return [self._deserialize_schedule_row(to_dataclass(ControlScheduleResponse, r)) for r in rows]
 
     def upsert_schedule(self, data: ControlScheduleCreate, schedule_id: Optional[int] = None) -> ControlScheduleResponse:
-        data_dict = asdict(data)
+        data_dict = self._serialize_schedule_dict(asdict(data))
         with self._connect() as conn:
             cursor = conn.cursor()
             if schedule_id:
@@ -396,7 +427,7 @@ class RealtimeDB(BaseDB):
                 final_id = cursor.lastrowid
             
             row = conn.execute("SELECT * FROM control_schedules WHERE id=?", (final_id,)).fetchone()
-            return to_dataclass(ControlScheduleResponse, row)
+            return self._deserialize_schedule_row(to_dataclass(ControlScheduleResponse, row))
 
     def patch_schedule(self, schedule_id: int, data: ControlScheduleUpdate):
         data_dict = asdict(data)

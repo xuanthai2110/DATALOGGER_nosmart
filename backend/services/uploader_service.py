@@ -45,7 +45,10 @@ class UploaderService:
 
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
                 
-                logger.info(f"[Uploader] Sending {data_type} telemetry for project {server_id} to {url}...")
+                inv_sns = [inv.get("serial_number") for inv in payload.get("inverters", []) if isinstance(inv, dict) and inv.get("serial_number")]
+                sns_str = f".{{{', '.join(inv_sns)}}}" if inv_sns else ""
+                
+                logger.info(f"[Uploader] Sending {data_type} telemetry for project {server_id} to {url}{sns_str}...")
                 response = requests.post(url, json=payload, headers=headers, timeout=15)
                 
                 if response.status_code == 401:
@@ -58,18 +61,32 @@ class UploaderService:
                 
                 if response.status_code in (200, 201):
                     self.db.delete_from_outbox(data["id"])
-                    logger.info(f"[Uploader] SUCCESS: Uploaded {data_type} for project {server_id} (status={response.status_code})")
+                    logger.info(f"[Uploader] SUCCESS: Uploaded {data_type} for project {server_id} (status={response.status_code}){sns_str}")
                 elif response.status_code == 422:
-                    logger.warning(f"Validation error (422) for project {server_id}. Attempting to fix payload and retry once...")
-                    # Sửa nhanh payload trong bộ nhớ trước khi thử lại
+                    err_text = response.text
+                    logger.warning(f"Validation error (422) for project {server_id}: {err_text}. Attempting to fix payload and retry once...")
                     self._fix_payload_severity(payload)
-                    response = requests.post(url, json=payload, headers=headers)
-                    if response.status_code in (200, 201):
-                        self.db.delete_from_outbox(data["id"])
-                        logger.info(f"Uploaded project {server_id} after fix and retry (status={response.status_code})")
+
+                    # Tự động loại bỏ inverter chưa approved / không thuộc project nếu có
+                    if "không thuộc project này" in err_text:
+                        invalid_sns = self._extract_invalid_inverter_sns(err_text)
+                        if invalid_sns and "inverters" in payload and isinstance(payload["inverters"], list):
+                            logger.warning(f"[Uploader] Removing unapproved inverters {invalid_sns} from payload for project {server_id} and retrying...")
+                            payload["inverters"] = [inv for inv in payload["inverters"] if inv.get("serial_number") not in invalid_sns]
+                            inv_sns = [inv.get("serial_number") for inv in payload.get("inverters", []) if isinstance(inv, dict) and inv.get("serial_number")]
+                            sns_str = f".{{{', '.join(inv_sns)}}}" if inv_sns else ""
+
+                    if data_type == "EVN" or payload.get("inverters"):
+                        response = requests.post(url, json=payload, headers=headers, timeout=15)
+                        if response.status_code in (200, 201):
+                            self.db.delete_from_outbox(data["id"])
+                            logger.info(f"[Uploader] SUCCESS after fix & retry: Uploaded {data_type} for project {server_id} (status={response.status_code}){sns_str}")
+                        else:
+                            self.db.delete_from_outbox(data["id"])
+                            logger.error(f"Upload failed twice for record {data['id']} (status={response.status_code}). Deleted from outbox. Error: {response.text}")
                     else:
                         self.db.delete_from_outbox(data["id"])
-                        logger.error(f"Upload failed twice for record {data['id']} (status={response.status_code}). Deleted from outbox. Error: {response.text}")
+                        logger.warning(f"[Uploader] No approved inverters left in payload for project {server_id}. Deleted record {data['id']} from outbox.")
                 elif response.status_code == 409:
                     self.db.delete_from_outbox(data["id"])
                     logger.warning(f"Upload conflict (409) for project {server_id}. Data already exists. Record {data['id']} deleted from outbox.")
@@ -89,6 +106,18 @@ class UploaderService:
         elif isinstance(obj, list):
             for item in obj:
                 self._fix_payload_severity(item)
+
+    def _extract_invalid_inverter_sns(self, err_text: str) -> set:
+        """Trích xuất danh sách serial number inverter không thuộc project từ lỗi 422."""
+        try:
+            import re
+            match = re.search(r"không thuộc project này\s*:\s*([^\"\'\}]+)", err_text)
+            if match:
+                raw_sns = match.group(1).strip()
+                return {s.strip() for s in raw_sns.split(",") if s.strip()}
+        except Exception as e:
+            logger.debug(f"[Uploader] Error parsing invalid inverter SNs: {e}")
+        return set()
 
     def send_immediate(self, data: dict):
         project_id = data.get("project_id")
@@ -114,8 +143,11 @@ class UploaderService:
         else:
             url = f"{API_BASE_URL}/api/telemetry/project/{server_id}"
 
+        inv_sns = [inv.get("serial_number") for inv in payload.get("inverters", []) if isinstance(inv, dict) and inv.get("serial_number")]
+        sns_str = f".{{{', '.join(inv_sns)}}}" if inv_sns else ""
+
         try:
-            logger.info(f"[Uploader] Sending IMMEDIATE {data_type} for project {server_id} to {url}...")
+            logger.info(f"[Uploader] Sending IMMEDIATE {data_type} for project {server_id} to {url}{sns_str}...")
             resp = requests.post(url, json=payload, headers=headers, timeout=10)
             if resp.status_code == 401:
                 logger.warning(f"[Uploader] Immediate 401 for project {server_id}. Refreshing token...")

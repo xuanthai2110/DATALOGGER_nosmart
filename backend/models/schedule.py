@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass
@@ -15,6 +15,8 @@ class ControlScheduleCreate:
     inverter_index: Optional[int] = None
     inverter_id: Optional[int] = None
     serial_number: Optional[str] = None
+    inverter_indices: Optional[List[int]] = None  # Mảng index từ server (GROUP scope)
+    inverter_ids: Optional[List[int]] = None      # Mảng Server ID inverter (GROUP scope - primary key để map)
     limit_watts: Optional[float] = None
     limit_percent: Optional[float] = None
     status: str = "SCHEDULED"
@@ -32,6 +34,8 @@ class ControlScheduleUpdate:
     inverter_index: Optional[int] = None
     inverter_id: Optional[int] = None
     serial_number: Optional[str] = None
+    inverter_indices: Optional[List[int]] = None  # Mảng index từ server (GROUP scope)
+    inverter_ids: Optional[List[int]] = None      # Mảng Server ID inverter (GROUP scope - primary key để map)
     mode: Optional[str] = None
     limit_watts: Optional[float] = None
     limit_percent: Optional[float] = None
@@ -58,6 +62,8 @@ class ControlScheduleResponse:
     inverter_index: Optional[int] = None
     inverter_id: Optional[int] = None
     serial_number: Optional[str] = None
+    inverter_indices: Optional[List[int]] = None  # Mảng index từ server (GROUP scope)
+    inverter_ids: Optional[List[int]] = None      # Mảng Server ID inverter (GROUP scope - primary key để map)
     limit_watts: Optional[float] = None
     limit_percent: Optional[float] = None
     hours: Optional[float] = None

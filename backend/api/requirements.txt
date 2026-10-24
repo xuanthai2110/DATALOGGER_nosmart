@@ -1,0 +1,11 @@
+requests
+pymodbus == 3.6.7
+pyserial
+fastapi
+uvicorn
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+PyJWT
+paho-mqtt
+python-dotenv

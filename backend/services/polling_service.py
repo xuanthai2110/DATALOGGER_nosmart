@@ -37,51 +37,84 @@ class PollingService:
         self._config_cache = []
         self._last_refresh = 0
 
-    def _get_transport(self, comm_id: Optional[int]):
-        if not comm_id:
-            comm_id = 1
-            
+    def _get_transport(self, comm_id: Optional[Any]):
         with self._transport_lock:
-            if comm_id in self.transports:
-                return self.transports[comm_id]
+            # 1. Thử chuyển comm_id về int nếu là chuỗi số (ví dụ "1" -> 1)
+            target_id = None
+            if isinstance(comm_id, int):
+                target_id = comm_id
+            elif isinstance(comm_id, str) and comm_id.isdigit():
+                target_id = int(comm_id)
 
-            # Truy vấn cấu hình truyền thông từ DB
-            config = self.project_svc.metadata_db.get_comm_id(comm_id)
+            # 2. Tra cứu duy nhất từ bảng comm_config trong metadata.db
+            config = None
+            if target_id is not None and self.project_svc and self.project_svc.metadata_db:
+                config = self.project_svc.metadata_db.get_comm_id(target_id)
+
+            # Nếu comm_id truyền vào không phải int hoặc không tồn tại trong comm_config DB,
+            # lấy dòng comm_config đầu tiên từ metadata.db
             if not config:
-                logger.error(f"[PollingService] Communication config ID {comm_id} not found in database. Fallback to ID 1.")
-                config = self.project_svc.metadata_db.get_comm_id(1)
-                if not config:
-                    # Nếu DB hoàn toàn rỗng hoặc lỗi, fallback về cấu hình mặc định trong code
+                all_configs = self.project_svc.metadata_db.get_comm_config() if (self.project_svc and self.project_svc.metadata_db) else []
+                if all_configs:
+                    config = all_configs[0]
+                    target_id = config.id
+                    logger.warning(f"[PollingService] Invalid comm_id={comm_id}. Fallback to comm_config ID {target_id} from metadata.db")
+                else:
                     logger.critical("[PollingService] Database comm_config table is completely empty!")
-                    t = ModbusRTU(
-                        port=settings.MODBUS_PORT,
-                        baudrate=settings.MODBUS_BAUDRATE,
-                        retries=settings.RETRIES,
-                        multi_master=settings.MODBUS_MULTI_MASTER
-                    )
-                    t.connect()
-                    self.transports[comm_id] = t
-                    return t
+                    target_id = 1
 
-            # Tạo kết nối dựa vào config
+            # 3. Kiểm tra cache transport theo target_id số nguyên từ DB
+            if target_id in self.transports:
+                if comm_id != target_id:
+                    self.transports[comm_id] = self.transports[target_id]
+                return self.transports[target_id]
+
+            if not config:
+                # Fallback khẩn cấp nếu DB rỗng
+                t = ModbusRTU(
+                    port=settings.MODBUS_PORT,
+                    baudrate=settings.MODBUS_BAUDRATE,
+                    retries=settings.RETRIES,
+                    multi_master=settings.MODBUS_MULTI_MASTER
+                )
+                self.transports[target_id] = t
+                if comm_id != target_id:
+                    self.transports[comm_id] = t
+                return t
+
+            # 4. Kiểm tra xem com_port/host của config trong DB đã được mở transport nào chưa
             if config.comm_type == "TCP":
                 host = config.host or "127.0.0.1"
                 port = config.port or 502
+                for existing_t in self.transports.values():
+                    if getattr(existing_t, "host", None) == host and getattr(existing_t, "port", None) == port:
+                        self.transports[target_id] = existing_t
+                        self.transports[comm_id] = existing_t
+                        return existing_t
+
                 timeout = config.timeout or 1.0
                 t = ModbusTCP(host=host, port=port, timeout=timeout)
                 t.connect()
+                self.transports[target_id] = t
                 self.transports[comm_id] = t
-                logger.info(f"[PollingService] Connected ModbusTCP for comm_id={comm_id} ({host}:{port})")
+                logger.info(f"[PollingService] Connected ModbusTCP for comm_config ID={target_id} ({host}:{port})")
                 return t
             else:
-                com_port = config.com_port or "/dev/ttyUSB0"
+                com_port = (config.com_port or "/dev/ttyUSB0").strip()
+                for existing_t in self.transports.values():
+                    if getattr(existing_t, "port", None) == com_port:
+                        logger.info(f"[PollingService] Reusing existing ModbusRTU transport on {com_port} for comm_config ID={target_id}")
+                        self.transports[target_id] = existing_t
+                        self.transports[comm_id] = existing_t
+                        return existing_t
+
                 baudrate = config.baudrate or 9600
                 databits = config.databits or 8
                 parity = config.parity or "N"
                 stopbits = config.stopbits or 1
                 timeout = config.timeout or 1.0
                 t = ModbusRTU(
-                    port=com_port.strip(),
+                    port=com_port,
                     baudrate=baudrate,
                     bytesize=databits,
                     parity=parity,
@@ -90,14 +123,23 @@ class PollingService:
                     retries=settings.RETRIES,
                     multi_master=bool(getattr(config, 'multi_master', settings.MODBUS_MULTI_MASTER))
                 )
-                t.connect()
+                self.transports[target_id] = t
                 self.transports[comm_id] = t
-                logger.info(f"[PollingService] Connected ModbusRTU for comm_id={comm_id} ({com_port} @ {baudrate})")
+                logger.info(f"[PollingService] Connected ModbusRTU for comm_config ID={target_id} ({com_port} @ {baudrate})")
                 return t
 
     def get_polling_config(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Lấy cấu hình polling (Projects & Inverters) từ RAM Cache hoặc Database"""
         now = time.time()
+        try:
+            if self.project_svc and self.project_svc.metadata_db:
+                need_clear = self.project_svc.metadata_db.get_setting("clear_polling_cache", "false") == "true"
+                if need_clear:
+                    force_refresh = True
+                    self.project_svc.metadata_db.set_setting("clear_polling_cache", "false")
+        except Exception as e:
+            logger.warning(f"[PollingService] Could not check clear_polling_cache setting: {e}")
+
         if force_refresh or not self._config_cache or (now - self._last_refresh > settings.CONFIG_REFRESH_INTERVAL):
             logger.info("Refreshing Polling Configuration Cache from DB through Service...")
             projects = self.project_svc.get_projects()
@@ -121,6 +163,12 @@ class PollingService:
             self._last_refresh = now
         
         return self._config_cache
+
+    def clear_config_cache(self):
+        """Xóa RAM cache để làm mới danh sách thiết bị đọc Polling lập tức."""
+        logger.info("[PollingService] Clearing Polling Configuration RAM Cache.")
+        self._config_cache = []
+        self._last_refresh = 0
 
     def _get_driver(self, brand: str, transport, slave_id: int, model: str = None):
         if not brand or not model:
@@ -328,6 +376,14 @@ class PollingService:
                 # Error Logic
                 status_code = raw_data.get("state_id", 0)
                 fault_code = raw_data.get("fault_code", 0)
+
+                # Bỏ qua lỗi PV bất thường của Sungrow, báo là bình thường
+                if inv.brand.upper() == "SUNGROW":
+                    from backend.services.fault_mappings import is_sungrow_pv_abnormal_fault
+                    if is_sungrow_pv_abnormal_fault(fault_code):
+                        fault_code = 0
+                        if status_code in (0x9100, 0x5500):
+                            status_code = 0
                 
                 if inv.brand.upper() == "SOLIS":
                     errors_payload = []
@@ -356,7 +412,7 @@ class PollingService:
                                         raw_inst = fault_info.get("repair_instruction", "")
                                         errors_payload.append({
                                             "fault_code": unified_code,
-                                            "fault_description": UNIFIED_FAULTS.get(unified_code, fault_info["name"]),
+                                            "fault_description": fault_info.get("name") or UNIFIED_FAULTS.get(unified_code, "UNKNOWN"),
                                             "repair_instruction": self.fault_service.format_repair_instruction(inv.brand, fault_id, raw_inst),
                                             "severity": fault_info["severity"],
                                             "created_at": batch.timestamp
@@ -384,7 +440,7 @@ class PollingService:
                                     raw_inst = fault_info.get("repair_instruction", "")
                                     errors_payload.append({
                                         "fault_code": unified_code,
-                                        "fault_description": UNIFIED_FAULTS.get(unified_code, fault_info["name"]),
+                                        "fault_description": fault_info.get("name") or UNIFIED_FAULTS.get(unified_code, "UNKNOWN"),
                                         "repair_instruction": self.fault_service.format_repair_instruction(inv.brand, fault_id, raw_inst),
                                         "severity": fault_info["severity"],
                                         "created_at": batch.timestamp
@@ -411,7 +467,7 @@ class PollingService:
                             raw_inst = fault_info.get("repair_instruction", "")
                             errors_payload.append({
                                 "fault_code": unified_code,
-                                "fault_description": UNIFIED_FAULTS.get(unified_code, fault_info["name"]),
+                                "fault_description": fault_info.get("name") or UNIFIED_FAULTS.get(unified_code, "UNKNOWN"),
                                 "repair_instruction": self.fault_service.format_repair_instruction(inv.brand, raw_fault, raw_inst),
                                 "severity": fault_info["severity"],
                                 "created_at": batch.timestamp
@@ -443,8 +499,25 @@ class PollingService:
                 
             except Exception as e:
                 logger.error(f"Critical error polling inverter {inv.id}: {e}", exc_info=True)
+
+            # --- Kiểm tra interrupt: Control đang chờ bus → nhường ngay ---
+            try:
+                transport = self._get_transport(inv.comm_id)
+                if transport and hasattr(transport, 'arbiter') and transport.arbiter.is_interrupted():
+                    logger.info(
+                        "[PollingService] Control interrupt detected after inverter %s. "
+                        "Aborting remaining %d inverters in this cycle to yield bus.",
+                        inv.id,
+                        len(active_inverters) - active_inverters.index(inv) - 1,
+                    )
+                    break
+            except Exception:
+                pass
         
-        logger.info(f"Project {project_id}: Polled {len(batch.ac_data)} inverters in this batch.")
+        inv_map = {inv.id: (inv.serial_number or str(inv.id)) for inv in active_inverters}
+        polled_sns = [inv_map[ac["inverter_id"]] for ac in batch.ac_data if ac["inverter_id"] in inv_map]
+        sns_str = "{" + ", ".join(polled_sns) + "}"
+        logger.info(f"Project {project_id}: Polled {len(batch.ac_data)} inverters in this batch.{sns_str}")
         return batch
 
     def poll_meters(self, project_id: int, meters: List[Any]):
@@ -508,7 +581,7 @@ class PollingService:
         else:
             transport = ModbusRTU(com_port, baudrate)
             
-        if not transport.connect():
+        if isinstance(transport, ModbusTCP) and not transport.connect():
             logger.error("[Polling] Scan meters: Failed to connect to %s:%s", host or com_port, port or baudrate)
             return []
             

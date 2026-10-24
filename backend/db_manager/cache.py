@@ -109,6 +109,22 @@ class CacheDB(BaseDB):
             );
             """)
 
+            # Zero Export Status Cache — Lưu trạng thái runtime để Web và Polling chia sẻ
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS zero_export_status_cache (
+                project_id INTEGER PRIMARY KEY,
+                enabled INTEGER,
+                suspended_by TEXT,
+                p_grid_w REAL,
+                p_inv_total_w REAL,
+                p_inv_setpoint_w REAL,
+                last_action TEXT,
+                meter_fail_count INTEGER,
+                last_updated TEXT
+            );
+            """)
+
+
     def get_ac_cache(self, inverter_id: int) -> Optional[dict]:
         with self.batch_lock:
             with self._connect() as conn:
@@ -355,3 +371,45 @@ class CacheDB(BaseDB):
                 
             for err_data in batch.error_data:
                 self.upsert_error(err_data["inverter_id"], batch.project_id, err_data["status_code"], err_data["fault_code"], err_data.get("status_text"), err_data.get("fault_text"), err_data.get("fault_json"))
+
+    # --- Zero Export Status Cache ---
+    def upsert_zero_export_status_cache(self, project_id: int, data: dict):
+        """Lưu trạng thái runtime của Zero Export vào CacheDB."""
+        with self._connect() as conn:
+            conn.execute("""
+                INSERT INTO zero_export_status_cache (
+                    project_id, enabled, suspended_by, p_grid_w,
+                    p_inv_total_w, p_inv_setpoint_w, last_action,
+                    meter_fail_count, last_updated
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(project_id) DO UPDATE SET
+                    enabled=excluded.enabled,
+                    suspended_by=excluded.suspended_by,
+                    p_grid_w=excluded.p_grid_w,
+                    p_inv_total_w=excluded.p_inv_total_w,
+                    p_inv_setpoint_w=excluded.p_inv_setpoint_w,
+                    last_action=excluded.last_action,
+                    meter_fail_count=excluded.meter_fail_count,
+                    last_updated=excluded.last_updated
+            """, (
+                project_id,
+                1 if data.get("enabled") else 0,
+                data.get("suspended_by"),
+                data.get("p_grid_w"),
+                data.get("p_inv_total_w"),
+                data.get("p_inv_setpoint_w"),
+                data.get("last_action"),
+                data.get("meter_fail_count", 0),
+                data.get("last_updated"),
+            ))
+
+    def get_zero_export_status_cache(self, project_id: int) -> Optional[dict]:
+        """Đọc trạng thái runtime của Zero Export từ CacheDB."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM zero_export_status_cache WHERE project_id = ?", (project_id,)).fetchone()
+            if not row:
+                return None
+            res = dict(row)
+            res["enabled"] = bool(res["enabled"])
+            return res
+

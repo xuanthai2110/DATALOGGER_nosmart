@@ -86,6 +86,10 @@ class ScheduleService:
         if limit_percent is None:
             limit_percent = remote_schedule.get("percent")
 
+        # GROUP scope: lấy mảng inverter_ids và inverter_indices từ server response
+        inverter_ids_raw = remote_schedule.get("inverter_ids")       # Đã là list từ JSON server
+        inverter_indices_raw = remote_schedule.get("inverter_indices")  # Đã là list từ JSON server
+
         return ControlScheduleCreate(
             id=remote_schedule.get("id"),
             project_id=remote_schedule.get("project_id"),
@@ -97,6 +101,8 @@ class ScheduleService:
             status=remote_schedule.get("status", "SCHEDULED"),
             inverter_id=remote_schedule.get("inverter_id"),
             serial_number=remote_schedule.get("serial_number"),
+            inverter_ids=inverter_ids_raw if isinstance(inverter_ids_raw, list) else None,
+            inverter_indices=inverter_indices_raw if isinstance(inverter_indices_raw, list) else None,
             limit_watts=limit_watts,
             limit_percent=limit_percent,
             hours=remote_schedule.get("hours"),
@@ -190,6 +196,21 @@ class ScheduleService:
                 schedule_id,
             )
 
+        # Cảnh báo nếu GROUP scope mà thiếu inverter_ids
+        if remote_schedule.get("scope") == "GROUP":
+            inv_ids = remote_schedule.get("inverter_ids")
+            if not inv_ids:
+                logger.warning(
+                    "[ScheduleService] GROUP scope schedule %s has no inverter_ids; "
+                    "control will be rejected by ControlService.",
+                    schedule_id,
+                )
+            else:
+                logger.info(
+                    "[ScheduleService] GROUP scope schedule %s: inverter_ids=%s",
+                    schedule_id, inv_ids,
+                )
+
         local_schedule = self._build_local_schedule(remote_schedule)
         logger.info(f"[ScheduleService] Synced schedule {schedule_id} from server")
         return self.create(local_schedule)
@@ -243,9 +264,9 @@ class ScheduleService:
             if response.status_code not in (200, 201):
                 logger.error(
                     "[ScheduleService] Patch remote schedule fields %s failed (status=%s): %s",
-                    schedule_id,
                     response.status_code,
                     response.text,
+                    schedule_id,
                 )
                 return False
             logger.info(f"[ScheduleService] Patched remote schedule fields {schedule_id} successfully")
@@ -253,3 +274,65 @@ class ScheduleService:
         except Exception as e:
             logger.error(f"[ScheduleService] Patch remote schedule fields {schedule_id} error: {e}")
             return False
+
+    def has_active_p_schedule(self, project_id: int) -> bool:
+        """Kiểm tra xem có lệnh điều khiển P (MAXP/PERCENT) nào đang active cho project không.
+        
+        Dùng bởi ZeroExportService để nhường quyền điều khiển cho Server/MQTT.
+        ZeroExport sẽ tự resume khi không còn lệnh nào active.
+        
+        Args:
+            project_id: ID project local (không phải server_id)
+            
+        Returns:
+            True nếu có ít nhất 1 schedule P đang ở trạng thái EXECUTING/APPLIED/ACTIVE,
+            False nếu không có lệnh nào đang chạy.
+        """
+        from datetime import datetime, timezone
+
+        try:
+            schedules = self.db.get_all_schedules()
+            now_str = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(timezone.utc)
+
+            for s in schedules:
+                # Lọc theo project_id (local hoặc server_id)
+                if s.project_id != project_id:
+                    # Thử so với server_id
+                    proj = self.metadata_db.get_project(project_id)
+                    if not proj or s.project_id != proj.server_id:
+                        continue
+
+                # Chỉ quan tâm lệnh P
+                if s.mode not in ("MAXP", "PERCENT", "LIMIT_PERCENT"):
+                    continue
+
+                # Kiểm tra trạng thái
+                active_statuses = {"EXECUTING", "APPLIED", "ACTIVE", "RUNNING"}
+                if s.status and s.status.upper() in active_statuses:
+                    logger.debug(
+                        "[ScheduleService] has_active_p_schedule: project=%s found active schedule id=%s mode=%s status=%s",
+                        project_id, s.id, s.mode, s.status,
+                    )
+                    return True
+
+                # Kiểm tra theo thời gian (status=SCHEDULED nhưng đang trong khoảng thời gian)
+                if s.status and s.status.upper() == "SCHEDULED" and s.start_at and s.end_at:
+                    try:
+                        start = datetime.fromisoformat(s.start_at.replace("Z", "+00:00"))
+                        end = datetime.fromisoformat(s.end_at.replace("Z", "+00:00"))
+                        if start <= now <= end:
+                            logger.debug(
+                                "[ScheduleService] has_active_p_schedule: project=%s schedule id=%s is time-active (%s to %s)",
+                                project_id, s.id, s.start_at, s.end_at,
+                            )
+                            return True
+                    except Exception:
+                        pass
+
+            return False
+
+        except Exception as e:
+            logger.error("[ScheduleService] has_active_p_schedule error for project %s: %s", project_id, e)
+            return False  # An toàn: nếu lỗi, cho ZE chạy bình thường
+

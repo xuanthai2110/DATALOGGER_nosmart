@@ -603,3 +603,46 @@ class MetadataDB(BaseDB):
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM projects WHERE evn_slave_id > 0 ORDER BY evn_slave_id ASC").fetchall()
             return {to_dataclass(ProjectResponse, r).evn_slave_id: to_dataclass(ProjectResponse, r) for r in rows}
+
+    # --- Zero Export Config ---
+    def get_zero_export_config(self, project_id: int) -> dict:
+        """Đọc cấu hình Zero Export của một project từ system_settings.
+        
+        Keys được lưu dạng: ze_{project_id}_{param}
+        Trả về dict với tất cả các tham số, dùng giá trị mặc định nếu chưa cấu hình.
+        """
+        from backend.core import settings as app_settings
+        pid = project_id
+        return {
+            "project_id":           pid,
+            "enabled":              self.get_setting(f"ze_{pid}_enabled", "false").lower() == "true",
+            "meter_id":             int(self.get_setting(f"ze_{pid}_meter_id", 0)) or None,
+            "meter_direction":      self.get_setting(f"ze_{pid}_meter_direction", "GRID_SIDE"),
+            "export_limit_w":       float(self.get_setting(f"ze_{pid}_export_limit_w", "0.0")),
+            "deadband_w":           float(self.get_setting(f"ze_{pid}_deadband_w", str(app_settings.ZERO_EXPORT_DEFAULT_DEADBAND_W))),
+            "gain":                 float(self.get_setting(f"ze_{pid}_gain", str(app_settings.ZERO_EXPORT_DEFAULT_GAIN))),
+            "ramp_kw_per_step":     float(self.get_setting(f"ze_{pid}_ramp_kw_per_step", str(app_settings.ZERO_EXPORT_DEFAULT_RAMP_KW))),
+            "meter_fail_threshold": int(self.get_setting(f"ze_{pid}_meter_fail_threshold", str(app_settings.ZERO_EXPORT_METER_FAIL_THRESHOLD))),
+        }
+
+    def set_zero_export_config(self, project_id: int, config: dict):
+        """Lưu cấu hình Zero Export của một project vào system_settings.
+        
+        Chỉ lưu các key có trong config dict (partial update được hỗ trợ).
+        """
+        pid = project_id
+        key_map = {
+            "enabled":              f"ze_{pid}_enabled",
+            "meter_id":             f"ze_{pid}_meter_id",
+            "meter_direction":      f"ze_{pid}_meter_direction",
+            "export_limit_w":       f"ze_{pid}_export_limit_w",
+            "deadband_w":           f"ze_{pid}_deadband_w",
+            "gain":                 f"ze_{pid}_gain",
+            "ramp_kw_per_step":     f"ze_{pid}_ramp_kw_per_step",
+            "meter_fail_threshold": f"ze_{pid}_meter_fail_threshold",
+        }
+        for field, setting_key in key_map.items():
+            if field in config and config[field] is not None:
+                self.set_setting(setting_key, str(config[field]))
+        logger.info(f"[MetadataDB] Saved Zero Export config for project {project_id}: {config}")
+

@@ -79,7 +79,7 @@ output_cache.md
 polling.log
 
 test/
-backend/test/
+backend/tests/
 backend/Test_modbus.py
 
 # ========================

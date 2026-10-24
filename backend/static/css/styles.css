@@ -1229,6 +1229,17 @@ tr.clickable:hover {
     border: 1px solid rgba(185, 28, 28, 0.3);
 }
 
+.action-btn.login {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.action-btn.login:hover {
+    color: #10b981;
+    border-color: #10b981;
+}
+
 .action-btn:hover {
     opacity: 0.8;
     transform: scale(1.05);

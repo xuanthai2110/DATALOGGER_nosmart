@@ -92,8 +92,9 @@ HUAWEI_MODEL= [
   { "model": "SUN2000-17KTL-M3", "type_code": "437", "mppt": 4, "string_mppt": "2", "p_dc": 25.5, "p_ac": 17.0 },
   { "model": "SUN2000-20KTL-M3", "type_code": "438", "mppt": 4, "string_mppt": "2", "p_dc": 30.0, "p_ac": 20.0 },
   { "model": "SUN2000-33KTL-NH", "type_code": "468", "mppt": 3, "string_mppt": "2", "p_dc": 42.9, "p_ac": 33.0 },
-  { "model": "SUN2000-50KTL-M0", "type_code": "50", "mppt": 6, "string_mppt": "2", "p_dc": 65.0, "p_ac": 50.0 },
-  { "model": "SUN2000-60KTL-M0", "type_code": "55", "mppt": 6, "string_mppt": "2", "p_dc": 78.0, "p_ac": 60.0 },
+  {"model": "SUN2000-50KTL-M0", "type_code": "50", "mppt": 6, "string_mppt": "2", "p_dc": 65.0, "p_ac": 50.0},
+  {"model": "SUN2000-60KTL", "type_code": "55", "mppt": 6, "string_mppt": "2", "p_dc": 72.0, "p_ac": 60.0},
+  {"model": "SUN2000-60KTL-M0", "type_code": "55", "mppt": 6, "string_mppt": "2", "p_dc": 78.0, "p_ac": 60.0},
   { "model": "SUN2000-100KTL-M1", "type_code": "142", "mppt": 10, "string_mppt": "2", "p_dc": 150.0, "p_ac": 100.0 },
   { "model": "SUN2000-115KTL-M2", "type_code": "144", "mppt": 10, "string_mppt": "2", "p_dc": 172.5, "p_ac": 115.0 },
   { "model": "SUN2000-185KTL-H1", "type_code": "104", "mppt": 9, "string_mppt": "2", "p_dc": 240.5, "p_ac": 185.0 },
@@ -200,3 +201,10 @@ HUAWEI_MODEL= [
   { "model": "SUN2000-50KTL-JPM1", "type_code": "59", "mppt": 6, "string_mppt": "2", "p_dc": 75.0, "p_ac": 50.0 },
   { "model": "SUN2000-63KTL-JPH0", "type_code": "76", "mppt": 6, "string_mppt": "2", "p_dc": 75.6, "p_ac": 63.0 }
 ]
+
+
+GOODWE_MODEL = [
+    {"model": "GW80KMT", "type_code": "0", "mppt": 4, "string_mppt": "4", "p_dc": 80.0, "p_ac": 80.0},
+    {"model": "GW100K-GT", "type_code": "0", "mppt": 8, "string_mppt": "2", "p_dc": 100.0, "p_ac": 100.0},
+    {"model": "GW150K-GT-G10", "type_code": "0", "mppt": 10, "string_mppt": "2", "p_dc": 150.0, "p_ac": 150.0},
+]   

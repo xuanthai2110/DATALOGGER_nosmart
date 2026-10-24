@@ -113,7 +113,7 @@ class NormalizationService:
         self._reset_counters: dict[str, int] = {}
 
     # ----------------------------------------------------------
-    def normalize(self, data: dict, last_data: dict = None, device_id: Any = "default") -> dict:
+    def normalize(self, data: dict, last_data: dict = None, device_id: Any = "default", **kwargs) -> dict:
         """
         Chuẩn hoá toàn bộ dict dữ liệu từ driver.
         Trả về dict mới đã được làm sạch.

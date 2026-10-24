@@ -74,3 +74,20 @@ def delete_account(account_id: int, db: MetadataDB = Depends(get_metadata_db), c
     except Exception as e:
         logger.error(f"delete_account error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{account_id}/login")
+def login_account(account_id: int, db: MetadataDB = Depends(get_metadata_db), current_user = Depends(get_current_user_id)):
+    """Đăng nhập tài khoản server lên cloud và cập nhật token vào DB."""
+    try:
+        from backend.services.auth_service import AuthService
+        auth_svc = AuthService(db)
+        result = auth_svc.login_account(account_id)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"login_account error for ID {account_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

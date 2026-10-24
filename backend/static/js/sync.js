@@ -17,8 +17,13 @@ async function loadSync() {
     syncProjects = (data && data.projects) || [];
 
     const select = document.getElementById('sync-project-select');
+    const currentVal = select.value;
     select.innerHTML = '<option value="">-- Chọn dự án --</option>' +
         syncProjects.map(p => `<option value="${p.id}">${p.name} (${p.sync_status || 'pending'})</option>`).join('');
+    
+    if (currentVal && syncProjects.some(p => String(p.id) === String(currentVal))) {
+        select.value = currentVal;
+    }
 }
 
 async function loadSyncProjectDetails() {
@@ -37,7 +42,7 @@ async function loadSyncProjectDetails() {
 
     // Fetch inverters for this project
     const inverters = await apiCall('/inverters'); // This gets ALL, filter locally or update API
-    const projectInverters = inverters.filter(inv => String(inv.project_id) === String(projId));
+    const projectInverters = (inverters || []).filter(inv => String(inv.project_id) === String(projId));
 
     const tbody = document.getElementById('sync-inverters-body');
     tbody.innerHTML = projectInverters.map(inv => {
@@ -50,6 +55,7 @@ async function loadSyncProjectDetails() {
             <td>${inv.server_id ? 'ID: ' + inv.server_id : (inv.server_request_id ? 'Req: ' + inv.server_request_id : '-')}</td>
             <td>
                 <div style="display:flex; gap: 5px;">
+                    <button class="action-btn" style="color:var(--primary, #3b82f6);" onclick="handleCheckSync('inverter', ${inv.id})" title="Kiểm tra trạng thái trên Server"><i class="fas fa-sync-alt"></i></button>
                     <button class="action-btn" style="color:var(--success); ${isApproved ? 'display:none' : ''}" onclick="handleInverterSync(${inv.id})" title="Create"><i class="fas fa-plus"></i></button>
                     <button class="action-btn" style="color:var(--warning); ${isApproved ? '' : 'display:none'}" onclick="handleInverterSync(${inv.id})" title="Update"><i class="fas fa-edit"></i></button>
                     <button class="action-btn delete" onclick="handleDeleteSync('inverter', ${inv.id})" title="Delete"><i class="fas fa-trash"></i></button>
@@ -76,6 +82,46 @@ async function loadSyncProjectDetails() {
     detailsDiv.classList.remove('hidden');
 }
 
+async function handleCheckSync(type, id = null) {
+    const projId = document.getElementById('sync-project-select').value;
+    const msg = document.getElementById('sync-status-msg');
+
+    if (type === 'project' && !projId) {
+        alert("Vui lòng chọn dự án trước khi kiểm tra!");
+        return;
+    }
+
+    const endpoint = type === 'project'
+        ? `/sync/project/${projId}/check`
+        : `/sync/inverter/${id}/check`;
+
+    msg.innerText = type === 'project'
+        ? "Đang kiểm tra trạng thái dự án trên Server..."
+        : `Đang kiểm tra trạng thái biến tần ID ${id} trên Server...`;
+    msg.className = "text-primary";
+
+    const btnCheck = document.getElementById('btn-sync-check');
+    if (type === 'project' && btnCheck) btnCheck.disabled = true;
+
+    try {
+        const res = await apiCall(endpoint, 'POST');
+        if (res && res.ok) {
+            msg.innerText = res.message || "Kiểm tra trạng thái thành công!";
+            msg.className = "text-success";
+            await loadSync(); // Refresh danh sách dự án
+            await loadSyncProjectDetails(); // Refresh bảng inverters
+        } else {
+            msg.innerText = "Kiểm tra thất bại: " + (res ? (res.message || res.detail) : "Lỗi không xác định");
+            msg.className = "text-danger";
+        }
+    } catch (e) {
+        msg.innerText = "Lỗi kết nối: " + e.message;
+        msg.className = "text-danger";
+    } finally {
+        if (type === 'project' && btnCheck) btnCheck.disabled = false;
+    }
+}
+
 async function handleSync() {
     const projId = document.getElementById('sync-project-select').value;
     if (!projId) return;
@@ -93,8 +139,8 @@ async function handleSync() {
             msg.innerText = res.message || "Đồng bộ thành công!";
             msg.className = "text-success";
             alert(res.message);
-            loadSync(); // Refresh lists
-            loadSyncProjectDetails();
+            await loadSync(); // Refresh lists
+            await loadSyncProjectDetails();
         } else {
             msg.innerText = "Đồng bộ thất bại: " + (res ? res.detail : "Lỗi không xác định");
             msg.className = "text-danger";
@@ -117,7 +163,7 @@ async function handleInverterSync(invId) {
         if (res && res.ok) {
             msg.innerText = res.message || "Đồng bộ biến tần thành công!";
             msg.className = "text-success";
-            loadSyncProjectDetails(); // Refresh table
+            await loadSyncProjectDetails(); // Refresh table
         } else {
             msg.innerText = "Lỗi đồng bộ biến tần: " + (res ? res.detail : "Lỗi không xác định");
             msg.className = "text-danger";
@@ -144,7 +190,7 @@ async function handleDeleteSync(type, id = null) {
         if (res && res.ok) {
             msg.innerText = res.message || `Đã gửi yêu cầu xóa ${type}!`;
             msg.className = "text-success";
-            loadSyncProjectDetails();
+            await loadSyncProjectDetails();
         } else {
             msg.innerText = `Lỗi xóa ${type}: ` + (res ? res.detail : "Lỗi không xác định");
             msg.className = "text-danger";

@@ -48,6 +48,24 @@ def _find_comm_id(comm: dict) -> Optional[int]:
         logger.error(f"[Scan] Fallback comm lookup failed: {e}")
     return None
 
+def _is_multi_master(comm: dict) -> bool:
+    """Xác định cổng RS485 có đang chạy chế độ Multi Master hay không."""
+    if "multi_master" in comm and comm["multi_master"] is not None:
+        return bool(comm["multi_master"])
+    comm_id = _find_comm_id(comm)
+    if comm_id:
+        try:
+            from backend.db_manager import MetadataDB
+            db = MetadataDB(app_config.METADATA_DB)
+            comms = db.get_comm_config()
+            for c in comms:
+                if c.id == comm_id:
+                    return bool(getattr(c, "multi_master", False))
+        except Exception as e:
+            logger.warning(f"[Scan] Failed to lookup multi_master for comm {comm_id}: {e}")
+    from backend.core import settings
+    return getattr(settings, "MODBUS_MULTI_MASTER", False)
+
 def normalize_type_code(tc):
     if tc is None:
         return set()
@@ -93,7 +111,7 @@ def get_models():
         return {
             "Sungrow": sorted(list(set(valid_sungrow))),
             "Huawei": sorted(list(set(valid_huawei))),
-            "GoodWe": ["GW80KMT"]
+            "GoodWe": ["GW80KMT", "GW100K-GT", "GW150K-GT-G10"]
         }
     except Exception as e:
         logger.error(f"[scan/models] Error: {e}")
@@ -287,6 +305,8 @@ def _get_transport(comm: dict):
         return t
     else:
         from backend.communication.modbus_rtu import ModbusRTU
+        is_mm = _is_multi_master(comm)
+        logger.info(f"[Scan] Initializing ModbusRTU on {comm.get('com_port')} with multi_master={is_mm}")
         t = ModbusRTU(
             port=comm["com_port"].strip(),
             baudrate=comm.get("baudrate", 9600),
@@ -294,6 +314,9 @@ def _get_transport(comm: dict):
             parity=comm.get("parity", "N"),
             stopbits=comm.get("stopbits", 1),
             timeout=comm.get("timeout", 1.0),
+            retries=2, # Tối ưu khi Scan: chỉ thử tối đa 2 lần để không kẹt lâu ở Slave trống
+            multi_master=is_mm,
+            bus_wait_timeout=2.5, # Tối ưu khi Scan: chỉ chờ im lặng tối đa 2.5s thay vì 6s
         )
         t.connect()
         return t
@@ -320,11 +343,13 @@ def background_scan(comm: dict):
     detect_info = None
     if brand_selected and model_selected:
         try:
-            from backend.services.detect_service import SUNGROW_MODEL, HUAWEI_MODEL
+            from backend.services.detect_service import SUNGROW_MODEL, HUAWEI_MODEL, GOODWE_MODEL
             if brand_selected.lower() == "sungrow":
                 detect_info = next((m for m in SUNGROW_MODEL if m["model"] == model_selected), None)
             elif brand_selected.lower() == "huawei":
                 detect_info = next((m for m in HUAWEI_MODEL if m["model"] == model_selected), None)
+            elif brand_selected.lower() == "goodwe":
+                detect_info = next((m for m in GOODWE_MODEL if m["model"] == model_selected), None)
         except Exception as e:
             logger.error(f"Error loading models from detect_service: {e}")
 
@@ -349,7 +374,7 @@ def background_scan(comm: dict):
                 scan_state.progress = slave_id
 
             success = False
-            for attempt in range(1):
+            for attempt in range(2):
                 try:
                     driver = DriverClass(transport, slave_id=slave_id)
                     info = driver.read_info()
@@ -440,7 +465,13 @@ def start_scan(background_tasks: BackgroundTasks, body: dict = Body(default=None
     }
     
     if body and "comm" in body:
-        comm.update(body["comm"])
+        b_comm = body["comm"]
+        comm_id = b_comm.get("id")
+        if comm_id and comms:
+            matched = next((asdict(c) for c in comms if c.id == int(comm_id)), None)
+            if matched:
+                comm = matched
+        comm.update(b_comm)
 
     background_tasks.add_task(background_scan, comm)
     return {"ok": True, "message": "Scan started in background."}
