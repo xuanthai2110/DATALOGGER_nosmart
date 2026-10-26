@@ -61,9 +61,9 @@ class PersistenceWorker(threading.Thread):
         
         # 1. Fetch all cache data (wrapped in batch_lock for consistency)
         with self.cache_db.batch_lock:
-            ac_rows = self.cache_db.get_all_ac_cache()
-            mppt_rows = self.cache_db.get_all_mppt_cache()
-            string_rows = self.cache_db.get_all_string_cache()
+            ac_rows = self.cache_db.get_all_ac_cache(max_age_seconds=self.interval)
+            mppt_rows = self.cache_db.get_all_mppt_cache(max_age_seconds=self.interval)
+            string_rows = self.cache_db.get_all_string_cache(max_age_seconds=self.interval)
         
         if not ac_rows:
             logger.info("Persistence Worker: No AC data in cache. Skipping snapshot.")
@@ -206,3 +206,11 @@ class PersistenceWorker(threading.Thread):
         
         if project_aggs:
             logger.info(f"Persistence Worker: Saved {len(project_aggs)} project aggregates.")
+
+        # Dọn dẹp cache cũ hơn 5 phút (cho 360s để làm buffer an toàn)
+        try:
+            purge_age = max(360.0, self.interval + 60.0)
+            self.cache_db.purge_old_cache(max_age_seconds=purge_age)
+            logger.info(f"Persistence Worker: Purged cache older than {purge_age}s.")
+        except Exception as e:
+            logger.error(f"Persistence Worker: Error purging old cache: {e}")

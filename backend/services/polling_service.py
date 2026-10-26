@@ -227,80 +227,17 @@ class PollingService:
                         logger.warning(f"Driver read error for Inverter {inv.id}: {e}")
 
                 if not raw_data:
-                    # --- LOGIC XỬ LÝ MẤT KẾT NỐI (TIMEOUT/DISCONNECT) ---
-                    logger.warning(f"Inverter {inv.id} (Slave {inv.slave_id}) failed to respond. Generating zero-payload.")
-                    
-                    # 1. Lấy dữ liệu cũ từ Cache hoặc RealtimeDB để bảo toàn sản lượng E
-                    last_ac = self.cache_db.get_ac_cache(inv.id)
-                    e_daily, e_total, e_monthly, delta_e = 0.0, 0.0, 0.0, 0.0
-                    last_ts_str = None
-                    
-                    if last_ac:
-                        e_daily = last_ac.get("E_daily", 0.0)
-                        e_total = last_ac.get("E_total", 0.0)
-                        e_monthly = last_ac.get("E_monthly", 0.0)
-                        delta_e = last_ac.get("delta_E_monthly", 0.0)
-                        last_ts_str = last_ac.get("updated_at")
-                    else:
-                        # Fallback to RealtimeDB if Cache is empty
-                        last_real = self.realtime_db.get_latest_inverter_ac_realtime(inv.id)
-                        if last_real:
-                            e_daily = last_real.E_daily
-                            e_total = last_real.E_total
-                            e_monthly = last_real.E_monthly
-                            delta_e = last_real.delta_E_monthly
-                            last_ts_str = last_real.created_at
-
-                    # --- KIỂM TRA RESET E THEO NGÀY/THÁNG ---
-                    now = datetime.now()
-                    if last_ts_str:
-                        try:
-                            # Xử lý format timestamp (có thể có hoặc không có T)
-                            if "T" not in last_ts_str:
-                                last_ts = datetime.fromisoformat(last_ts_str.replace(" ", "T"))
-                            else:
-                                last_ts = datetime.fromisoformat(last_ts_str)
-                            
-                            # Nếu qua ngày mới -> Reset E_daily
-                            if last_ts.date() < now.date():
-                                logger.info(f"New day detected for disconnected Inverter {inv.id}. Resetting E_daily.")
-                                e_daily = 0.0
-                            
-                            # Nếu qua tháng mới -> Reset E_monthly
-                            if last_ts.year < now.year or last_ts.month < now.month:
-                                logger.info(f"New month detected for disconnected Inverter {inv.id}. Resetting E_monthly.")
-                                e_monthly = 0.0
-                                delta_e = 0.0
-                        except Exception as e:
-                            logger.warning(f"Failed to parse timestamp {last_ts_str} for Inverter {inv.id}: {e}")
-
-                    # 2. Tạo bản tin AC "Zero" (P, U, I = 0) - Sử dụng các key mà CacheDB.upsert_inverter_ac mong đợi
-                    clean = {
-                        "p_inv_w": 0.0, "q_inv_var": 0.0, "pf": 0.0, "grid_hz": 0.0,
-                        "v_a": 0.0, "v_b": 0.0, "v_c": 0.0,
-                        "i_a": 0.0, "i_b": 0.0, "i_c": 0.0,
-                        "e_daily": e_daily, "e_total": e_total,
-                        "e_monthly": e_monthly, "delta_E_monthly": delta_e,
-                        "ir": 0.0, "temp_c": 0.0
-                    }
-                    batch.ac_data.append({"inverter_id": inv.id, "data": clean})
-
-                    # 3. Tạo bản tin MPPT & String "Zero"
-                    for i in range(1, inv.mppt_count + 1):
-                        batch.mppt_data.append({"inverter_id": inv.id, "mppt_index": i, "data": {"v_mppt": 0.0, "i_mppt": 0.0, "p_mppt": 0.0}})
-                        for s_idx in [2*i-1, 2*i]:
-                            batch.string_data.append({"inverter_id": inv.id, "string_id": s_idx, "mppt_id": i, "i_string": 0.0})
-
-                    # 4. Gán lỗi mất kết nối (Chỉ báo lỗi sau 6 lần thất bại liên tiếp)
+                    # --- LOGIC XỬ LÝ KHI KHÔNG NHẬN ĐƯỢC PHẢN HỒI (TIMEOUT / MULTI-MASTER COLLISION) ---
                     self._inv_fail_counts[inv.id] = self._inv_fail_counts.get(inv.id, 0) + 1
-                    
-                    if self._inv_fail_counts[inv.id] >= 15:
-                        logger.error(f"Inverter {inv.id} failed 15 times. Reporting COMMUNICATION_FAULT.")
-                        status_code = 9 
+                    fail_cnt = self._inv_fail_counts[inv.id]
+                    logger.warning(f"Inverter {inv.id} (Slave {inv.slave_id}) failed to respond (fail count: {fail_cnt}).")
+
+                    # Nếu thất bại liên tục >= 30 lần (tương đương 5 phút không có tín hiệu):
+                    # Lúc này chính thức coi là MẤT KẾT NỐI (DISCONNECT)
+                    if fail_cnt >= 30:
+                        logger.error(f"Inverter {inv.id} failed {fail_cnt} times (>= 5 mins). Reporting COMMUNICATION_FAULT.")
+                        status_code = 9
                         fault_code = 1501
-                        # Reset biến đếm sau khi báo lỗi theo yêu cầu
-                        self._inv_fail_counts[inv.id] = 0
-                        
                         errors_payload = [{
                             "fault_code": 1501,
                             "fault_description": "LỖI TRUYỀN THÔNG",
@@ -313,25 +250,9 @@ class PollingService:
                             "status_text": "LỖI TRUYỀN THÔNG", "fault_json": json.dumps(errors_payload, ensure_ascii=False)
                         })
                     else:
-                        # Nếu chưa đủ 6 lần, lấy trạng thái cũ từ cache để tránh báo lỗi ảo
-                        status_code = 0
-                        fault_code = 0
-                        status_text = "UNKNOWN"
-                        fault_json = "[]"
-                        
-                        if last_ac:
-                            # Thử lấy trạng thái lỗi cuối cùng từ cache
-                            last_err = self.cache_db.get_error_cache(inv.id)
-                            if last_err:
-                                status_code = last_err.get("status_code", 0)
-                                fault_code = last_err.get("fault_code", 0)
-                                status_text = last_err.get("status_text", "UNKNOWN")
-                                fault_json = last_err.get("fault_json", "[]")
-                        
-                        batch.error_data.append({
-                            "inverter_id": inv.id, "status_code": status_code, "fault_code": fault_code,
-                            "status_text": status_text, "fault_json": fault_json
-                        })
+                        # Dưới 5 phút (tránh chập chờn khi có nhiều Master cùng quét bus):
+                        # KHÔNG ghi đè bản ghi zero vào cache để bảo toàn bản ghi đọc thành công gần nhất
+                        logger.info(f"Inverter {inv.id} temporary miss ({fail_cnt}/30). Preserving previous valid cache record.")
                     continue
 
                 # --- LOGIC XỬ LÝ KHI CÓ DỮ LIỆU THÀNH CÔNG ---
@@ -357,9 +278,6 @@ class PollingService:
 
                 clean = self.normalization.normalize(raw_data, last_data=last_ac, device_id=inv.id)
                 batch.ac_data.append({"inverter_id": inv.id, "data": clean})
-                
-                # Lưu vào CacheDB (RAM)
-                self.cache_db.upsert_inverter_ac(inv.id, project_id, clean)
 
                 # MPPT & String
                 for i in range(1, inv.mppt_count + 1):
